@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.db-wal
+*.db-shm
+
+# Entorno
+.env
+
+# Node
+node_modules/
+dist/
+
+# Editores
+.vscode/
+.idea/
+.DS_Store
+
+# Configuración de túnel: lleva la llave de ngrok
+ngrok.yml
+ngrok.exe
+ngrok
+
+# Frontend compilado dentro del backend (lo genera el Dockerfile)
+backend/static/
+
+# Respaldos y paquetes
+*.zip
+*.sql

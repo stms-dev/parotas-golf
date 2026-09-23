@@ -1,0 +1,13 @@
+# Cómo construye y vigila Railway este servicio.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# /health responde solo cuando la base contesta: si la base se cayó, el
+# despliegue no se da por bueno.
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+numReplicas = 1

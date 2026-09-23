@@ -1,0 +1,35 @@
+# --- Framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# --- Base de datos ---
+SQLAlchemy==2.0.36
+alembic==1.14.0
+# PostgreSQL en despliegue (con SQLite local no estorba).
+psycopg[binary]==3.2.3
+
+# --- Validación y configuración ---
+pydantic==2.10.4
+pydantic-settings==2.7.0
+email-validator==2.2.0
+
+# --- Seguridad ---
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+
+# --- QR y correo ---
+qrcode[pil]==8.0
+
+# --- Zonas horarias ---
+# Windows no incluye la base de zonas del sistema; sin esto, zoneinfo no
+# encuentra America/Mexico_City. En Linux y macOS es inofensivo.
+tzdata==2024.2
+
+# --- Tiempo real ---
+# uvicorn[standard] ya incluye el soporte WebSocket del servidor;
+# el paquete websockets se usa además como cliente en las pruebas.
+websockets==14.1
+
+# --- Desarrollo ---
+httpx==0.28.1

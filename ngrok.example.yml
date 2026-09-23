@@ -1,0 +1,56 @@
+# Configuración de ngrok para exponer Las Parotas.
+#
+# Este archivo es OPCIONAL. Para una prueba rápida no hace falta:
+#
+#   ngrok config add-authtoken SU-AUTHTOKEN
+#   ngrok http --domain=SU-DOMINIO.ngrok.app 5173
+#
+# El archivo sirve cuando ya se quiere arrancar siempre igual sin recordar
+# banderas. Cópiese como `ngrok.yml` (está en .gitignore: lleva la llave),
+# y arránquese desde la RAÍZ del proyecto —donde vive el README, no dentro de
+# frontend—:
+#
+#   ngrok start --config ngrok.yml las-parotas
+#
+# Un solo túnel al 5173 alcanza. El navegador nunca habla directo con el
+# backend: pide /api al mismo dominio y Vite lo reenvía al 8000 desde el
+# servidor. Por eso no hay que publicar el backend ni pelear con CORS.
+
+# ---------------------------------------------------------------------------
+# Formato clásico. Lo entienden TODOS los agentes de la serie 3, incluidos los
+# que reparte winget (3.3.x). Es el que conviene salvo que se sepa que se tiene
+# una versión reciente.
+# ---------------------------------------------------------------------------
+version: "2"
+
+# Llave de https://dashboard.ngrok.com/get-started/your-authtoken
+authtoken: PEGAR-AQUI-SU-AUTHTOKEN
+
+tunnels:
+  las-parotas:
+    proto: http
+    addr: 5173
+    domain: SU-DOMINIO.ngrok.app   # el dominio reservado en el panel
+
+# ---------------------------------------------------------------------------
+# Formato nuevo, solo para agentes 3.19 en adelante (compruebe con
+# `ngrok version`). Si se usa este, hay que borrar todo lo de arriba:
+#
+# version: "3"
+# agent:
+#   authtoken: PEGAR-AQUI-SU-AUTHTOKEN
+# endpoints:
+#   - name: las-parotas
+#     url: https://SU-DOMINIO.ngrok.app
+#     upstream:
+#       url: http://localhost:5173
+# ---------------------------------------------------------------------------
+
+# Si además se quiere publicar el backend por su cuenta (para consultar /docs
+# desde fuera, por ejemplo), se agrega un segundo túnel y se llena
+# CORS_ORIGINS en el .env del backend con el dominio del front:
+#
+#   las-parotas-api:
+#     proto: http
+#     addr: 8000
+#     domain: SU-DOMINIO-API.ngrok.app

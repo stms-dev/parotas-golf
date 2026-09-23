@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+*.db
+*.db-wal
+*.db-shm
+.env
+**/.env
+.git
+.github
+ngrok.yml
+ngrok
+*.zip

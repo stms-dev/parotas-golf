@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface font-sans text-body-md text-on-surface antialiased;
+  }
+
+  /* El serif editorial es solo para títulos y cifras de impacto. */
+  h1,
+  h2,
+  h3 {
+    @apply font-serif text-primary;
+  }
+}
+
+@layer components {
+  /* --- Etiquetas de estado (paleta operativa de DESIGN.md) --- */
+  .badge {
+    @apply inline-flex items-center rounded border px-2 py-0.5 text-label-sm uppercase;
+  }
+  .badge-ok {
+    @apply border-estado-ok-border bg-estado-ok-bg text-estado-ok-text;
+  }
+  .badge-pendiente {
+    @apply border-estado-pend-border bg-estado-pend-bg text-estado-pend-text;
+  }
+  .badge-recibido {
+    @apply border-estado-recibido-border bg-estado-recibido-bg text-estado-recibido-text;
+  }
+  .badge-final {
+    @apply border-estado-fin-border bg-estado-fin-bg text-estado-fin-text;
+  }
+  .badge-cancelado {
+    @apply border-estado-cancel-border bg-estado-cancel-bg text-estado-cancel-text;
+  }
+  .badge-neutro {
+    @apply border-outline-variant bg-surface-container-low text-on-surface-variant;
+  }
+
+  /* --- Salidas del tee sheet ---
+     El color dice el estado de un vistazo, sin leer. */
+  .salida {
+    @apply flex flex-col items-center justify-center rounded border px-2 py-2 text-center transition;
+  }
+  .salida-libre {
+    @apply border-outline-variant bg-surface-container-lowest text-primary hover:border-secondary hover:bg-primary-fixed/30;
+  }
+  .salida-ocupada {
+    @apply border-surface-container-highest bg-surface-container-highest text-outline;
+  }
+  .salida-propia {
+    @apply border-secondary-fixed-dim bg-secondary-fixed text-on-secondary-fixed;
+  }
+  .salida-abierta {
+    @apply border-estado-recibido-border bg-estado-recibido-bg text-estado-recibido-text;
+  }
+  .salida-bloqueada {
+    @apply border-surface-dim bg-surface-dim text-outline;
+  }
+  .salida-elegida {
+    @apply border-primary-container bg-primary-container text-on-primary;
+  }
+}
+
+@layer components {
+  /* --- Horarios en el formulario de reserva (mockup Nueva Reserva) ---
+     El estado se lee por color: verde disponible, salmón ocupado, verde
+     oscuro relleno el seleccionado. */
+  .horario {
+    @apply flex w-full flex-col rounded border px-3 py-2 text-left transition;
+  }
+  .horario-disponible {
+    @apply border-outline-variant bg-surface-container-lowest hover:border-secondary hover:shadow-card-hover;
+  }
+  .horario-ocupado {
+    @apply cursor-not-allowed border-outline-variant/40 bg-surface-container-low;
+  }
+  .horario-seleccionado {
+    @apply border-primary-container bg-primary-container;
+  }
+
+  /* --- Tarjetas de paquete --- */
+  .paquete {
+    @apply flex flex-col rounded border p-4 text-left transition;
+  }
+  .paquete-off {
+    @apply border-outline-variant bg-surface-container-lowest hover:border-secondary hover:shadow-card-hover;
+  }
+  .paquete-on {
+    @apply border-primary-container bg-primary-container;
+  }
+}
+
+/* ------------------------------------------------------------------ avisos */
+/* SweetAlert2 vestido con la paleta del club: el diálogo no puede parecer de
+   otra aplicación. Las clases las asigna utils/avisos.js. */
+.lp-popup {
+  @apply rounded-lg border border-outline-variant bg-surface-container-lowest shadow-modal;
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+}
+.lp-titulo {
+  @apply font-serif text-headline-md text-primary;
+}
+.lp-cuerpo {
+  @apply text-body-lg text-on-surface-variant;
+}
+.lp-acciones {
+  @apply gap-2.5;
+}
+.lp-boton {
+  @apply rounded px-5 py-2.5 text-title-md transition focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2;
+}
+.lp-boton-ok {
+  @apply bg-primary-container text-on-primary shadow-card hover:bg-primary;
+}
+.lp-boton-cancelar {
+  @apply border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low;
+}
+/* Los iconos de la librería traen sus propios colores; se alinean a la paleta. */
+.lp-icono.swal2-success {
+  border-color: theme('colors.estado.ok-border');
+  color: theme('colors.estado.ok-text');
+}
+.lp-icono.swal2-success [class^='swal2-success-line'] {
+  background-color: theme('colors.estado.ok-text');
+}
+.lp-icono.swal2-success .swal2-success-ring {
+  border-color: theme('colors.estado.ok-border');
+}
+.lp-icono.swal2-warning,
+.lp-icono.swal2-question {
+  border-color: theme('colors.secondary');
+  color: theme('colors.secondary');
+}
+.lp-icono.swal2-error {
+  border-color: theme('colors.error');
+  color: theme('colors.error');
+}
+.lp-icono.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: theme('colors.error');
+}
+
+/* ------------------------------------------------------------ impresión */
+/* Responsiva y recibo se imprimen desde la misma pantalla: al imprimir se
+   oculta la aplicación y solo queda el documento. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .documento-imprimible,
+  .documento-imprimible * {
+    visibility: visible;
+  }
+  .documento-imprimible {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+  .no-imprimir {
+    display: none !important;
+  }
+}
