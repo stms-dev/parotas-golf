@@ -11,6 +11,9 @@
  * que no cuadre con la caja es peor que no tener ticket.
  */
 import Logo from './Logo';
+import { useEffect, useState } from 'react';
+
+import { correosApi } from '../api/client';
 import { fecha, fechaHora, hora, mxn, TASA_IVA, desgloseIva } from '../utils/format';
 
 /** Marco común: encabezado del club, cuerpo y botones que no se imprimen. */
@@ -60,6 +63,7 @@ function Marco({ titulo, subtitulo, onCerrar, ancho = 'max-w-3xl', children }) {
 
 export function Responsiva({ reservation, onCerrar }) {
   const jugadores = reservation.players || [];
+  const qr = usePaseQr(reservation.id);
 
   return (
     <Marco
@@ -67,6 +71,20 @@ export function Responsiva({ reservation, onCerrar }) {
       subtitulo="Responsiva y reglamento"
       onCerrar={onCerrar}
     >
+      {/* El pase de la partida, para que el huésped lo lleve en papel si no
+          trae el correo a la mano. */}
+      {qr && (
+        <div className="mb-5 flex items-center gap-4 rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
+          <img src={qr} alt="Pase de la partida" className="h-28 w-28" />
+          <div>
+            <p className="text-title-md text-primary">Pase de la partida</p>
+            <p className="text-body-md text-outline">
+              Uno solo para todo el grupo. Se lee en recepción el día de la salida.
+            </p>
+          </div>
+        </div>
+      )}
+
       <dl className="mb-5 grid gap-x-8 gap-y-2 text-body-lg sm:grid-cols-2">
         <Dato t="Folio" v={`#${reservation.folio}`} />
         <Dato t="Hotel" v={reservation.hotel_name || '—'} />
@@ -341,6 +359,34 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
       </p>
     </Marco>
   );
+}
+
+/**
+ * Trae la imagen del pase ya autenticada. El <img> no puede pedirla directo:
+ * el navegador no manda el token de la sesión en esa petición.
+ */
+function usePaseQr(reservationId) {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    if (!reservationId) return undefined;
+    let vigente = true;
+    let direccion = null;
+    correosApi
+      .qr(reservationId)
+      .then((generada) => {
+        direccion = generada;
+        if (vigente) setUrl(generada);
+        else URL.revokeObjectURL(generada);
+      })
+      .catch(() => setUrl(null));
+    return () => {
+      vigente = false;
+      if (direccion) URL.revokeObjectURL(direccion);
+    };
+  }, [reservationId]);
+
+  return url;
 }
 
 /* ---------------------------------------------------------- ticket replay */

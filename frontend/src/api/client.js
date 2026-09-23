@@ -164,6 +164,20 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
   return payload;
 }
 
+/**
+ * Descarga un archivo de la API (el PNG del pase) y devuelve una dirección
+ * temporal para el <img>. No se puede poner la URL directa en el src: el
+ * navegador no manda ahí el token de la sesión y la API respondería 401.
+ */
+async function descargar(path) {
+  const token = tokenStore.get();
+  const respuesta = await fetch(`${BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!respuesta.ok) throw new ApiError('No se pudo obtener el archivo', respuesta.status);
+  return URL.createObjectURL(await respuesta.blob());
+}
+
 export const api = {
   get: (path, params) => request(path, { params }),
   post: (path, body, options) => request(path, { method: 'POST', body, ...options }),
@@ -237,6 +251,8 @@ export const checkinApi = {
   perform: (id, body) => api.post(`/checkin/${id}`, body),
   replay: (id, body) => api.post(`/checkin/${id}/replay`, body),
   replaySlots: (id) => api.get(`/checkin/${id}/replay-slots`),
+  enviarRecibo: (id, destino) =>
+    api.post(`/correos/reserva/${id}/recibo${destino ? `?destino=${encodeURIComponent(destino)}` : ''}`),
 };
 
 export const treasuryApi = {
@@ -281,4 +297,17 @@ export const usersApi = {
   list: (params) => api.get('/users', params),
   create: (body) => api.post('/users', body),
   update: (id, body) => api.patch(`/users/${id}`, body),
+};
+
+/** Correos que manda el club: el pase con QR y el recibo del cobro. */
+export const correosApi = {
+  bandeja: (params) => api.get('/correos', params),
+  deLaReserva: (id) => api.get(`/correos/reserva/${id}`),
+  reenviarPase: (id, destino) =>
+    api.post(`/correos/reserva/${id}/pase${destino ? `?destino=${encodeURIComponent(destino)}` : ''}`),
+  enviarRecibo: (id, destino) =>
+    api.post(`/correos/reserva/${id}/recibo${destino ? `?destino=${encodeURIComponent(destino)}` : ''}`),
+  reintentar: (correoId) => api.post(`/correos/${correoId}/reintentar`),
+  /** Imagen del pase, ya autenticada, lista para un <img src>. */
+  qr: (reservationId) => descargar(`/correos/reserva/${reservationId}/qr.png`),
 };

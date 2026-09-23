@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { bookingApi } from '../api/client';
+import { bookingApi, correosApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Alert, Badge, Button, Card, Modal, Spinner, Stat, Table, Textarea } from '../components/ui';
-import { ESTADO_RESERVA, MODALIDAD, fecha, hora, mxn } from '../utils/format';
+import Icono from '../components/Icono';
+import { error as avisoError, exito, pedirCorreo } from '../utils/avisos';
+import { ESTADO_RESERVA, MODALIDAD, fecha, fechaHora, hora, mxn } from '../utils/format';
 
 export default function ReservationDetailPage() {
   const { id } = useParams();
@@ -18,6 +20,12 @@ export default function ReservationDetailPage() {
   const [message, setMessage] = useState(location.state?.creada ? 'Solicitud enviada. Queda pendiente de validación por el campo.' : null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [correos, setCorreos] = useState([]);
+  const [enviando, setEnviando] = useState(false);
+
+  function cargarCorreos() {
+    correosApi.deLaReserva(id).then(setCorreos).catch(() => setCorreos([]));
+  }
 
   async function load() {
     setLoading(true);
@@ -32,6 +40,7 @@ export default function ReservationDetailPage() {
 
   useEffect(() => {
     load();
+    cargarCorreos();
   }, [id]);
 
   async function accion(fn, texto) {
@@ -48,6 +57,29 @@ export default function ReservationDetailPage() {
   if (!reservation) return <Alert tone="error">{error || 'Reserva no encontrada'}</Alert>;
 
   const estado = ESTADO_RESERVA[reservation.status] || {};
+  async function reenviarPase() {
+    const destino = await pedirCorreo(reservation.holder_email);
+    if (destino === null) return;
+    setEnviando(true);
+    try {
+      const correo = await correosApi.reenviarPase(reservation.id, destino || undefined);
+      cargarCorreos();
+      if (correo.status === 'ENVIADO') {
+        await exito('Pase enviado', `Salió a <b>${correo.to_email}</b>.`);
+      } else {
+        await exito(
+          'Pase en cola',
+          `Quedó encolado para <b>${correo.to_email}</b> y sale en cuanto el servidor ` +
+            'de correo responda.',
+        );
+      }
+    } catch (err) {
+      await avisoError('No se pudo reenviar', err.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   const lineaAcompanante = reservation.services.find((s) => s.service_code === 'ACOMPANANTE');
   const totalAcompanantes = Number(lineaAcompanante?.total || 0);
   const serviciosSinAcompanantes = reservation.services.filter((s) => s.service_code !== 'ACOMPANANTE');
@@ -112,6 +144,11 @@ export default function ReservationDetailPage() {
               Cancelar reserva
             </Button>
           )}
+          {/* El pase se puede volver a mandar: el huésped borró el correo,
+              lo escribió mal el concierge, o se lo quieren mandar a otro. */}
+          <Button variant="secondary" onClick={reenviarPase} disabled={enviando}>
+            {enviando ? 'Enviando…' : 'Reenviar pase por correo'}
+          </Button>
           {['COMPLETADA', 'CANCELADA', 'NO_SHOW'].includes(reservation.status) && (
             <p className="text-body-lg text-outline">Esta reserva ya no admite cambios.</p>
           )}
@@ -202,6 +239,42 @@ export default function ReservationDetailPage() {
               </tr>
             )}
           />
+        </Card>
+      )}
+
+      {correos.length > 0 && (
+        <Card title="Correos enviados">
+          <ul className="space-y-2 text-body-lg">
+            {correos.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 pb-2 last:border-0"
+              >
+                <span className="flex items-center gap-2">
+                  <Icono
+                    nombre={c.status === 'ENVIADO' ? 'check' : c.status === 'FALLIDO' ? 'cancelar' : 'reloj'}
+                    size={16}
+                    className={
+                      c.status === 'ENVIADO'
+                        ? 'text-estado-ok-text'
+                        : c.status === 'FALLIDO'
+                          ? 'text-error'
+                          : 'text-estado-pend-text'
+                    }
+                  />
+                  {c.kind === 'PASE' ? 'Pase de la partida' : 'Recibo del cobro'} ·{' '}
+                  <span className="text-on-surface-variant">{c.to_email}</span>
+                </span>
+                <span className="text-body-md text-outline">
+                  {c.status === 'ENVIADO'
+                    ? `enviado ${fechaHora(c.sent_at)}`
+                    : c.status === 'FALLIDO'
+                      ? `falló: ${c.last_error || 'sin detalle'}`
+                      : 'en cola'}
+                </span>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

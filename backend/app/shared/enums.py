@@ -141,3 +141,16 @@ class ServiceUnit(str, Enum):
     POR_PERSONA = "POR_PERSONA"
     POR_TRAYECTO = "POR_TRAYECTO"
     POR_UNIDAD = "POR_UNIDAD"
+
+
+class EmailKind(str, Enum):
+    """Qué correo es. Uno por documento que el club entrega."""
+
+    PASE = "PASE"
+    RECIBO = "RECIBO"
+
+
+class EmailStatus(str, Enum):
+    PENDIENTE = "PENDIENTE"
+    ENVIADO = "ENVIADO"
+    FALLIDO = "FALLIDO"

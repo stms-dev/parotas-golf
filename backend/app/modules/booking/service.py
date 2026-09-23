@@ -1,4 +1,5 @@
 """Lógica de disponibilidad y reservas."""
+import logging
 import secrets
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -44,6 +45,8 @@ from app.shared.enums import (
     UserRole,
 )
 from app.shared.money import ZERO, money, to_mxn
+
+logger = logging.getLogger(__name__)
 
 
 class RecursosService:
@@ -583,6 +586,18 @@ class ReservationService_:
             raise ConflictError("No se pudo guardar la reserva: conflicto de concurrencia") from exc
 
         self.db.refresh(reservation)
+
+        # El pase con el QR se encola aquí y sale en segundo plano: si el
+        # correo tarda o el servidor no contesta, la reserva ya está hecha.
+        try:
+            from app.modules.mailing.service import MailingService
+            from app.shared.enums import EmailKind
+
+            MailingService(self.db).encolar(kind=EmailKind.PASE, reservation=reservation)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            logger.exception("No se pudo encolar el pase de %s", reservation.folio)
 
         # Ya está guardado: ahora sí se avisa. Antes del commit se correría el
         # riesgo de anunciar una reserva que terminó en rollback.

@@ -22,7 +22,7 @@ import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
 import { Recibo, ReciboReplay, Responsiva } from '../components/Documentos';
-import { confirmar, error as avisoError, exito } from '../utils/avisos';
+import { confirmar, error as avisoError, exito, pedirCorreo } from '../utils/avisos';
 import { METODO_PAGO, TASA_IVA, desgloseIva, hora, hoy, mxn, usd } from '../utils/format';
 
 /**
@@ -303,6 +303,26 @@ export default function CheckInPage() {
     const cuenta = await checkinApi.lookup({ folio: reservation.folio }).catch(() => null);
     if (cuenta) setAccount(cuenta);
     refrescarEncabezado();
+  }
+
+  /** El recibo por correo, al titular o a donde diga el huésped. */
+  async function enviarReciboPorCorreo() {
+    const destino = await pedirCorreo(reservation.holder_email);
+    if (destino === null) return;
+    setSaving(true);
+    try {
+      const correo = await checkinApi.enviarRecibo(reservation.id, destino || undefined);
+      await exito(
+        correo.status === 'ENVIADO' ? 'Recibo enviado' : 'Recibo en cola',
+        correo.status === 'ENVIADO'
+          ? `Salió a <b>${correo.to_email}</b>.`
+          : `Quedó encolado para <b>${correo.to_email}</b>.`,
+      );
+    } catch (err) {
+      await avisoError('No se pudo enviar el recibo', err.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   /** Salida del campo, camino 1: la partida terminó y se cierra. */
@@ -717,6 +737,20 @@ export default function CheckInPage() {
                 >
                   <Icono nombre="pago" size={17} className="text-secondary" /> Recibo
                 </button>
+                {/* El recibo también se puede mandar por correo, para quien
+                    no quiere papel. */}
+                {Number(reservation.total_paid || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={enviarReciboPorCorreo}
+                    disabled={saving}
+                    className="flex items-center gap-2 rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-title-md text-on-surface shadow-card transition hover:bg-surface-container-low disabled:opacity-60"
+                  >
+                    <Icono nombre="enviar" size={17} className="text-secondary" />
+                    Enviar recibo
+                  </button>
+                )}
+
                 {/* Cada replay es otro ticket del mismo folio. */}
                 {replays.map((t, i) => (
                   <button

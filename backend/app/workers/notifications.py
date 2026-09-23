@@ -1,27 +1,29 @@
-"""Generación de pases QR y envío de correos.
+"""El pase con QR y los cuerpos de los correos que entrega el club.
 
-Va aparte del request a propósito: armar un QR y hablar con un SMTP tarda, y
-recepción no debería esperar a que eso termine para despachar una partida.
+El pase es por partida, no por jugador: un solo QR trae a todo el grupo. Al
+escanearlo en el mostrador aparece la lista completa y se palomea quién llegó.
 
-El pase es por reserva (una partida = un QR). Al escanearlo, recepción ve la
-lista completa de jugadores y marca quién llegó.
+El QR guarda una dirección con un identificador largo y aleatorio, nada más.
+Ni nombres, ni correos, ni montos: si alguien fotografía un pase ajeno, no se
+lleva datos de nadie, y ese identificador se puede regenerar.
 """
-import base64
-import smtplib
-from email.message import EmailMessage
 from io import BytesIO
-from typing import Optional
 
 import qrcode
 
 from app.core.config import settings
 
+VERDE = "#16382C"
+ARENA = "#8f7145"
+
 
 def generar_qr_png(token: str) -> bytes:
-    """Genera el PNG del pase. El QR apunta a la URL pública de la reserva."""
+    """PNG del pase. Sirve igual para el correo y para imprimirlo."""
     url = f"{settings.QR_BASE_URL}/{token}"
     qr = qrcode.QRCode(
         version=None,
+        # Corrección media: un pase arrugado o con el logo encima se sigue
+        # leyendo.
         error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=8,
         border=2,
@@ -30,90 +32,187 @@ def generar_qr_png(token: str) -> bytes:
     qr.make(fit=True)
 
     buffer = BytesIO()
-    qr.make_image(fill_color="#1d3b2e", back_color="white").save(buffer, format="PNG")
+    qr.make_image(fill_color=VERDE, back_color="white").save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def generar_qr_base64(token: str) -> str:
-    """Versión embebible en HTML: <img src="data:image/png;base64,…">."""
-    return base64.b64encode(generar_qr_png(token)).decode("ascii")
-
-
-def _cuerpo_html(reservation, qr_base64: str) -> str:
-    jugadores = "".join(
-        f"<tr><td style='padding:6px 0;border-bottom:1px solid #eee'>{player.full_name}</td>"
-        f"<td style='padding:6px 0;border-bottom:1px solid #eee;color:#666'>"
-        f"{'Infantil' if player.category == 'INFANTIL' else 'Adulto'}</td></tr>"
-        for player in reservation.players
-    )
+def _fecha_y_hora(reservation) -> str:
     slot = reservation.tee_slot
-    return f"""
-    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1d3b2e">
-      <h1 style="font-size:24px;margin-bottom:4px">Las Parotas</h1>
-      <p style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8f7145;margin-top:0">
-        Club de Golf
+    if not slot:
+        return ""
+    return f"{slot.slot_date.strftime('%d/%m/%Y')} · {slot.slot_time.strftime('%H:%M')} hrs"
+
+
+def _marco(contenido: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="es"><body style="margin:0;padding:24px;background:#f6f5f1">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;
+              padding:28px;font-family:Georgia,'Times New Roman',serif;color:{VERDE}">
+    <p style="margin:0;font-size:24px">Las Parotas</p>
+    <p style="margin:2px 0 22px;font-size:11px;letter-spacing:3px;text-transform:uppercase;
+              color:{ARENA};font-family:system-ui,sans-serif">Club de Golf · Huatulco</p>
+    {contenido}
+    <p style="margin-top:26px;padding-top:14px;border-top:1px solid #e7e4dc;
+              font-family:system-ui,sans-serif;font-size:11px;color:#8a8a80">
+      Las Parotas Club de Golf · Bahías de Huatulco, Oaxaca<br>
+      Este mensaje se generó solo. Para cualquier aclaración, responda a este correo.
+    </p>
+  </div>
+</body></html>"""
+
+
+def cuerpo_pase(reservation) -> tuple[str, str]:
+    """Correo del pase. Devuelve (texto plano, HTML).
+
+    El texto plano no es un adorno: hay clientes de correo que no muestran
+    HTML, y un pase que no se puede leer no sirve de nada.
+    """
+    cuando = _fecha_y_hora(reservation)
+    jugadores = [p.full_name for p in reservation.players]
+
+    texto = (
+        f"Hola {reservation.holder_name}:\n\n"
+        f"Su salida quedó registrada.\n\n"
+        f"Folio: {reservation.folio}\n"
+        f"Fecha y hora: {cuando}\n"
+        f"Recorrido: {reservation.holes} hoyos\n"
+        f"Jugadores: {', '.join(jugadores)}\n\n"
+        f"Presente el pase adjunto en recepción. Es uno solo para toda la partida.\n"
+        f"Le pedimos llegar 30 minutos antes de su salida.\n\n"
+        f"Las Parotas Club de Golf"
+    )
+
+    filas = "".join(
+        f"<tr><td style='padding:7px 0;border-bottom:1px solid #eeece6'>{p.full_name}</td>"
+        f"<td style='padding:7px 0;border-bottom:1px solid #eeece6;color:#77756c;text-align:right'>"
+        f"{'Infantil' if p.category == 'INFANTIL' else 'Adulto'}</td></tr>"
+        for p in reservation.players
+    )
+    acompanantes = ""
+    if reservation.companions:
+        nombres = ", ".join(c.full_name for c in reservation.companions)
+        acompanantes = (
+            f"<p style='font-family:system-ui,sans-serif;font-size:13px;color:#77756c;margin:10px 0 0'>"
+            f"Acompañantes (no juegan): {nombres}</p>"
+        )
+
+    html = _marco(f"""
+    <p style="font-family:system-ui,sans-serif;font-size:15px">
+      Hola {reservation.holder_name}, su salida quedó registrada.
+    </p>
+
+    <div style="background:#f2f7f4;border-radius:12px;padding:22px;margin:18px 0;text-align:center">
+      <p style="margin:0;font-family:ui-monospace,monospace;font-size:22px">{reservation.folio}</p>
+      <p style="margin:6px 0 16px;font-family:system-ui,sans-serif;font-size:14px;color:#37634e">
+        {cuando} · {reservation.holes} hoyos
       </p>
-
-      <p>Estimado(a) {reservation.holder_name}:</p>
-      <p>Su salida ha quedado registrada. Presente este pase en recepción.</p>
-
-      <div style="background:#f2f7f4;border-radius:12px;padding:20px;margin:20px 0;text-align:center">
-        <p style="font-family:monospace;font-size:22px;margin:0">{reservation.folio}</p>
-        <p style="margin:6px 0 16px;color:#37634e">
-          {slot.slot_date.strftime('%d/%m/%Y') if slot else ''} ·
-          {slot.slot_time.strftime('%H:%M') if slot else ''} hrs ·
-          {reservation.holes} hoyos
-        </p>
-        <img src="data:image/png;base64,{qr_base64}" alt="Pase de acceso" style="width:180px"/>
-        <p style="font-size:12px;color:#666;margin-top:12px">
-          Un solo pase para toda la partida
-        </p>
-      </div>
-
-      <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">
-        <thead>
-          <tr><th style="text-align:left;padding-bottom:8px;font-size:11px;text-transform:uppercase;color:#888">
-            Jugadores</th><th></th></tr>
-        </thead>
-        <tbody>{jugadores}</tbody>
-      </table>
-
-      <p style="font-family:system-ui,sans-serif;font-size:12px;color:#666;margin-top:24px">
-        Se recomienda presentarse 30 minutos antes de la salida. Código de etiqueta: polo con
-        cuello y calzado con soft spikes.
+      <img src="cid:pase-qr" alt="Pase de la partida" style="width:190px;height:190px"/>
+      <p style="margin:12px 0 0;font-family:system-ui,sans-serif;font-size:12px;color:#77756c">
+        Un solo pase para toda la partida
       </p>
     </div>
-    """
+
+    <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">
+      <tr><th colspan="2" style="text-align:left;padding-bottom:6px;font-size:11px;
+          letter-spacing:1px;text-transform:uppercase;color:#8a8a80">Jugadores</th></tr>
+      {filas}
+    </table>
+    {acompanantes}
+
+    <p style="font-family:system-ui,sans-serif;font-size:13px;color:#77756c;margin-top:20px">
+      Le pedimos llegar <strong>30 minutos antes</strong> de su salida. El cobro y la
+      validación de credenciales PGA se hacen en recepción.
+    </p>
+    """)
+
+    return texto, html
 
 
-def enviar_pase(reservation) -> bool:
-    """Envía el pase al titular. Devuelve False si no hay SMTP configurado."""
-    if not settings.SMTP_HOST:
-        return False
+def cuerpo_recibo(reservation) -> tuple[str, str]:
+    """Correo del recibo, después de cobrar en el mostrador."""
+    from app.modules.billing.models import pagos_de_la_reserva
+    from app.shared.money import ZERO, money
 
-    qr_base64 = generar_qr_base64(reservation.qr_token)
+    cuando = _fecha_y_hora(reservation)
+    pagos = pagos_de_la_reserva(reservation)
+    pagado = money(sum((p.neto_mxn for p in pagos), start=ZERO))
 
-    message = EmailMessage()
-    message["Subject"] = f"Pase de acceso · {reservation.folio} · Las Parotas"
-    message["From"] = settings.SMTP_FROM
-    message["To"] = reservation.holder_email
-    message.set_content(
-        f"Reserva {reservation.folio} confirmada. "
-        f"Presente el pase adjunto en recepción."
+    metodos = {
+        "EFECTIVO": "Efectivo",
+        "TARJETA": "Tarjeta",
+        "TRANSFERENCIA": "Transferencia",
+    }
+
+    texto = (
+        f"Hola {reservation.holder_name}:\n\n"
+        f"Gracias por su visita. Este es el comprobante de su partida.\n\n"
+        f"Folio: {reservation.folio}\n"
+        f"Fecha y hora: {cuando}\n"
+        f"Total: ${money(reservation.total)} MXN\n"
+        f"Pagado: ${pagado} MXN\n\n"
+        f"Comprobante interno de cobro; no es un comprobante fiscal.\n"
+        f"Si requiere factura, solicítela en recepción.\n\n"
+        f"Las Parotas Club de Golf"
     )
-    message.add_alternative(_cuerpo_html(reservation, qr_base64), subtype="html")
-    message.add_attachment(
-        generar_qr_png(reservation.qr_token),
-        maintype="image",
-        subtype="png",
-        filename=f"pase-{reservation.folio}.png",
+
+    lineas = "".join(
+        f"<tr><td style='padding:6px 0;border-bottom:1px solid #eeece6'>{p.full_name}</td>"
+        f"<td style='padding:6px 0;border-bottom:1px solid #eeece6;text-align:right;"
+        f"font-family:ui-monospace,monospace'>${money(p.final_rate)}</td></tr>"
+        for p in reservation.players
+        if p.arrived
+    )
+    servicios = "".join(
+        f"<tr><td style='padding:6px 0;border-bottom:1px solid #eeece6'>"
+        f"{s.service.name if s.service else 'Servicio'} × {s.quantity}</td>"
+        f"<td style='padding:6px 0;border-bottom:1px solid #eeece6;text-align:right;"
+        f"font-family:ui-monospace,monospace'>${money(s.total)}</td></tr>"
+        for s in reservation.services
+        if s.quantity > 0
+    )
+    formas = "".join(
+        f"<tr><td style='padding:4px 0;color:#77756c'>{metodos.get(str(p.method), p.method)}</td>"
+        f"<td style='padding:4px 0;text-align:right;font-family:ui-monospace,monospace'>"
+        f"${money(p.amount_mxn)}</td></tr>"
+        + (
+            f"<tr><td style='padding:4px 0;color:#77756c'>Cambio entregado</td>"
+            f"<td style='padding:4px 0;text-align:right;font-family:ui-monospace,monospace'>"
+            f"−${money(p.change_mxn)}</td></tr>"
+            if p.change_mxn and money(p.change_mxn) > ZERO
+            else ""
+        )
+        for p in pagos
     )
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-        if settings.SMTP_TLS:
-            server.starttls()
-        if settings.SMTP_USER:
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        server.send_message(message)
+    html = _marco(f"""
+    <p style="font-family:system-ui,sans-serif;font-size:15px">
+      Hola {reservation.holder_name}, gracias por su visita.
+    </p>
 
-    return True
+    <div style="background:#f2f7f4;border-radius:12px;padding:18px;margin:16px 0">
+      <p style="margin:0;font-family:ui-monospace,monospace;font-size:18px">{reservation.folio}</p>
+      <p style="margin:4px 0 0;font-family:system-ui,sans-serif;font-size:14px;color:#37634e">
+        {cuando} · {reservation.holes} hoyos
+      </p>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">
+      {lineas}
+      {servicios}
+    </table>
+
+    <table style="width:100%;border-collapse:collapse;margin-top:14px;
+                  font-family:system-ui,sans-serif;font-size:14px">
+      {formas}
+      <tr><td style="padding-top:10px;font-size:16px">Total pagado</td>
+          <td style="padding-top:10px;text-align:right;font-size:18px;
+                     font-family:ui-monospace,monospace">${pagado}</td></tr>
+    </table>
+
+    <p style="font-family:system-ui,sans-serif;font-size:12px;color:#8a8a80;margin-top:18px">
+      Comprobante interno de cobro. No es un comprobante fiscal; si requiere factura,
+      solicítela en recepción.
+    </p>
+    """)
+
+    return texto, html

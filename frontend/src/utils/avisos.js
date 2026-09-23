@@ -94,3 +94,25 @@ export function cargando(titulo = 'Procesando…') {
 }
 
 export const cerrar = () => Swal.close();
+
+/**
+ * Pregunta a qué correo se manda algo, con el del titular ya puesto.
+ * Devuelve el correo escrito, "" si dejó el del titular, o null si canceló.
+ */
+export async function pedirCorreo(porOmision, titulo = '¿A qué correo lo mandamos?') {
+  const { isConfirmed, value } = await Swal.fire({
+    ...base,
+    icon: 'question',
+    title: titulo,
+    input: 'email',
+    inputValue: porOmision || '',
+    inputPlaceholder: 'correo@ejemplo.com',
+    html: 'Se manda al correo del titular. Puede cambiarlo si lo quiere enviar a otro.',
+    showCancelButton: true,
+    confirmButtonText: 'Enviar',
+    cancelButtonText: 'Cancelar',
+    inputValidator: (v) => (!v || !v.includes('@') ? 'Escriba un correo válido' : undefined),
+  });
+  if (!isConfirmed) return null;
+  return value === porOmision ? '' : value;
+}

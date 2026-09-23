@@ -451,6 +451,20 @@ class CheckInService:
         self.db.commit()
         self.db.refresh(reservation)
 
+        # Pagada y cerrada la cuenta: el recibo sale por correo. Igual que el
+        # pase, se encola; el mostrador no espera al servidor de correo.
+        if data.payments and balance == 0:
+            try:
+                from app.modules.mailing.service import MailingService
+                from app.shared.enums import EmailKind
+
+                MailingService(self.db).encolar(
+                    kind=EmailKind.RECIBO, reservation=reservation
+                )
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+
         # Avisos, ya con todo guardado.
         # Lo que pasa en el mostrador es del campo. Al hotel solo le llega
         # un aviso cuando su reserva queda pagada, ya como "confirmada".

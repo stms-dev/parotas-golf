@@ -757,6 +757,49 @@ check("Un hotel no puede reservar como venta directa",
       r.status_code == 201 and r.json()["hotel_id"] != directo["id"],
       f"quedó en el hotel {r.json().get('hotel_name')}" if r.status_code == 201 else r.text[:90])
 
+# ----------------------------------------------- 19. correos del sistema
+print("\n19. Pase y recibo por correo")
+
+correos = client.get("/api/correos?limit=50", headers=admin).json()
+del_folio = [c for c in correos if c["folio"] == reserva["folio"]]
+check("Al reservar se encola el pase con QR",
+      any(c["kind"] == "PASE" for c in del_folio),
+      f"{len(correos)} correos en la bandeja")
+check("Al cobrar se encola el recibo",
+      any(c["kind"] == "RECIBO" for c in del_folio))
+check("Sin servidor de correo, los correos esperan en la bandeja",
+      all(c["status"] == "PENDIENTE" for c in del_folio))
+
+qr = client.get(f"/api/correos/reserva/{reserva_id}/qr.png", headers=recepcion)
+check("El pase se puede imprimir como imagen",
+      qr.status_code == 200 and qr.headers["content-type"] == "image/png" and len(qr.content) > 500,
+      f"{len(qr.content)} bytes")
+
+r = client.post(f"/api/correos/reserva/{reserva_id}/pase?destino=otro@ejemplo.com", headers=recepcion)
+check("El pase se puede reenviar a otro correo",
+      r.status_code == 200 and r.json()["to_email"] == "otro@ejemplo.com", r.text[:100])
+
+r = client.get(f"/api/correos/reserva/{reserva_id}", headers=hotel)
+check("El hotel ve los correos de su propia reserva", r.status_code == 200 and len(r.json()) >= 1)
+r = client.get("/api/correos", headers=recepcion)
+check("La bandeja completa es solo de la Administración", r.status_code == 403, f"HTTP {r.status_code}")
+
+# El armado del mensaje se prueba aparte: es donde se rompen las plantillas.
+from app.core.database import SessionLocal as _Sesion
+from app.modules.mailing.service import MailingService as _Correos
+
+with _Sesion() as _db:
+    _servicio = _Correos(_db)
+    _partes = {}
+    for _correo in _servicio.de_la_reserva(reserva_id):
+        _mensaje = _servicio._armar(_correo)
+        _partes[_correo.kind] = [p.get_content_type() for p in _mensaje.walk()]
+check("El correo del pase lleva el QR pegado, no ligado",
+      _partes.get("PASE", []).count("image/png") == 2, str(_partes.get("PASE")))
+check("Los dos correos llevan versión de texto y versión con formato",
+      all("text/plain" in v and "text/html" in v for v in _partes.values()),
+      ", ".join(_partes))
+
 print("\n" + "=" * 66)
 if FALLOS:
     print(f"  {len(FALLOS)} VERIFICACIONES FALLIDAS:")

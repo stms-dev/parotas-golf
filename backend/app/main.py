@@ -32,6 +32,7 @@ from app.modules.events.router import router as events_router
 from app.modules.identity.router import router as auth_router
 from app.modules.identity.router import users_router
 from app.modules.inventory.router import router as inventory_router
+from app.modules.mailing.router import router as mailing_router
 from app.modules.treasury.router import router as treasury_router
 from app.realtime.manager import manager as realtime_manager
 from app.realtime.router import router as realtime_router
@@ -40,6 +41,37 @@ PRODUCCION = settings.ENVIRONMENT.lower() == "production"
 
 configurar_logging(produccion=PRODUCCION, debug=settings.DEBUG)
 logger = logging.getLogger(__name__)
+
+
+async def _repartir_correos() -> None:
+    """Manda lo pendiente cada minuto, sin estorbarle a nadie.
+
+    El envío es bloqueante (habla con un SMTP), así que corre en un hilo
+    aparte: mientras ese correo sale, la API sigue atendiendo el mostrador.
+    """
+    from app.core.database import SessionLocal
+    from app.modules.mailing.service import MailingService
+
+    def _tanda() -> dict:
+        db = SessionLocal()
+        try:
+            return MailingService(db).procesar_pendientes()
+        finally:
+            db.close()
+
+    while True:
+        try:
+            await asyncio.sleep(60)
+            resumen = await asyncio.to_thread(_tanda)
+            if resumen.get("enviados") or resumen.get("fallidos"):
+                logger.info(
+                    "Correos: %s enviados, %s con error",
+                    resumen.get("enviados"), resumen.get("fallidos"),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falló la tanda de correos")
 
 
 @asynccontextmanager
@@ -60,7 +92,22 @@ async def lifespan(app: FastAPI):
 
     realtime_manager.bind_loop(asyncio.get_running_loop())
     logger.info("Canal de tiempo real listo")
+
+    # El cartero: cada minuto revisa la bandeja de salida y manda lo que
+    # quedó pendiente. Sin servidor de correo configurado, ni arranca.
+    tarea_correos = None
+    from app.modules.mailing.service import MailingService
+
+    if MailingService.configurado():
+        tarea_correos = asyncio.create_task(_repartir_correos())
+        logger.info("Reparto de correos activo")
+    else:
+        logger.info("Sin servidor de correo: los correos quedan en la bandeja")
+
     yield
+
+    if tarea_correos:
+        tarea_correos.cancel()
     logger.info("Cerrando canal de tiempo real")
 
 
@@ -153,6 +200,7 @@ for router in (
     treasury_router,
     events_router,
     inventory_router,
+    mailing_router,
     audit_router,
     dashboard_router,
     realtime_router,

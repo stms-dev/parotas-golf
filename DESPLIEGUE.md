@@ -115,9 +115,49 @@ SMTP_PASSWORD=la-contraseña-de-aplicación
 SMTP_FROM=reservas@parotasgolf.com
 ```
 
-> **Hoy el sistema todavía no manda correos.** Las variables quedan puestas
-> para cuando se conecte el envío del pase QR; el pase se imprime desde el
-> mostrador mientras tanto.
+### Qué manda el sistema
+
+| Correo | A quién | Cuándo |
+|---|---|---|
+| **Pase de la partida** con el QR pegado | Al titular de la reserva | Al crearse la reserva, la mande el hotel o el mostrador |
+| **Recibo del cobro** | Al titular | Al quedar pagada la cuenta en recepción |
+
+Los dos se pueden reenviar a mano, y a otro correo si hace falta: el pase
+desde el detalle de la reserva, el recibo desde el mostrador.
+
+### Cómo se manda (y por qué así)
+
+Todo correo se escribe primero en una **bandeja de salida** y sale después, en
+segundo plano, cada minuto. Dos razones:
+
+1. Una reserva no se puede perder porque Gmail tardó o no contestó. El
+   concierge guarda su solicitud y el correo sale solo.
+2. Cuando el hotel pregunta "¿le llegó el pase al huésped?", hay una
+   respuesta: en **Control del sistema → Correos del sistema** se ve a quién
+   se mandó, si salió, cuándo, y si falló, con qué error. Desde ahí se
+   reintenta.
+
+Si falla, reintenta tres veces y se queda marcado como fallido. Sin servidor
+de correo configurado, los correos se acumulan en la bandeja sin perderse: el
+día que se configure el SMTP, salen.
+
+El QR viaja **pegado** al correo, no como liga a otro servidor: casi todos los
+clientes de correo bloquean imágenes remotas, y un pase en blanco no sirve.
+También va como archivo adjunto para imprimirlo, y aparece en la responsiva
+que entrega el mostrador.
+
+### Que los correos no caigan en spam
+
+Aunque salgan por Gmail, el dominio tiene que decir que Google puede mandar
+en su nombre. En Cloudflare → DNS:
+
+| Tipo | Nombre | Contenido |
+|---|---|---|
+| `TXT` | `@` | `v=spf1 include:_spf.google.com ~all` |
+| `TXT` | (el que dé Google) | La llave DKIM que genera Workspace en **Apps → Google Workspace → Gmail → Autenticar correo electrónico** |
+| `TXT` | `_dmarc` | `v=DMARC1; p=none; rua=mailto:reservas@parotasgolf.com` |
+
+Sin SPF y DKIM, buena parte de los correos se va a spam. Con ellos, llegan.
 
 Los registros MX del dominio los pide Google Workspace en su propio asistente
 y se capturan igual en Cloudflare (DNS → Records).

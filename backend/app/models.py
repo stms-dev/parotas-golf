@@ -27,6 +27,7 @@ from app.modules.catalog.models import (  # noqa: F401
 from app.modules.events.models import CourseEvent  # noqa: F401
 from app.modules.identity.models import User  # noqa: F401
 from app.modules.inventory.models import InventoryItem, InventoryMovement  # noqa: F401
+from app.modules.mailing.models import OutboxEmail  # noqa: F401
 from app.modules.treasury.models import CashSession, HotelSettlement  # noqa: F401
 
 __all__ = [

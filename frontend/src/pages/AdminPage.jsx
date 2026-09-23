@@ -18,7 +18,7 @@
  */
 import { useEffect, useState } from 'react';
 
-import { bookingApi, catalogApi, eventsApi, treasuryApi, usersApi } from '../api/client';
+import { bookingApi, catalogApi, correosApi, eventsApi, treasuryApi, usersApi } from '../api/client';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import HistorialTipoCambio from '../components/HistorialTipoCambio';
@@ -221,6 +221,8 @@ export default function AdminPage() {
       <BeneficioPga />
 
       <CarritosYCaddies />
+
+      <Correos />
 
       <Comisiones hoteles={hoteles} onCambio={() => cargarTodo(false)} />
 
@@ -704,6 +706,112 @@ function HoraLimite() {
         </button>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------- correos */
+
+/**
+ * Bandeja de salida: qué correos mandó el sistema y cuáles fallaron.
+ *
+ * Es la respuesta a la pregunta que siempre llega del hotel: "¿le llegó el
+ * pase al huésped?". Con esto se ve, y si no salió se reintenta desde aquí.
+ */
+function Correos() {
+  const [correos, setCorreos] = useState([]);
+  const [trabajando, setTrabajando] = useState(null);
+
+  function cargar() {
+    correosApi.bandeja({ limit: 25 }).then(setCorreos).catch(() => setCorreos([]));
+  }
+  useEffect(cargar, []);
+
+  async function reintentar(correo) {
+    setTrabajando(correo.id);
+    try {
+      const actualizado = await correosApi.reintentar(correo.id);
+      await exito(
+        actualizado.status === 'ENVIADO' ? 'Correo enviado' : 'Correo en cola',
+        `<b>${actualizado.to_email}</b>`,
+      );
+      cargar();
+    } catch (err) {
+      await avisoError('No se pudo reintentar', err.message);
+    } finally {
+      setTrabajando(null);
+    }
+  }
+
+  const pendientes = correos.filter((c) => c.status === 'PENDIENTE').length;
+  const fallidos = correos.filter((c) => c.status === 'FALLIDO').length;
+
+  return (
+    <Tarjeta
+      icono="enviar"
+      titulo="Correos del sistema"
+      extra={
+        <span className="text-label-sm uppercase tracking-wider text-outline">
+          {pendientes} en cola · {fallidos} con error
+        </span>
+      }
+    >
+      {correos.length === 0 ? (
+        <p className="py-6 text-center text-body-lg text-outline">
+          Todavía no se ha mandado ningún correo.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-body-md">
+            <thead>
+              <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
+                <th className="pb-2">Documento</th>
+                <th className="pb-2">Para</th>
+                <th className="pb-2">Folio</th>
+                <th className="pb-2">Estado</th>
+                <th className="pb-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/30">
+              {correos.map((c) => (
+                <tr key={c.id}>
+                  <td className="py-2">{c.kind === 'PASE' ? 'Pase de la partida' : 'Recibo'}</td>
+                  <td className="py-2 text-on-surface-variant">{c.to_email}</td>
+                  <td className="py-2 font-mono text-on-surface-variant">{c.folio || '—'}</td>
+                  <td className="py-2">
+                    {c.status === 'ENVIADO' ? (
+                      <span className="text-estado-ok-text">
+                        Enviado · {fechaHora(c.sent_at)}
+                      </span>
+                    ) : c.status === 'FALLIDO' ? (
+                      <span className="text-error" title={c.last_error || ''}>
+                        Falló tras {c.attempts} intento{c.attempts === 1 ? '' : 's'}
+                      </span>
+                    ) : (
+                      <span className="text-estado-pend-text">En cola</span>
+                    )}
+                  </td>
+                  <td className="py-2 text-right">
+                    {c.status !== 'ENVIADO' && (
+                      <button
+                        onClick={() => reintentar(c)}
+                        disabled={trabajando === c.id}
+                        className={`${BOTON} disabled:opacity-50`}
+                      >
+                        {trabajando === c.id ? 'Enviando…' : 'Reintentar'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="mt-3 text-body-md text-outline">
+        El pase sale al crear la reserva y el recibo al cobrar. Si no hay servidor de correo
+        configurado, quedan en cola hasta que lo haya.
+      </p>
+    </Tarjeta>
   );
 }
 
