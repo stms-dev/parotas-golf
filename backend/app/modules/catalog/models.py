@@ -12,7 +12,7 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Tex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.shared.enums import DayType, DiscountType, PlayerCategory, ServiceUnit
+from app.shared.enums import DayType, DiscountType, PlayerCategory, ServiceUnit, TimeBand
 from app.shared.money import DecimalMoney, DecimalRate
 
 
@@ -65,6 +65,12 @@ class RatePlan(Base):
     # Lunes a jueves, viernes a domingo, o cualquier día.
     day_type: Mapped[str] = mapped_column(
         String(16), default=DayType.TODOS.value, server_default=DayType.TODOS.value,
+        nullable=False, index=True,
+    )
+    # A qué hora del día aplica. TWILIGHT es para las últimas salidas, que no
+    # alcanzan a terminar 18 hoyos; TODAS vale a cualquier hora y es el respaldo.
+    time_band: Mapped[str] = mapped_column(
+        String(16), default=TimeBand.TODAS.value, server_default=TimeBand.TODAS.value,
         nullable=False, index=True,
     )
 

@@ -378,7 +378,8 @@ export default function FinancePage() {
             <div>
               <h2 className="text-title-lg text-primary">Dinero en caja</h2>
               <p className="text-body-md text-outline">
-                Lo que hay en efectivo y lo cobrado con terminal.
+                El efectivo que está físicamente en el cajón. La terminal y las transferencias
+                se cobran igual, pero ese dinero no pasa por la caja.
               </p>
             </div>
             <span
@@ -396,13 +397,14 @@ export default function FinancePage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
                 <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">
-                  Total en caja
+                  Efectivo en caja
                 </p>
                 <p className="font-serif text-headline-lg text-primary">
-                  {mxn(caja?.total_mxn ?? 0)}
+                  {mxn(caja?.cash_mxn ?? 0)}
                 </p>
                 <p className="text-label-sm text-outline">
-                  {caja?.payment_count ?? 0} movimientos registrados
+                  Ya descontado el cambio entregado · {caja?.payment_count ?? 0} movimientos en el
+                  turno
                 </p>
               </div>
               <div className="rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
@@ -412,9 +414,18 @@ export default function FinancePage() {
                 <p className="font-serif text-headline-lg text-secondary">
                   {Number(caja?.usd_cash_original ?? 0).toFixed(2)} USD
                 </p>
-                <p className="text-label-sm text-outline">Convertido al TC del día</p>
+                <p className="text-label-sm text-outline">
+                  Ya contado arriba, convertido al TC del día
+                </p>
               </div>
             </div>
+
+            {/* Terminal y transferencias ya se ven arriba, por forma de pago.
+                Aquí solo se aclara para que nadie las busque en el cajón. */}
+            <p className="mt-3 text-body-md text-outline">
+              Con terminal {mxn(caja?.card_mxn ?? 0)} y por transferencia{' '}
+              {mxn(caja?.transfer_mxn ?? 0)}: ese dinero llega al banco, no a la caja.
+            </p>
 
             {caja?.opened_by_name && (
               <p className="mt-3 flex items-start gap-2 text-body-md text-outline">

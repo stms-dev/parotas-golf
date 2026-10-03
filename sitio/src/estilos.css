@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-sombra font-texto text-arena antialiased;
+  }
+
+  /* Fraunces trae varios ejes. Se fija uno suave y una óptica de titular:
+     sin esto se ve demasiado afilada para un campo entre árboles. */
+  .font-titulo {
+    font-variation-settings: 'SOFT' 20, 'WONK' 1, 'opsz' 110;
+  }
+
+  ::selection {
+    @apply bg-hoja text-sombra-honda;
+  }
+
+  /* Barras de desplazamiento discretas dentro del panel: la página no se
+     desplaza, solo el contenido, y una barra gruesa delataría lo contrario. */
+  .panel {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(242, 235, 220, 0.18) transparent;
+  }
+  .panel::-webkit-scrollbar {
+    width: 6px;
+  }
+  .panel::-webkit-scrollbar-thumb {
+    background-color: rgba(242, 235, 220, 0.18);
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  /* El único movimiento no pedido del sitio: al cambiar de parada, el panel
+     entra desde donde venía la bola. Dura poco y acompaña al viaje. */
+  .panel {
+    animation: llegar 480ms cubic-bezier(0.33, 0.02, 0.18, 1) both;
+  }
+}
+
+@keyframes llegar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

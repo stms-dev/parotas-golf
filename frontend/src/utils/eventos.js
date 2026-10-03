@@ -4,6 +4,7 @@ export const EVENTOS = {
   RESERVA_ACTUALIZADA: 'reserva.actualizada',
   RESERVA_CANCELADA: 'reserva.cancelada',
   DISPONIBILIDAD_CAMBIADA: 'disponibilidad.cambiada',
+  PASE_ESCANEADO: 'pase.escaneado',
   CHECKIN_REGISTRADO: 'checkin.registrado',
   PAGO_REGISTRADO: 'pago.registrado',
   CAJA_ACTUALIZADA: 'caja.actualizada',

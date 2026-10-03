@@ -107,14 +107,27 @@ export const ESTADO_RESERVA = {
   CONFIRMADA: { label: 'Confirmada', variant: 'ok' },
   CHECK_IN: { label: 'En mostrador', variant: 'recibido' },
   EN_JUEGO: { label: 'En juego', variant: 'ok' },
+  // El campo se suspendió a media partida. Ya jugaron y ya pagaron: no es una
+  // cancelación, y de aquí sale la ronda de cortesía.
+  INTERRUMPIDA: { label: 'Campo suspendido', variant: 'pendiente' },
   COMPLETADA: { label: 'Finalizado', variant: 'final' },
   CANCELADA: { label: 'Cancelada', variant: 'cancelado' },
   NO_SHOW: { label: 'No se presentó', variant: 'pendiente' },
 };
 
-/** Los tres paquetes del club. */
+/**
+ * Los paquetes del club. Individual ya no se vende, pero se queda en el mapa
+ * porque hay reservas viejas que lo usaron y sus pantallas tienen que poder
+ * ponerle nombre.
+ */
 export const MODALIDAD = {
   INDIVIDUAL: 'Individual',
+  GRUPO: 'Grupo',
+  PARTIDA_ABIERTA: 'Partida abierta',
+};
+
+/** Las que sí se ofrecen hoy, para los selectores. */
+export const MODALIDAD_VIGENTE = {
   GRUPO: 'Grupo',
   PARTIDA_ABIERTA: 'Partida abierta',
 };

@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => {
     .replace(/\/.*$/, '');
 
   return {
+    // El sistema no vive en la raíz del dominio: ahí está el sitio público del
+    // club. Esto hace que los archivos compilados se pidan a /sistema/assets/…
+    // en lugar de /assets/…, que es donde no están.
+    base: '/sistema/',
     plugins: [react()],
     server: {
       port: 5173,

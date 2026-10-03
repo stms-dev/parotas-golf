@@ -143,8 +143,8 @@ export default function TeeSheetPage() {
                       <p className="mt-0.5 text-[11px]">
                         {slot.replay_folio
                           ? `Replay #${slot.replay_folio}`
-                          : slot.cerrada_por === 'orden'
-                          ? 'Espera su turno'
+                          : slot.cerrada_manual
+                          ? `Cerrada · ${slot.occupied} de ${slot.capacity}`
                           : slot.cerrada_por === 'carritos'
                           ? 'Sin carritos'
                           : slot.expirada
@@ -153,7 +153,11 @@ export default function TeeSheetPage() {
                           ? slot.event_name || 'Bloqueado'
                           : `${slot.available} de ${slot.capacity} libres`}
                       </p>
-                      {slot.en_turno && slot.available > 0 && slot.status !== 'BLOQUEADO' && (
+                      {/* Cualquier salida libre se puede asignar: los horarios
+                          ya no se abren en orden. */}
+                      {slot.available > 0 &&
+                        !slot.expirada &&
+                        slot.status !== 'BLOQUEADO' && (
                         <Link
                           to={`/reservas/nueva?slot=${slot.id}`}
                           className="mt-1 block text-[11px] text-primary-container underline"

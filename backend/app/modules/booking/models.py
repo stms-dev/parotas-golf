@@ -56,6 +56,14 @@ class TeeSlot(Base):
     event_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("course_events.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # El operador cerró la partida abierta antes de que se llenara: ya va a
+    # salir y no quiere que entre nadie más. Va en su propia columna y no en
+    # `status` porque el estado se recalcula desde las reservas, y un recálculo
+    # borraría la decisión.
+    open_closed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    open_closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -99,6 +107,11 @@ class Reservation(Base):
     created_by_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # La cuenta es del hotel o del puesto, no de la persona: varios turnos usan
+    # la misma. Estos dos guardan el nombre de quien estuvo frente a la
+    # pantalla, que es lo que sirve cuando hay que aclarar algo.
+    booked_by_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    attended_by_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     tee_slot_id: Mapped[int] = mapped_column(
         ForeignKey("tee_slots.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -116,6 +129,12 @@ class Reservation(Base):
     holder_room: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
     # Carritos que ocupa la partida. No se elige: sale de cuánta gente va.
     carts_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Caddies asignados: uno por carrito, hasta donde alcancen los que hay. No
+    # se cobra aquí — el huésped le paga directo al caddie — así que este número
+    # es de operación, no de dinero.
+    caddies_used: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # --- Valores congelados al momento de la operación ---
@@ -157,10 +176,41 @@ class Reservation(Base):
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     cancelled_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     cancellation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # --- Campo suspendido: la partida salió pero no se pudo terminar ---
+    # En qué hoyo se quedaron. De ahí reanudan cuando vuelven.
+    interrupted_at_hole: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    interrupted_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    interrupted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Si esta reserva es la ronda de cortesía, apunta a la que se interrumpió.
+    rescheduled_from_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("reservations.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+
+    # --- Reserva hecha desde el sitio, sin cuenta ---
+    # Hasta cuándo se le aparta la salida a quien está pagando. Pasada esa
+    # hora sin pago, la reserva se cancela sola y el horario vuelve a la venta.
+    # Solo lo traen las reservas del sitio: las del mostrador y las de los
+    # hoteles las sostiene una persona, no un reloj.
+    hold_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, index=True
+    )
+    # La sesión de pago de Stripe. Se guarda para poder rastrear un cobro hasta
+    # su reserva cuando algo sale raro y hay que mirarlo en el panel de Stripe.
+    stripe_session_id: Mapped[Optional[str]] = mapped_column(
+        String(120), nullable=True, index=True
+    )
+
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.now(), nullable=True)
 
     hotel = relationship("Hotel", back_populates="reservations", lazy="joined")
     tee_slot = relationship("TeeSlot", back_populates="reservations", lazy="joined")
+    # La partida que se interrumpió, si esta es su reposición. remote_side la
+    # necesita porque las dos puntas de la relación son la misma tabla.
+    rescheduled_from = relationship(
+        "Reservation", remote_side=[id], foreign_keys=[rescheduled_from_id],
+        backref="reposiciones", lazy="joined",
+    )
     players: Mapped[List["ReservationPlayer"]] = relationship(
         back_populates="reservation", cascade="all, delete-orphan", lazy="selectin"
     )
@@ -200,6 +250,10 @@ class ReservationPlayer(Base):
         String(24), default=PlayerCategory.ADULTO, nullable=False
     )
     handicap: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)
+    # El identificador con el que ese hándicap se verifica en el padrón. Va
+    # aparte porque es otro dato: el hándicap es el número, el GHIN es la
+    # credencial que lo respalda.
+    ghin: Mapped[Optional[str]] = mapped_column(String(24), nullable=True)
     # Mano con la que juega: define qué juego de bastones se le prepara.
     # DIESTRO | ZURDO, o nulo si trae los suyos.
     club_hand: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)
@@ -272,7 +326,39 @@ class ReservationService(Base):
     total: Mapped[Decimal] = mapped_column(DecimalMoney, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Lo que se agregó en el mostrador es venta del campo y no pasa por el
+    # convenio: el hotel no la ve ni entra en el total que se le muestra.
+    added_at_counter: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     reservation = relationship("Reservation", back_populates="services")
     service = relationship("AdditionalService", lazy="joined")
+
+
+class CourseDayRule(Base):
+    """Reglas de un día concreto del campo.
+
+    Hoy solo lleva una: si ese día acepta partidas abiertas. En días pesados el
+    campo prefiere no andar armando grupos de hoteles distintos, y eso se decide
+    por día, no de una vez para siempre.
+
+    No hay fila para cada día del año: sin fila, el día se comporta como normal.
+    """
+
+    __tablename__ = "course_day_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False, unique=True, index=True)
+    open_partidas_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )

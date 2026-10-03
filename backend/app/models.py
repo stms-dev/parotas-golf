@@ -7,6 +7,7 @@ from app.core.database import Base  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
 from app.modules.billing.models import Payment  # noqa: F401
 from app.modules.booking.models import (  # noqa: F401
+    CourseDayRule,
     Reservation,
     ReservationCompanion,
     ReservationPlayer,

@@ -63,6 +63,10 @@ export function AuthProvider({ children }) {
       can,
       isAuthenticated: Boolean(user),
       isHotel: user?.role === 'HOTEL',
+      // Recepción atiende el mostrador: solo levanta reservas de público
+      // general. Asignarle una reserva a un hotel con convenio le genera
+      // comisión a ese hotel, y eso lo decide operaciones.
+      isRecepcion: user?.role === 'RECEPCION',
       // La Administración tiene su propio menú: no es un operador con más
       // permisos, hace otro trabajo.
       isAdmin: user?.role === 'SUPER_ADMIN',

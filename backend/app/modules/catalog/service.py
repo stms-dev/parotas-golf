@@ -33,7 +33,7 @@ from app.modules.catalog.schemas import (
 from app.modules.identity.models import User
 from app.realtime.events import EventType, RealtimeEvent
 from app.realtime.manager import publish
-from app.shared.enums import AuditAction, DayType, DiscountType, PlayerCategory
+from app.shared.enums import AuditAction, DayType, DiscountType, PlayerCategory, TimeBand
 from app.shared.money import apply_percentage, money, rate as as_rate
 
 
@@ -121,7 +121,8 @@ class PricingService:
         self.audit = AuditService(db)
 
     def resolve_rate(
-        self, *, modality: str, holes: int, category: PlayerCategory, on_date: Optional[date] = None
+        self, *, modality: str, holes: int, category: PlayerCategory,
+        on_date: Optional[date] = None, at_time: Optional[time] = None,
     ) -> RatePlan:
         on_date = on_date or date.today()
         stmt = (
@@ -140,13 +141,21 @@ class PricingService:
             if plan.valid_to is None or plan.valid_to >= on_date
         ]
 
-        # Manda la tarifa del día de la salida (entre semana o fin de semana);
-        # si no hay una específica, vale la que aplica todos los días.
+        # Manda la tarifa más específica y se va soltando hasta la general.
+        # Primero la franja horaria —una salida de twilight cuesta distinto— y
+        # dentro de cada franja, el día de la salida antes del comodín. Que la
+        # franja mande sobre el día es a propósito: si el club puso un precio de
+        # twilight, ese es el que quiso cobrar a esa hora.
         dia = DayType.del_dia(on_date).value
-        for buscado in (dia, DayType.TODOS.value):
-            for plan in vigentes:
-                if plan.day_type == buscado:
-                    return plan
+        franja = TimeBand.TODAS.value
+        if at_time is not None and at_time >= SettingsService(self.db).twilight_desde():
+            franja = TimeBand.TWILIGHT.value
+
+        for banda in (franja, TimeBand.TODAS.value):
+            for buscado in (dia, DayType.TODOS.value):
+                for plan in vigentes:
+                    if plan.time_band == banda and plan.day_type == buscado:
+                        return plan
 
         nombre_dia = "de lunes a jueves" if dia == DayType.ENTRE_SEMANA.value else "de viernes a domingo"
         quien = "menor" if str(category).endswith("INFANTIL") else "adulto"
@@ -453,6 +462,20 @@ class HotelService:
             raise NotFoundError(f"Hotel {hotel_id} no encontrado")
         return hotel
 
+    def venta_directa(self) -> Hotel:
+        """El registro de "Público general": el huésped que llega sin hotel.
+
+        No es un hotel de verdad, es el cajón donde caen las ventas de
+        mostrador para que toda reserva tenga a quién colgarse. Lo crea la
+        migración, así que siempre existe.
+        """
+        hotel = self.db.execute(
+            select(Hotel).where(Hotel.is_direct.is_(True))
+        ).scalars().first()
+        if not hotel:
+            raise NotFoundError("No existe el registro de venta directa")
+        return hotel
+
     def create(self, data: HotelCreate, actor: User) -> Hotel:
         existing = self.db.execute(
             select(Hotel).where(Hotel.code == data.code.upper().strip())
@@ -560,6 +583,24 @@ class SettingsService:
         from app.shared.tiempo import leer_hora
 
         return leer_hora(self.get("same_day_cutoff"))
+
+    def cierre_de_campo(self):
+        """Hora en que el campo cierra y ya no hay juego (18:00 si no hay).
+
+        No bloquea nada: una salida de las 15:00 no termina 18 hoyos antes de
+        esa hora, y eso es justo lo que vende el twilight. Sirve para que el
+        mostrador y el tee sheet lo tengan a la vista y nadie prometa una ronda
+        completa que no cabe.
+        """
+        from app.shared.tiempo import leer_hora
+
+        return leer_hora(self.get("cierre_de_campo"), respaldo=time(18, 0))
+
+    def twilight_desde(self):
+        """Desde qué hora una salida toma tarifa twilight (14:00 si no hay)."""
+        from app.shared.tiempo import leer_hora
+
+        return leer_hora(self.get("twilight_desde"), respaldo=time(14, 0))
 
     def list(self) -> List[SystemSetting]:
         return list(self.db.execute(select(SystemSetting).order_by(SystemSetting.key)).scalars().all())

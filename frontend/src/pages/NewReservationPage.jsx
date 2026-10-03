@@ -27,23 +27,17 @@ import Icono from '../components/Icono';
 import { fecha, hora, hoy, mxn, fechaLocal } from '../utils/format';
 import { esFinDeSemana, tarifaDelDia } from '../utils/tarifas';
 
+// Individual ya no se vende: una salida se toma como grupo o se comparte en
+// partida abierta. Las reservas viejas que la usaron se siguen leyendo, pero
+// aquí no se ofrece.
 const PAQUETES = [
-  {
-    value: 'INDIVIDUAL',
-    nombre: 'Individual',
-    etiqueta: '1 jugador',
-    icono: 'person',
-    detalle: 'Un huésped que juega solo. Toma la salida completa.',
-    min: 1,
-    max: 1,
-  },
   {
     value: 'GRUPO',
     nombre: 'En Grupo',
-    etiqueta: 'Desde 2',
+    etiqueta: 'Desde 4',
     icono: 'groups',
     detalle: 'El titular organiza su propio grupo en una salida exclusiva.',
-    min: 2,
+    min: 4,
     // Sin techo: el grupo toma la salida completa, así que el cupo de la
     // franja no lo limita. 24 es solo un tope de captura para que un dedazo
     // no genere cien jugadores.
@@ -55,7 +49,7 @@ const PAQUETES = [
     nombre: 'Partida Abierta',
     etiqueta: 'Multihotel',
     icono: 'hub',
-    detalle: 'Comparte salida con huéspedes de otros hoteles hasta llegar a 4.',
+    detalle: 'Sale con los que se junten, hasta llegar a 4, aunque vengan de hoteles distintos.',
     min: 1,
     max: 4,
   },
@@ -98,15 +92,19 @@ const PASOS = [
 const LIMITE_MESES = 6;
 
 
-const jugadorVacio = () => ({ full_name: '', age: '', pga_code: '', club_hand: '', handicap: '' });
+const jugadorVacio = () => ({
+  full_name: '', age: '', pga_code: '', club_hand: '', handicap: '',
+});
 
 export default function NewReservationPage() {
   const navigate = useNavigate();
-  const { user, isHotel } = useAuth();
+  const { user, isHotel, isRecepcion } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [date, setDate] = useState(hoy());
   const [slots, setSlots] = useState([]);
+  /** Cierre del campo y desde cuándo aplica twilight, según Control del sistema. */
+  const [jornada, setJornada] = useState({ cierre: null, twilight: null, admiteAbiertas: true });
   const [hotels, setHotels] = useState([]);
   const [tarifas, setTarifas] = useState([]);
   const [servicios, setServicios] = useState([]);
@@ -115,10 +113,19 @@ export default function NewReservationPage() {
   const [recursos, setRecursos] = useState(null);
 
   const [form, setForm] = useState({
-    modality: 'INDIVIDUAL',
+    modality: 'GRUPO',
     holes: 18,
     tee_slot_id: Number(searchParams.get('slot')) || null,
     hotel_id: null,
+    // La cuenta es del hotel o del mostrador y la comparten varios turnos:
+    // aquí va el nombre de quien está levantando esta reserva.
+    booked_by_name: (() => {
+      try {
+        return localStorage.getItem('ultimo_atendio') || '';
+      } catch {
+        return '';
+      }
+    })(),
     holder_name: '',
     holder_email: '',
     holder_phone: '',
@@ -128,7 +135,6 @@ export default function NewReservationPage() {
     holder_pga: '',
     holder_club_hand: '',
     holder_handicap: '',
-    caddies: 0,
   });
 
   /** Campos de los que ya salió el cursor: solo esos muestran su aviso. */
@@ -163,21 +169,32 @@ export default function NewReservationPage() {
           // Del mostrador se llega con ?directo=1: es alguien que llegó por su
           // cuenta, sin hotel de por medio.
           const directo = hotelList.find((h) => h.is_direct);
+          // Recepción no elige: lo suyo es siempre público general.
           const inicial =
-            searchParams.get('directo') === '1' && directo
-              ? directo.id
+            isRecepcion || (searchParams.get('directo') === '1' && directo)
+              ? directo?.id
               : hotelList.find((h) => !h.is_direct)?.id || hotelList[0].id;
           setForm((prev) => ({ ...prev, hotel_id: prev.hotel_id || inicial }));
         }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [isHotel]);
+  }, [isHotel, isRecepcion]);
 
   useEffect(() => {
     bookingApi
       .availability({ slot_date: date })
-      .then((data) => setSlots(data.slots))
+      .then((data) => {
+        setSlots(data.slots);
+        setJornada({
+          cierre: data.cierre_de_campo || null,
+          twilight: data.twilight_desde || null,
+          // Hay días en que el campo no arma grupos revueltos. Se apaga la
+          // modalidad aquí, en vez de dejar capturar toda la reserva y
+          // rebotarla al guardar.
+          admiteAbiertas: data.admite_abiertas !== false,
+        });
+      })
       .catch((err) => setError(err.message));
     bookingApi
       .recursos({ slot_date: date })
@@ -201,10 +218,8 @@ export default function NewReservationPage() {
 
   /** ¿Esta salida admite el paquete que se está armando? */
   function admite(slot) {
-    // Las salidas se abren en orden: solo la que está en turno se puede
-    // tomar. El servidor lo vuelve a validar; aquí se evita que alguien
-    // llene la solicitud para nada.
-    if (!slot.en_turno) return false;
+    // Cualquier horario libre se puede tomar: ya no se abren en orden. Lo que
+    // cierra una salida es que esté llena, bloqueada, o que su hora pasó.
     if (slot.expirada) return false;
     if (slot.status === 'BLOQUEADO' || slot.status === 'OCUPADO') return false;
     if (slot.status === 'ABIERTA') return form.modality === 'PARTIDA_ABIERTA';
@@ -228,6 +243,16 @@ export default function NewReservationPage() {
       return compatible ? prev : { ...prev, tee_slot_id: null };
     });
   }, [form.modality]);
+
+  // Si se cambia a un día que no arma partidas abiertas, la selección se
+  // devuelve a grupo sola: dejarla puesta solo lleva a un rechazo al guardar.
+  useEffect(() => {
+    if (jornada.admiteAbiertas || form.modality !== 'PARTIDA_ABIERTA') return;
+    setForm((prev) => ({ ...prev, modality: 'GRUPO', tee_slot_id: null }));
+    setAviso(
+      `El ${fecha(date)} el campo no está armando partidas abiertas. Se cambió el paquete a Grupo.`,
+    );
+  }, [jornada.admiteAbiertas, date]);
 
   // El precio depende del día de la salida: de viernes a domingo es más caro.
   function precioDe(modalidad, categoria = 'ADULTO', hoyos = form.holes) {
@@ -297,9 +322,9 @@ export default function NewReservationPage() {
 
   const precioCaddie = caddie ? Number(caddie.price) : 0;
   const precioSet = bastones ? Number(bastones.price) : 0;
-  const subtotalCaddies = precioCaddie * form.caddies;
   const subtotalSets = precioSet * sets;
-  const subtotalServicios = subtotalCaddies + subtotalSets;
+  // El caddie no entra: lo paga el huésped directo al caddie, no el club.
+  const subtotalServicios = subtotalSets;
 
   // Quien acompaña no juega, pero sí paga su lugar. Se cobra desde aquí,
   // junto con los jugadores; no es un servicio ni una cortesía.
@@ -310,6 +335,10 @@ export default function NewReservationPage() {
   const carritosNecesarios = Math.ceil(
     (jugadores.length + acompanantesConNombre.length) / asientosPorCarrito,
   );
+  // Un caddie por carrito, hasta donde alcancen los del día. Si no quedan, la
+  // partida sale sin caddie: el club tiene dos y no deja de vender por eso.
+  const caddiesAsignados = Math.max(Math.min(carritosNecesarios, caddiesLibres), 0);
+  const costoCaddiesInformativo = precioCaddie * caddiesAsignados;
 
   const total = subtotalAdultos + subtotalMenores + subtotalAcompanantes + subtotalServicios;
 
@@ -320,6 +349,7 @@ export default function NewReservationPage() {
 
   const listo =
     form.tee_slot_id &&
+    form.booked_by_name.trim().length >= 3 &&
     form.holder_name.trim().length >= 3 &&
     !fallaCorreo &&
     !fallaTelefono &&
@@ -344,18 +374,24 @@ export default function NewReservationPage() {
     setError(null);
     try {
       const serviciosPedidos = [];
-      if (caddie && form.caddies > 0) {
-        serviciosPedidos.push({ service_id: caddie.id, quantity: form.caddies });
-      }
+
       if (bastones && sets > 0) {
         serviciosPedidos.push({ service_id: bastones.id, quantity: sets });
       }
 
+      try {
+        // Se recuerda en este equipo para que el siguiente turno solo confirme
+        // su nombre en vez de escribirlo completo cada vez.
+        localStorage.setItem('ultimo_atendio', form.booked_by_name.trim());
+      } catch {
+        /* Modo privado o almacenamiento bloqueado: no es grave. */
+      }
       const creada = await bookingApi.create({
         tee_slot_id: form.tee_slot_id,
         modality: form.modality,
         holes: Number(form.holes),
         hotel_id: isHotel ? undefined : form.hotel_id,
+        booked_by_name: form.booked_by_name.trim(),
         holder_name: form.holder_name.trim(),
         holder_email: form.holder_email.trim(),
         holder_phone: form.holder_phone || null,
@@ -459,6 +495,33 @@ export default function NewReservationPage() {
         </Alert>
       )}
 
+      {/* Quién está levantando la reserva. Va antes que todo porque la cuenta
+          no lo dice: la comparten los turnos, y cuando una reserva sale mal
+          capturada hay que saber a quién preguntarle. */}
+      <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-5 shadow-card">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[280px] flex-1">
+            <Field
+              label={isHotel ? '¿Quién de la conserjería levanta la reserva?' : '¿Quién atiende?'}
+              required
+              hint="Su nombre queda en la reserva. La cuenta la comparten varios turnos, así que es lo único que dice quién la hizo."
+            >
+              <Input
+                value={form.booked_by_name}
+                placeholder="María Fernanda Ríos"
+                onChange={(e) => setForm({ ...form, booked_by_name: e.target.value })}
+              />
+            </Field>
+          </div>
+          {form.booked_by_name.trim().length >= 3 && (
+            <p className="pb-2 text-body-md text-outline">
+              Esta reserva va a quedar a nombre de{' '}
+              <span className="text-on-surface">{form.booked_by_name.trim()}</span>.
+            </p>
+          )}
+        </div>
+      </section>
+
       <div className="grid gap-gutter xl:grid-cols-12">
         <div className="space-y-5 xl:col-span-8">
           {/* =========================== 1. Paquete, recorrido y caddie === */}
@@ -467,12 +530,24 @@ export default function NewReservationPage() {
               {PAQUETES.map((item) => {
                 const on = form.modality === item.value;
                 const precio = precioDe(item.value);
+                // El campo puede cerrar la partida abierta por día completo,
+                // cuando no quiere andar armando grupos revueltos.
+                const apagado =
+                  item.value === 'PARTIDA_ABIERTA' && !jornada.admiteAbiertas;
                 return (
                   <button
                     key={item.value}
                     type="button"
+                    disabled={apagado}
+                    title={
+                      apagado
+                        ? 'Ese día el campo no está armando partidas abiertas.'
+                        : undefined
+                    }
                     onClick={() => setForm({ ...form, modality: item.value })}
-                    className={`paquete ${on ? 'paquete-on' : 'paquete-off'}`}
+                    className={`paquete ${on ? 'paquete-on' : 'paquete-off'} ${
+                      apagado ? 'cursor-not-allowed opacity-50' : ''
+                    }`}
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <span
@@ -554,7 +629,20 @@ export default function NewReservationPage() {
                 </div>
               </div>
 
-              {!isHotel && (
+              {!isHotel && isRecepcion && (
+                <div className="min-w-[280px]">
+                  <Field
+                    label="¿Quién manda al huésped?"
+                    hint="Recepción levanta solo al huésped que llega por su cuenta. Si viene de un hotel con convenio, la reserva la registra operaciones."
+                  >
+                    <div className="rounded border border-outline-variant/60 bg-surface-container-low px-3 py-2.5 text-body-lg text-on-surface">
+                      Sin hotel · huésped que llegó al campo
+                    </div>
+                  </Field>
+                </div>
+              )}
+
+              {!isHotel && !isRecepcion && (
                 <div className="min-w-[280px]">
                   <Field
                     label="¿Quién manda al huésped?"
@@ -583,7 +671,10 @@ export default function NewReservationPage() {
               )}
             </div>
 
-            {/* Caddie: se pide aquí y queda en la solicitud. */}
+            {/* El caddie no se pide ni se cobra aquí: se asigna uno por
+                carrito, hasta donde alcancen los dos que tiene el campo, y el
+                huésped le paga directo. Lo que sí hace falta es que la
+                conserjería sepa cuánto vale para poder decírselo. */}
             {caddie && (
               <div className="mt-5 rounded border border-outline-variant/60 bg-surface-container-low">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/50 px-4 py-2.5">
@@ -597,35 +688,34 @@ export default function NewReservationPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5">
-                  <div className="min-w-[200px] flex-1">
-                    <p className="text-title-md text-on-surface">¿Requiere caddie?</p>
-                    <p className="text-body-md text-on-surface-variant">
-                      Asistencia en campo y lectura de greens. Déjelo en 0 si no lo necesita.
+                  <div className="min-w-[240px] flex-1">
+                    <p className="text-title-md text-on-surface">
+                      Se asigna uno por carrito, no se elige
                     </p>
-                    {/* Son dos caddies para todo el campo: se liberan cuando
-                        la partida que los tiene se finaliza. */}
+                    <p className="text-body-md text-on-surface-variant">
+                      El caddie <strong>lo paga el huésped directo al caddie</strong>: no entra en
+                      el total de esta reserva ni lo cobra el mostrador. Dígale al huésped cuánto
+                      es para que llegue preparado.
+                    </p>
                     <p className="mt-1 text-body-md text-outline">
-                      {recursos
-                        ? caddiesLibres > 0
-                          ? `Quedan ${caddiesLibres} de ${recursos.caddies_totales} para ese día.`
-                          : 'Los caddies del campo ya están asignados ese día. Se liberan cuando esa partida se finaliza.'
-                        : ''}
+                      {!recursos
+                        ? ''
+                        : caddiesAsignados > 0
+                          ? `Esta partida lleva ${caddiesAsignados} caddie${
+                              caddiesAsignados === 1 ? '' : 's'
+                            } · el huésped paga ${mxn(costoCaddiesInformativo)} en el campo. Quedan ${caddiesLibres} de ${recursos.caddies_totales} ese día.`
+                          : 'Los caddies del campo ya están asignados ese día, así que esta partida sale sin caddie. Se liberan cuando la partida que los tiene se finaliza.'}
                     </p>
                   </div>
 
-                  <Contador
-                    valor={form.caddies}
-                    min={0}
-                    max={caddiesLibres}
-                    onCambio={(v) => setForm({ ...form, caddies: v })}
-                    etiqueta="Cantidad de caddies"
-                  />
-
                   <div className="rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-right">
                     <p className="text-label-sm uppercase tracking-wider text-outline">
-                      Subtotal caddies
+                      Le paga al caddie
                     </p>
-                    <p className="font-serif text-title-lg text-primary">{mxn(subtotalCaddies)}</p>
+                    <p className="font-serif text-title-lg text-primary">
+                      {mxn(costoCaddiesInformativo)}
+                    </p>
+                    <p className="text-label-sm text-outline">No entra en el total</p>
                   </div>
                 </div>
               </div>
@@ -638,6 +728,31 @@ export default function NewReservationPage() {
             titulo="Fecha y horarios"
             nota={config ? `Intervalos de ${config.interval_minutes} min` : undefined}
           >
+            {/* El cierre del campo no bloquea nada: una salida tardía no
+                alcanza a terminar 18 hoyos y eso es justo lo que se vende en
+                twilight. Se dice aquí para que nadie prometa lo que no cabe. */}
+            {jornada.cierre && (
+              <p className="mb-3 rounded border border-outline-variant/50 bg-surface-container-low px-3 py-2 text-body-md text-outline">
+                El campo cierra a las <span className="text-on-surface">{hora(jornada.cierre)}</span>
+                {jornada.twilight && (
+                  <>
+                    {' '}· desde las{' '}
+                    <span className="text-on-surface">{hora(jornada.twilight)}</span> la salida es
+                    twilight
+                  </>
+                )}
+                . Una salida tardía puede no alcanzar a terminar los 18 hoyos; conviene decírselo al
+                huésped.
+              </p>
+            )}
+
+            {!jornada.admiteAbiertas && (
+              <p className="mb-3 rounded border border-estado-pend-border bg-estado-pend-bg px-3 py-2 text-body-md text-estado-pend-text">
+                Ese día el campo no está armando partidas abiertas. Se puede reservar en
+                grupo, desde 4 jugadores.
+              </p>
+            )}
+
             <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
               <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">
                 Seleccionar fecha de salida
@@ -750,7 +865,9 @@ export default function NewReservationPage() {
                 else if (slot.cerrada_por === 'bloqueada') etiqueta = 'Bloqueado';
                 else if (slot.cerrada_por === 'vencida') etiqueta = 'Horario cerrado';
                 else if (slot.cerrada_por === 'carritos') etiqueta = 'Sin carritos';
-                else if (slot.cerrada_por === 'orden') etiqueta = 'Espera su turno';
+                // Una partida abierta que el campo ya cerró: sobran lugares,
+                // pero esa salida ya se va a despachar.
+                else if (slot.cerrada_por === 'cerrada') etiqueta = 'Partida cerrada';
                 else if (abierta && libre) etiqueta = `Abierta ${slot.occupied}/${slot.capacity}`;
                 else if (abierta) etiqueta = 'Partida abierta';
                 else if (libre) etiqueta = 'Disponible';
@@ -880,10 +997,17 @@ export default function NewReservationPage() {
                     onChange={(e) => setForm({ ...form, holder_pga: e.target.value })}
                   />
                 </Field>
-                <Field label="Hándicap" hint="Opcional">
+                {/* Un solo campo, aunque sean dos cosas distintas en el
+                    mundo del golf: el hándicap es el número y el GHIN es la
+                    credencial que lo respalda. En la caseta nadie los pide
+                    por separado — el jugador dice uno o el otro, y lo que el
+                    club necesita es tenerlo anotado. Pedir dos casillas para
+                    que una siempre quede vacía solo hace más lento el
+                    registro. */}
+                <Field label="Handicap/GHIN" hint="Opcional · el número o la credencial">
                   <Input
                     value={form.holder_handicap}
-                    placeholder="12.4"
+                    placeholder="12.4 o 1234567"
                     onChange={(e) => setForm({ ...form, holder_handicap: e.target.value })}
                   />
                 </Field>
@@ -1077,7 +1201,7 @@ export default function NewReservationPage() {
                   tonoRol={esMenor(p) ? 'infantil' : 'adulto'}
                   detalle={[
                     p.age ? `${p.age} años` : null,
-                    p.handicap ? `HCP ${p.handicap}` : null,
+                    p.handicap ? `Handicap/GHIN ${p.handicap}` : null,
                     p.pga_code ? `PGA ${p.pga_code}` : null,
                     p.club_hand
                       ? `Renta de bastones: ${p.club_hand === 'ZURDO' ? 'zurdo' : 'diestro'}`
@@ -1195,8 +1319,12 @@ export default function NewReservationPage() {
                 }
               />
               <Renglon
-                t="Caddies requeridos"
-                v={form.caddies ? `${form.caddies} ${form.caddies === 1 ? 'caddie' : 'caddies'}` : 'Ninguno'}
+                t="Caddies asignados"
+                v={
+                  caddiesAsignados
+                    ? `${caddiesAsignados} · ${mxn(costoCaddiesInformativo)} que el huésped paga directo`
+                    : 'Ninguno disponible ese día'
+                }
               />
               <Renglon
                 t="Bastones / sets"
@@ -1238,8 +1366,7 @@ export default function NewReservationPage() {
                 {subtotalServicios > 0 && (
                   <div className="flex justify-between gap-3">
                     <span className="min-w-0 text-on-surface-variant">
-                      Servicios ({form.caddies} caddie{form.caddies === 1 ? '' : 's'} + {sets} set
-                      {sets === 1 ? '' : 's'})
+                      Servicios ({sets} set{sets === 1 ? '' : 's'} de bastones)
                     </span>
                     <span className="font-mono text-secondary">{mxn(subtotalServicios)}</span>
                   </div>
@@ -1555,9 +1682,9 @@ function JugadorFila({ numero, player, precio, puedeQuitar, onQuitar, onChange }
         />
         <input
           value={player.handicap}
-          placeholder="Hándicap"
+          placeholder="Handicap/GHIN"
           onChange={(e) => onChange('handicap', e.target.value)}
-          className="w-28 rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-md"
+          className="w-40 rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-md"
         />
         <div className="flex items-center gap-2">
           <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">

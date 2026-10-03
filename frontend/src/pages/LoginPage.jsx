@@ -12,6 +12,10 @@ import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
 import { Alert, Button, Field, Input } from '../components/ui';
 
+/** El sitio público del club. Se configura al desplegar; en local apunta al
+ *  sitio corriendo con `npm run dev` dentro de /sitio. */
+const SITIO_PUBLICO = import.meta.env.VITE_SITIO_PUBLICO || 'http://localhost:5180';
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -94,6 +98,20 @@ export default function LoginPage() {
         </form>
         {/* Los usuarios de prueba viven en el README, no aquí: en producción
             esta pantalla la ve cualquiera que abra la dirección. */}
+
+        {/* La salida de regreso. Al público general le llega esta pantalla por
+            equivocación —el botón de socios del sitio lo trae aquí— y sin una
+            liga de vuelta se queda atorado en un formulario que no puede
+            llenar. */}
+        <p className="mt-6 border-t border-outline-variant/40 pt-5 text-center text-body-md text-outline">
+          ¿Buscaba reservar una salida?{' '}
+          <a
+            href={SITIO_PUBLICO}
+            className="font-semibold text-primary underline decoration-outline-variant underline-offset-4 transition hover:text-primary-container"
+          >
+            Volver al sitio del club
+          </a>
+        </p>
       </div>
     </div>
   );

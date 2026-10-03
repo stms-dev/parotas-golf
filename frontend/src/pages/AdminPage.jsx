@@ -24,7 +24,7 @@ import { Alert, Spinner } from '../components/ui';
 import HistorialTipoCambio from '../components/HistorialTipoCambio';
 import Icono from '../components/Icono';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
-import { MODALIDAD, ROL, fecha, fechaCorta, fechaHora, hora, hoy, mxn, usd, fechaLocal } from '../utils/format';
+import { MODALIDAD, MODALIDAD_VIGENTE, ROL, fecha, fechaCorta, fechaHora, hora, hoy, mxn, usd, fechaLocal } from '../utils/format';
 
 const PERIODOS = [
   { key: 'dia', label: 'Día' },
@@ -40,6 +40,15 @@ const DIAS = {
   ENTRE_SEMANA: 'Lun a jue',
   FIN_DE_SEMANA: 'Vie a dom',
   TODOS: 'Todos los días',
+};
+
+/**
+ * A qué hora cobra cada tarifa. Las últimas salidas del día no alcanzan a
+ * terminar 18 hoyos, así que se venden más baratas: eso es el twilight.
+ */
+const FRANJAS = {
+  TODAS: 'Cualquier hora',
+  TWILIGHT: 'Twilight (últimas salidas)',
 };
 
 function iso(d) {
@@ -445,28 +454,58 @@ function TipoDeCambio({ tc, onCambio }) {
  */
 function BeneficioPga() {
   const [config, setConfig] = useState(null);
+  const [tipo, setTipo] = useState('PORCENTAJE');
   const [valor, setValor] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   function cargar() {
-    catalogApi.pgaConfig().then(setConfig).catch(() => setConfig(null));
+    catalogApi
+      .pgaConfig()
+      .then((c) => {
+        setConfig(c);
+        setTipo(c?.discount_type || 'PORCENTAJE');
+      })
+      .catch(() => setConfig(null));
   }
   useEffect(cargar, []);
 
   const actual = config ? Number(config.value) : 0;
+  const esMonto = tipo === 'MONTO';
+  const actualEsMonto = config?.discount_type === 'MONTO';
+
+  /** Cómo se lee el beneficio vigente, en una sola expresión. */
+  const vigente = !config
+    ? '—'
+    : actualEsMonto
+      ? mxn(actual)
+      : `${actual.toFixed(0)}%`;
 
   async function guardar() {
     const nuevo = Number(valor);
-    if (!(nuevo >= 0 && nuevo <= 100) || valor === '') {
+    if (valor === '' || Number.isNaN(nuevo) || nuevo < 0) {
+      await avisoError(
+        'Falta el valor',
+        esMonto ? 'Escriba el monto a descontar.' : 'Escriba un porcentaje entre 0 y 100.',
+      );
+      return;
+    }
+    if (!esMonto && nuevo > 100) {
       await avisoError('Porcentaje inválido', 'Escriba un porcentaje entre 0 y 100.');
       return;
     }
+
+    const nuevoTexto = esMonto ? mxn(nuevo) : `${nuevo.toFixed(0)}%`;
     const ok = await confirmar({
       titulo: 'Cambiar el descuento PGA',
       texto:
-        `Pasará de <b>${actual.toFixed(0)}%</b> a <b>${nuevo.toFixed(0)}%</b> sobre la tarifa ` +
-        'de cada profesional con credencial.<br><span style="font-size:.9em;opacity:.75">' +
-        'Las partidas ya cobradas conservan su descuento.</span>',
+        `Pasará de <b>${vigente}</b> a <b>${nuevoTexto}</b> sobre la tarifa de cada ` +
+        'profesional con credencial.<br>' +
+        (esMonto
+          ? '<span style="font-size:.9em;opacity:.75">El monto se descuenta a cada acreditado ' +
+            'por separado, y nunca más de lo que cuesta su propio green fee.</span><br>'
+          : '') +
+        '<span style="font-size:.9em;opacity:.75">Las partidas ya cobradas conservan su ' +
+        'descuento.</span>',
       confirmar: 'Sí, cambiarlo',
       icono: 'question',
     });
@@ -474,12 +513,19 @@ function BeneficioPga() {
     setGuardando(true);
     try {
       await catalogApi.setPgaConfig({
-        discount_type: 'PORCENTAJE',
+        discount_type: tipo,
         value: nuevo.toFixed(2),
-        description: `Beneficio PGA ${nuevo.toFixed(0)}% sobre la tarifa del portador`,
+        description: esMonto
+          ? `Beneficio PGA de ${mxn(nuevo)} sobre la tarifa del portador`
+          : `Beneficio PGA ${nuevo.toFixed(0)}% sobre la tarifa del portador`,
         valid_from: hoy(),
       });
-      await exito('Descuento PGA actualizado', `Ahora es del ${nuevo.toFixed(0)}% por persona.`);
+      await exito(
+        'Descuento PGA actualizado',
+        esMonto
+          ? `Ahora se descuentan ${mxn(nuevo)} por persona acreditada.`
+          : `Ahora es del ${nuevo.toFixed(0)}% por persona.`,
+      );
       setValor('');
       cargar();
     } catch (err) {
@@ -493,25 +539,37 @@ function BeneficioPga() {
     <Tarjeta icono="verificado" titulo="Beneficio PGA">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-serif text-display-lg leading-none text-primary">
-            {config ? `${actual.toFixed(0)}%` : '—'}
-          </p>
+          <p className="font-serif text-display-lg leading-none text-primary">{vigente}</p>
           <p className="text-body-md text-outline">
             de descuento sobre la tarifa de la persona con credencial (no del total del ticket)
           </p>
         </div>
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <label>
-            <span className={ETIQUETA}>Nuevo porcentaje</span>
+            <span className={ETIQUETA}>Cómo se descuenta</span>
+            <select
+              value={tipo}
+              onChange={(e) => {
+                setTipo(e.target.value);
+                setValor('');
+              }}
+              className={CAMPO}
+            >
+              <option value="PORCENTAJE">Porcentaje de su tarifa</option>
+              <option value="MONTO">Monto fijo en pesos</option>
+            </select>
+          </label>
+          <label>
+            <span className={ETIQUETA}>{esMonto ? 'Pesos por persona' : 'Nuevo porcentaje'}</span>
             <input
               type="number"
               min="0"
-              max="100"
-              step="1"
+              max={esMonto ? undefined : '100'}
+              step={esMonto ? '50' : '1'}
               value={valor}
-              placeholder={actual.toFixed(0)}
+              placeholder={esMonto ? '1000' : actual.toFixed(0)}
               onChange={(e) => setValor(e.target.value)}
-              className={`${CAMPO} w-24 text-right font-mono`}
+              className={`${CAMPO} w-28 text-right font-mono`}
             />
           </label>
           <button onClick={guardar} disabled={guardando} className={BOTON}>
@@ -519,6 +577,14 @@ function BeneficioPga() {
           </button>
         </div>
       </div>
+
+      <p className="mt-4 rounded bg-surface-container-low px-3 py-2 text-body-md text-outline">
+        El beneficio es individual: se aplica a la tarifa de cada jugador que presentó credencial,
+        no al total de la partida.{' '}
+        {esMonto
+          ? 'Con monto fijo, a cada acreditado se le descuenta esa cantidad, y nunca más de lo que cuesta su propio green fee.'
+          : 'Con porcentaje, a cada acreditado se le descuenta esa proporción de su propia tarifa.'}
+      </p>
     </Tarjeta>
   );
 }
@@ -982,6 +1048,11 @@ function Tarifas({ tarifas, tasa, onCambio }) {
                   >
                     {DIAS[t.day_type] || DIAS.TODOS}
                   </span>
+                  {t.time_band === 'TWILIGHT' && (
+                    <span className="ml-1 rounded bg-primary-container px-2 py-0.5 text-label-sm uppercase tracking-wider text-on-primary">
+                      Twilight
+                    </span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
                   {editando === t.id ? (
@@ -1042,10 +1113,11 @@ function Tarifas({ tarifas, tasa, onCambio }) {
 function AltaDeTarifa({ onListo }) {
   const [form, setForm] = useState({
     name: '',
-    modality: 'INDIVIDUAL',
+    modality: 'GRUPO',
     holes: 18,
     category: 'ADULTO',
     day_type: 'ENTRE_SEMANA',
+    time_band: 'TODAS',
     price: '',
   });
   const [guardando, setGuardando] = useState(false);
@@ -1092,7 +1164,7 @@ function AltaDeTarifa({ onListo }) {
           onChange={(e) => setForm({ ...form, modality: e.target.value })}
           className={CAMPO}
         >
-          {Object.entries(MODALIDAD).map(([v, t]) => (
+          {Object.entries(MODALIDAD_VIGENTE).map(([v, t]) => (
             <option key={v} value={v}>
               {t}
             </option>
@@ -1129,6 +1201,20 @@ function AltaDeTarifa({ onListo }) {
           className={CAMPO}
         >
           {Object.entries(DIAS).map(([v, t]) => (
+            <option key={v} value={v}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className={ETIQUETA}>Horario</span>
+        <select
+          value={form.time_band}
+          onChange={(e) => setForm({ ...form, time_band: e.target.value })}
+          className={CAMPO}
+        >
+          {Object.entries(FRANJAS).map(([v, t]) => (
             <option key={v} value={v}>
               {t}
             </option>

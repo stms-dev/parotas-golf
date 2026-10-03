@@ -23,6 +23,10 @@ class ReservationStatus(str, Enum):
     COMPLETADA = "COMPLETADA"
     CANCELADA = "CANCELADA"
     NO_SHOW = "NO_SHOW"
+    # La partida salió pero no se pudo terminar: llovió, cayó tormenta, el
+    # campo se suspendió. No es una cancelación —ya jugaron y ya pagaron— ni
+    # una partida completada. Queda aparte para poder reponerles la ronda.
+    INTERRUMPIDA = "INTERRUMPIDA"
 
 
 class BookingModality(str, Enum):
@@ -64,6 +68,19 @@ class DayType(str, Enum):
     def del_dia(cls, dia) -> "DayType":
         # weekday(): lunes = 0 … domingo = 6. Viernes (4) ya es fin de semana.
         return cls.FIN_DE_SEMANA if dia.weekday() >= 4 else cls.ENTRE_SEMANA
+
+
+class TimeBand(str, Enum):
+    """A qué horario aplica una tarifa.
+
+    Las últimas salidas del día no alcanzan a terminar 18 hoyos, así que se
+    venden más baratas. Una tarifa TODAS vale a cualquier hora y es el respaldo
+    cuando no hay una de twilight dada de alta — así el campo puede empezar a
+    vender el horario antes de haber decidido su precio.
+    """
+
+    TODAS = "TODAS"
+    TWILIGHT = "TWILIGHT"
 
 
 class SlotStatus(str, Enum):

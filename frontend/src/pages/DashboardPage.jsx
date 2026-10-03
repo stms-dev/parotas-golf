@@ -385,8 +385,9 @@ function Franja({ slot, reservas, rate, ultima, puedeAsignar }) {
   // Salida tomada por el replay de otra partida: está ocupada aunque no
   // tenga reserva propia.
   const deReplay = Boolean(slot.replay_folio);
-  // Los horarios se abren en orden: los de más tarde esperan su turno.
-  const enEspera = slot.cerrada_por === 'orden';
+  // Los horarios ya no se abren en orden; se deja la variable en falso para no
+  // desarmar el resto del cálculo de colores de la fila.
+  const enEspera = false;
   const sinCarritos = slot.cerrada_por === 'carritos';
   const libre = !vencida && slot.status === 'DISPONIBLE';
   const abierta = !vencida && slot.status === 'ABIERTA';

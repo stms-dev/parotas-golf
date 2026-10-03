@@ -66,7 +66,10 @@ def replay(
     actor: User = Depends(RequirePermission(Permission.CHECKIN_PERFORM)),
 ):
     """Ronda extra: un segundo ticket del mismo folio, cobrado aparte."""
-    ticket = CheckInService(db).replay(reservation_id, payload.tee_slot_id, payload.payments, actor)
+    ticket = CheckInService(db).replay(
+        reservation_id, payload.tee_slot_id, payload.payments, actor,
+        attended_by_name=payload.attended_by_name,
+    )
     return ReplayOut(
         id=ticket.id, players_count=ticket.players_count, unit_price=ticket.unit_price,
         total=ticket.total, created_at=ticket.created_at, tee_slot_id=ticket.tee_slot_id,

@@ -14,14 +14,22 @@ TRANSITIONS: Dict[S, Set[S]] = {
     S.PENDIENTE: {S.CONFIRMADA, S.CANCELADA, S.NO_SHOW},
     S.CONFIRMADA: {S.CHECK_IN, S.CANCELADA, S.NO_SHOW},
     S.CHECK_IN: {S.EN_JUEGO, S.CANCELADA},
-    S.EN_JUEGO: {S.COMPLETADA},
+    # Una partida en juego se termina, o se interrumpe si el campo se suspende.
+    S.EN_JUEGO: {S.COMPLETADA, S.INTERRUMPIDA},
+    # Interrumpida se cierra cuando el campo da por concluido el asunto. No
+    # vuelve a EN_JUEGO: la ronda que se les repone es otra reserva, con su
+    # propio folio y su propia salida.
+    S.INTERRUMPIDA: {S.COMPLETADA, S.CANCELADA},
     S.COMPLETADA: set(),
     S.CANCELADA: set(),
     S.NO_SHOW: set(),
 }
 
-# Estados que mantienen el cupo tomado en la franja.
-OCCUPYING_STATES = {S.PENDIENTE, S.CONFIRMADA, S.CHECK_IN, S.EN_JUEGO, S.COMPLETADA}
+# Estados que mantienen el cupo tomado en la franja. Interrumpida entra: esa
+# salida se jugó, aunque a medias, y no se puede volver a vender.
+OCCUPYING_STATES = {
+    S.PENDIENTE, S.CONFIRMADA, S.CHECK_IN, S.EN_JUEGO, S.COMPLETADA, S.INTERRUMPIDA,
+}
 
 
 def can_transition(current: S, target: S) -> bool:
@@ -50,6 +58,9 @@ _ESTADO_HOTEL = {
     S.CONFIRMADA: S.PENDIENTE,
     S.CHECK_IN: S.PENDIENTE,
     S.EN_JUEGO: S.CONFIRMADA,
+    # Para el hotel su reserva se cumplió: el huésped llegó y jugó. Que el campo
+    # se haya suspendido y le repongan la ronda es asunto del campo.
+    S.INTERRUMPIDA: S.CONFIRMADA,
     S.COMPLETADA: S.CONFIRMADA,
     S.CANCELADA: S.CANCELADA,
     S.NO_SHOW: S.NO_SHOW,

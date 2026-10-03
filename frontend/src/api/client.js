@@ -226,6 +226,15 @@ export const catalogApi = {
   updateSetting: (key, value) => api.put(`/catalog/settings/${key}`, { value }),
 };
 
+/**
+ * Lo único que se puede pedir sin sesión: avisar que se escaneó un pase.
+ * No devuelve datos de la reserva — el celular que escanea puede ser de
+ * cualquiera.
+ */
+export const publicApi = {
+  scanPass: (token) => api.get(`/booking/public/scan/${encodeURIComponent(token)}`),
+};
+
 export const bookingApi = {
   availability: (params) => api.get('/booking/availability', params),
   recursos: (params) => api.get('/booking/recursos', params),
@@ -237,6 +246,8 @@ export const bookingApi = {
   get: (id) => api.get(`/booking/reservations/${id}`),
   getByFolio: (folio) => api.get(`/booking/reservations/folio/${folio}`),
   getByQr: (token) => api.get(`/booking/reservations/qr/${token}`),
+  /** Folio y QR de la partida, para imprimírselo al huésped. */
+  pase: (id) => api.get(`/booking/reservations/${id}/pase`),
   update: (id, body) => api.patch(`/booking/reservations/${id}`, body),
 
   confirm: (id) => api.post(`/booking/reservations/${id}/confirm`),
@@ -244,6 +255,22 @@ export const bookingApi = {
   noShow: (id) => api.post(`/booking/reservations/${id}/no-show`),
   start: (id) => api.post(`/booking/reservations/${id}/start`),
   complete: (id) => api.post(`/booking/reservations/${id}/complete`),
+  /** El campo se suspendió: en qué hoyo se quedaron y por qué. */
+  interrumpir: (id, body) => api.post(`/booking/reservations/${id}/interrumpir`, body),
+  /** Le repone la ronda al huésped, sin volver a cobrarle. Devuelve la nueva. */
+  reagendar: (id, body) => api.post(`/booking/reservations/${id}/reagendar`, body),
+
+  // --- control de partidas abiertas (solo operaciones) ---
+  /** Las partidas abiertas del día, con quién se juntó en cada una. */
+  partidasAbiertas: (params) => api.get('/booking/partidas-abiertas', params),
+  /** Cierra una partida abierta antes de que se llene, o la vuelve a abrir. */
+  cerrarPartidaAbierta: (slotId, cerrar) =>
+    api.post(`/booking/slots/${slotId}/partida-abierta/cerrar`, { cerrar }),
+  /** Pasa una reserva de partida abierta a otra salida. */
+  moverReserva: (id, tee_slot_id) =>
+    api.post(`/booking/reservations/${id}/mover`, { tee_slot_id }),
+  /** Abre o cierra la modalidad de partida abierta para un día completo. */
+  reglaDelDia: (body) => api.post('/booking/partidas-abiertas/regla-del-dia', body),
 };
 
 export const checkinApi = {

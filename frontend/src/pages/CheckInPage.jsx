@@ -22,7 +22,7 @@ import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
 import { Recibo, ReciboReplay, Responsiva } from '../components/Documentos';
-import { confirmar, error as avisoError, exito, pedirCorreo } from '../utils/avisos';
+import { confirmar, error as avisoError, exito } from '../utils/avisos';
 import { METODO_PAGO, TASA_IVA, desgloseIva, hora, hoy, mxn, usd } from '../utils/format';
 
 /**
@@ -106,6 +106,15 @@ export default function CheckInPage() {
   const [cash, setCash] = useState(null);
   const [panel, setPanel] = useState(null);
 
+  /** Quién está atendiendo, por su nombre: la cuenta la comparten los turnos. */
+  const [atiende, setAtiende] = useState(() => {
+    try {
+      return localStorage.getItem('ultimo_atendio') || '';
+    } catch {
+      return '';
+    }
+  });
+
   const [arrivals, setArrivals] = useState({});
   /** Por jugador: { decision: 'valida' | 'invalida' | null }. */
   const [pga, setPga] = useState({});
@@ -148,6 +157,13 @@ export default function CheckInPage() {
     () => refrescarEncabezado(),
   );
 
+  // Escanearon el pase con el celular: la partida se abre sola en esta
+  // pantalla, sin que nadie teclee el folio.
+  useRealtimeEvent([EVENTOS.PASE_ESCANEADO], (mensaje) => {
+    const reservationId = mensaje.payload?.reservation_id;
+    if (reservationId) buscar(null, { reservation_id: reservationId });
+  });
+
   // Desde el detalle de una reserva se llega con ?folio=: se abre sola.
   useEffect(() => {
     const folio = new URLSearchParams(window.location.search).get('folio');
@@ -159,16 +175,25 @@ export default function CheckInPage() {
 
   async function buscar(event, valor) {
     event?.preventDefault();
-    const term = (valor ?? termino).trim();
-    if (!term) return;
+    // El escaneo desde el celular manda la búsqueda ya armada; el mostrador
+    // manda lo que se tecleó y aquí se adivina si es folio o pase.
+    const consulta =
+      typeof valor === 'object' && valor !== null
+        ? valor
+        : (() => {
+            const term = (valor ?? termino).trim();
+            if (!term) return null;
+            // Un token de QR es largo y sin espacios; un folio no.
+            const esQr = term.length > 20 && !term.includes(' ');
+            return esQr ? { qr_token: term } : { folio: term };
+          })();
+    if (!consulta) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Un token de QR es largo y sin espacios; un folio no.
-      const esQr = term.length > 20 && !term.includes(' ');
-      const summary = await checkinApi.lookup(esQr ? { qr_token: term } : { folio: term.trim() });
+      const summary = await checkinApi.lookup(consulta);
       const full = await bookingApi.getByFolio(summary.folio);
 
       setAccount(summary);
@@ -236,7 +261,13 @@ export default function CheckInPage() {
     setSaving(true);
     setError(null);
     try {
+      try {
+        localStorage.setItem('ultimo_atendio', atiende.trim());
+      } catch {
+        /* Modo privado o almacenamiento bloqueado: no es grave. */
+      }
       const response = await checkinApi.perform(reservation.id, {
+        attended_by_name: atiende.trim(),
         arrivals: Object.entries(arrivals).map(([id, arrived]) => ({
           player_id: Number(id),
           arrived,
@@ -305,26 +336,6 @@ export default function CheckInPage() {
     refrescarEncabezado();
   }
 
-  /** El recibo por correo, al titular o a donde diga el huésped. */
-  async function enviarReciboPorCorreo() {
-    const destino = await pedirCorreo(reservation.holder_email);
-    if (destino === null) return;
-    setSaving(true);
-    try {
-      const correo = await checkinApi.enviarRecibo(reservation.id, destino || undefined);
-      await exito(
-        correo.status === 'ENVIADO' ? 'Recibo enviado' : 'Recibo en cola',
-        correo.status === 'ENVIADO'
-          ? `Salió a <b>${correo.to_email}</b>.`
-          : `Quedó encolado para <b>${correo.to_email}</b>.`,
-      );
-    } catch (err) {
-      await avisoError('No se pudo enviar el recibo', err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   /** Salida del campo, camino 1: la partida terminó y se cierra. */
   async function finalizar() {
     const ok = await confirmar({
@@ -354,6 +365,15 @@ export default function CheckInPage() {
    * se cobra exacto; en efectivo se puede entregar de más y se da cambio.
    */
   async function cobroEnRegla(concepto) {
+    // Sin el nombre de quien atiende no se cobra: con cuentas compartidas es
+    // el único dato que dice quién lo hizo, y después ya no se puede saber.
+    if (atiende.trim().length < 3) {
+      await avisoError(
+        'Falta quién atiende',
+        'Escriba arriba su nombre completo. Queda registrado en el cobro.',
+      );
+      return false;
+    }
     if (faltante > 0) {
       await avisoError(
         'Cobro incompleto',
@@ -418,6 +438,7 @@ export default function CheckInPage() {
     try {
       const ticket = await checkinApi.replay(reservation.id, {
         tee_slot_id: salidaReplay,
+        attended_by_name: atiende.trim(),
         payments: lineasDePago.map((p) => ({
           currency: p.currency,
           amount: p.amount,
@@ -610,6 +631,26 @@ export default function CheckInPage() {
         </div>
       </section>
 
+      {/* Quién está en el mostrador. Va antes de buscar el folio: su nombre se
+          graba en el check-in y en el replay, y la cuenta de recepción la usan
+          los tres turnos, así que es lo único que dice quién atendió. */}
+      <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-4 shadow-card">
+        <label className="flex flex-wrap items-center gap-3">
+          <span className="shrink-0 text-title-md text-primary">¿Quién atiende?</span>
+          <input
+            value={atiende}
+            onChange={(e) => setAtiende(e.target.value)}
+            placeholder="Nombre de quien está en el mostrador"
+            className="min-w-[260px] flex-1 rounded border border-outline-variant bg-surface-container-low px-3 py-2.5 text-body-lg text-on-surface placeholder:text-outline focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none"
+          />
+          <span className="text-body-md text-outline">
+            {atiende.trim().length >= 3
+              ? 'Queda registrado en cada cobro de este turno.'
+              : 'Hace falta para poder cobrar.'}
+          </span>
+        </label>
+      </section>
+
       {/* -------------------------------------------------------- 2. Búsqueda */}
       <form
         onSubmit={buscar}
@@ -675,6 +716,11 @@ export default function CheckInPage() {
             </p>
             <span className="text-body-md text-outline">
               {reservation.tee} · partida {hora(reservation.slot_time)} · {reservation.holes} hoyos
+              {/* Quién la levantó del otro lado: si algo no cuadra, es a esa
+                  persona a la que hay que hablarle, no al hotel en abstracto. */}
+              {reservation.booked_by_name && (
+                <> · la levantó {reservation.booked_by_name}</>
+              )}
             </span>
             <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
               {PASOS.map((texto, i) => {
@@ -737,19 +783,8 @@ export default function CheckInPage() {
                 >
                   <Icono nombre="pago" size={17} className="text-secondary" /> Recibo
                 </button>
-                {/* El recibo también se puede mandar por correo, para quien
-                    no quiere papel. */}
-                {Number(reservation.total_paid || 0) > 0 && (
-                  <button
-                    type="button"
-                    onClick={enviarReciboPorCorreo}
-                    disabled={saving}
-                    className="flex items-center gap-2 rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-title-md text-on-surface shadow-card transition hover:bg-surface-container-low disabled:opacity-60"
-                  >
-                    <Icono nombre="enviar" size={17} className="text-secondary" />
-                    Enviar recibo
-                  </button>
-                )}
+                {/* El recibo por correo no lleva botón: sale solo en cuanto
+                    la cuenta queda pagada. */}
 
                 {/* Cada replay es otro ticket del mismo folio. */}
                 {replays.map((t, i) => (
@@ -1156,6 +1191,16 @@ export default function CheckInPage() {
                       nota="incluido"
                       v="—"
                     />
+                    {/* El caddie no se cobra en la caja: el huésped le paga
+                        directo. Se enseña para que el mostrador no lo busque
+                        en la cuenta ni lo intente cobrar. */}
+                    {reservation.caddies_used > 0 && (
+                      <Linea
+                        t={`${reservation.caddies_used}× Caddie`}
+                        nota="el huésped le paga directo al caddie"
+                        v="—"
+                      />
+                    )}
                     <Linea t="Servicios de la reserva" v={mxn(serviciosReserva - acompGuardado)} />
                     <Linea
                       t="Servicios adicionales"

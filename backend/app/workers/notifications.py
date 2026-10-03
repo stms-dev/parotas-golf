@@ -7,6 +7,7 @@ El QR guarda una dirección con un identificador largo y aleatorio, nada más.
 Ni nombres, ni correos, ni montos: si alguien fotografía un pase ajeno, no se
 lleva datos de nadie, y ese identificador se puede regenerar.
 """
+import base64
 from io import BytesIO
 
 import qrcode
@@ -34,6 +35,15 @@ def generar_qr_png(token: str) -> bytes:
     buffer = BytesIO()
     qr.make_image(fill_color=VERDE, back_color="white").save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def generar_qr_base64(token: str) -> str:
+    """El mismo PNG, en texto. Para incrustarlo en una pantalla o en el correo.
+
+    Un `<img src="data:image/png;base64,…">` no pide nada al servidor, así que
+    el pase se dibuja aunque la pantalla esté en un navegador sin sesión.
+    """
+    return base64.b64encode(generar_qr_png(token)).decode("ascii")
 
 
 def _fecha_y_hora(reservation) -> str:

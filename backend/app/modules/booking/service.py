@@ -13,6 +13,7 @@ from app.core.permissions import Permission
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError, ValidationError
 from app.modules.audit.service import AuditService
 from app.modules.booking.models import (
+    CourseDayRule,
     Reservation,
     ReservationCompanion,
     ReservationPlayer,
@@ -52,10 +53,13 @@ logger = logging.getLogger(__name__)
 class RecursosService:
     """Carritos y caddies del campo.
 
-    Los dos son limitados y no se eligen: el carrito sale de cuánta gente va
-    (dos personas por carrito) y el caddie se pide, pero solo hasta donde
-    alcancen. Un recurso queda tomado mientras la partida no termine: al
-    marcarse como finalizada, vuelve a estar disponible para el resto del día.
+    Ninguno de los dos se elige. El carrito sale de cuánta gente va (dos
+    personas por carrito) y el caddie va uno por carrito, hasta donde alcancen
+    los que hay: cuando se acaban, la partida sale sin caddie y no se rechaza
+    nada — perder una venta por eso no tendría sentido.
+
+    Un recurso queda tomado mientras la partida no termine: al marcarse como
+    finalizada, vuelve a estar disponible para el resto del día.
     """
 
     EN_USO = (
@@ -86,6 +90,14 @@ class RecursosService:
         asientos = asientos or self.config()["personas_por_carrito"]
         return -(-personas // asientos)
 
+    def caddies_para(self, personas: int, asientos: Optional[int] = None) -> int:
+        """Caddies que pide un grupo: uno por carrito."""
+        return self.carritos_para(personas, asientos)
+
+    def caddies_asignables(self, personas: int, libres: int, asientos: Optional[int] = None) -> int:
+        """Los que de verdad se le pueden dar hoy: lo que pide, o lo que queda."""
+        return max(min(self.caddies_para(personas, asientos), libres), 0)
+
     def _partidas_del_dia(self, target: date) -> List[Reservation]:
         stmt = (
             select(Reservation)
@@ -96,6 +108,15 @@ class RecursosService:
 
     @staticmethod
     def _caddies_de(reservation: Reservation) -> int:
+        """Caddies que tiene tomados la partida.
+
+        Se lee de la columna. Las reservas de antes del cambio no la traen
+        llena, así que para esas se cae a la línea de servicio que se les cobró
+        en su momento; si no, dejarían de contar y el campo creería tener
+        caddies libres que están en el campo.
+        """
+        if reservation.caddies_used:
+            return reservation.caddies_used
         return sum(
             linea.quantity
             for linea in reservation.services
@@ -187,28 +208,24 @@ class AvailabilityService:
             self.db.rollback()
         return self.slots.list_by_date(target)
 
-    def salida_en_turno(self, target: date, tee: Optional[str] = None) -> Optional[TeeSlot]:
-        """La única salida que se puede reservar ahora mismo.
-
-        Las salidas se abren en orden: mientras las 09:00 tengan lugar, no se
-        vende la de las 09:30. Cuando la primera se llena —o cuando su hora ya
-        pasó— se abre la siguiente. Así el campo se ocupa de corrido y no
-        quedan huecos que nadie juega.
-        """
-        for slot in self.day(target, tee):
-            if slot.status == SlotStatus.BLOQUEADO or slot.available <= 0:
-                continue
-            if not settings.horarios_libres and ya_paso(slot.slot_date, slot.slot_time):
-                continue
-            return slot
-        return None
-
     def day(self, target: date, tee: Optional[str] = None) -> List[TeeSlot]:
         slots = self.slots.list_by_date(target, tee)
-        if not slots:
+        # No basta con generar cuando el día está vacío: si el club amplía su
+        # horario, los días ya materializados se quedarían con las salidas
+        # viejas y nadie entendería por qué no aparecen las nuevas. Así que se
+        # compara contra lo que la configuración espera y se completa si falta.
+        if len(slots) < self._salidas_esperadas(tee):
             self.ensure_day(target)
             slots = self.slots.list_by_date(target, tee)
         return slots
+
+    def _salidas_esperadas(self, tee: Optional[str] = None) -> int:
+        """Cuántas franjas debería tener un día según la configuración vigente."""
+        return sum(
+            len(self.schedule.generate_times(config))
+            for config in self.schedule.list_configs()
+            if tee is None or config.tee == tee
+        )
 
     def range(self, start: date, end: date, tee: Optional[str] = None) -> List[TeeSlot]:
         if (end - start).days > 90:
@@ -308,15 +325,24 @@ class ReservationService_:
     def _validate_modality(modality: BookingModality, player_count: int) -> None:
         """Cuántos jugadores admite cada paquete.
 
-        El grupo no tiene techo: toma la salida completa y es el campo quien
-        decide a cuántos deja salir juntos. La partida abierta sí lo tiene,
-        porque comparte la salida con huéspedes de otros hoteles.
+        El grupo arranca en 4: es el cuarteto que toma la salida completa, y por
+        eso no tiene techo — es el campo quien decide a cuántos deja salir
+        juntos. La partida abierta no tiene mínimo: sale con los que se junten,
+        y su techo es el cupo de la salida que comparten.
+
+        Individual ya no se vende. Se queda en el catálogo porque hay reservas
+        viejas que la usaron y tienen que seguir leyéndose.
         """
         reglas = {
             BookingModality.INDIVIDUAL: (1, 1),
-            BookingModality.GRUPO: (2, None),
+            BookingModality.GRUPO: (4, None),
             BookingModality.PARTIDA_ABIERTA: (1, 4),
         }
+        if modality == BookingModality.INDIVIDUAL:
+            raise ValidationError(
+                "El paquete Individual ya no se ofrece. Una salida se vende como "
+                "grupo (desde 4 jugadores) o como partida abierta."
+            )
         minimo, maximo = reglas[modality]
         if player_count < minimo or (maximo is not None and player_count > maximo):
             limite = f"entre {minimo} y {maximo}" if maximo is not None else f"desde {minimo}"
@@ -346,24 +372,26 @@ class ReservationService_:
                 + (f": {slot.event.name}" if slot.event else "")
             )
 
-        # Las salidas se abren en orden: solo se vende la más próxima con
-        # lugar. Las de más tarde esperan su turno.
-        en_turno = self.availability.salida_en_turno(slot.slot_date, slot.tee)
-        if en_turno and en_turno.id != slot.id:
+        # Los horarios ya no se abren en orden: el huésped elige el que quiera
+        # de los que estén libres. Lo único que cierra una salida es que esté
+        # llena, bloqueada por un evento, o que su hora ya pasó.
+
+        if modality == BookingModality.PARTIDA_ABIERTA and not self.dia_admite_abiertas(
+            slot.slot_date
+        ):
             raise BusinessRuleError(
-                f"Los horarios se abren en orden: ahora corresponde la salida de las "
-                f"{en_turno.slot_time.strftime('%H:%M')}. "
-                f"Las {slot.slot_time.strftime('%H:%M')} se abren cuando esa se llene "
-                "o pase su hora."
-            )
-        if en_turno is None:
-            raise BusinessRuleError(
-                "Ya no hay salidas por abrir este día. Elija otra fecha."
+                f"El {slot.slot_date.strftime('%d/%m')} no se están armando partidas "
+                "abiertas. Reserve como grupo o elija otro día."
             )
 
         vivas = self.repo.active_reservations_in_slot(slot.id)
         if vivas:
             solo_abiertas = all(r.modality == BookingModality.PARTIDA_ABIERTA for r in vivas)
+            if solo_abiertas and slot.open_closed:
+                raise BusinessRuleError(
+                    f"La partida abierta de las {slot.slot_time.strftime('%H:%M')} ya se "
+                    "cerró: el campo la va a despachar como está."
+                )
             if modality != BookingModality.PARTIDA_ABIERTA or not solo_abiertas:
                 raise BusinessRuleError(
                     f"La salida de las {slot.slot_time.strftime('%H:%M')} ya está asignada. "
@@ -408,22 +436,44 @@ class ReservationService_:
         solo_abiertas = all(r.modality == BookingModality.PARTIDA_ABIERTA for r in vivas)
         slot.status = (
             SlotStatus.ABIERTA
-            if solo_abiertas and slot.occupied < slot.capacity
+            # Si el operador la cerró a mano, deja de admitir gente aunque le
+            # queden lugares: ya va a salir.
+            if solo_abiertas and slot.occupied < slot.capacity and not slot.open_closed
             else SlotStatus.OCUPADO
         )
 
     # --------------------------------------------------------------- creación
     def create(self, data: ReservationCreate, actor: User) -> Reservation:
-        # 1. Hotel: un usuario HOTEL solo puede reservar para el suyo.
+        # 1. Hotel: un usuario HOTEL solo puede reservar para el suyo, y
+        # recepción solo para el público general.
         if actor.role == UserRole.HOTEL:
             hotel_id = actor.hotel_id
+        elif actor.role == UserRole.RECEPCION:
+            # Recepción atiende al que llega sin hotel. Colgarle una reserva a
+            # un hotel con convenio le genera comisión a ese hotel, y eso lo
+            # decide operaciones, no el mostrador.
+            directo = self.hotels.venta_directa()
+            if data.hotel_id is not None and data.hotel_id != directo.id:
+                raise BusinessRuleError(
+                    "Recepción solo puede levantar reservas de público general. "
+                    "Para asignarla a un hotel con convenio la registra operaciones."
+                )
+            hotel_id = directo.id
         else:
             hotel_id = data.hotel_id
             if hotel_id is None:
                 raise ValidationError("Debe indicar el hotel de la reserva")
         hotel = self.hotels.get(hotel_id)
 
-        # 2. Reglas de modalidad y cupo.
+        # 2. Quién la está levantando. Se exige aquí y no en el esquema porque
+        # el mismo cuerpo sirve para cotizar, y cotizar no guarda nada.
+        quien_reserva = (data.booked_by_name or "").strip()
+        if len(quien_reserva) < 3:
+            raise ValidationError(
+                "Indique el nombre de quien está levantando la reserva"
+            )
+
+        # 3. Reglas de modalidad y cupo.
         self._validate_modality(data.modality, len(data.players))
 
         slot = self.slots.get_for_update(data.tee_slot_id)
@@ -449,7 +499,7 @@ class ReservationService_:
                     "Elija una fecha a partir de mañana."
                 )
 
-        # 3. Carritos y caddies: son limitados y se reparten por día. El
+        # 4. Carritos y caddies: son limitados y se reparten por día. El
         #    carrito no se elige, sale de cuánta gente va.
         situacion = self.recursos.situacion(slot.slot_date)
         personas = len(data.players) + len(data.companions)
@@ -461,17 +511,12 @@ class ReservationService_:
                 f"de {situacion['carritos_totales']}."
             )
 
-        caddies_pedidos = 0
-        for entrada in data.services:
-            servicio = self.services.get(entrada.service_id)
-            if servicio.code == "CADDIE":
-                caddies_pedidos += entrada.quantity
-        if caddies_pedidos > situacion["caddies_libres"]:
-            raise BusinessRuleError(
-                f"Solo quedan {situacion['caddies_libres']} caddie(s) libres de "
-                f"{situacion['caddies_totales']} para ese día y se piden {caddies_pedidos}. "
-                "Los caddies se liberan cuando la partida que los tiene se finaliza."
-            )
+        # El caddie no se pide ni se rechaza: se asigna uno por carrito hasta
+        # donde alcancen los que hay libres ese día. Si ya no quedan, la partida
+        # sale sin caddie — el club tiene dos y no va a dejar de vender por eso.
+        caddies = self.recursos.caddies_asignables(
+            personas, situacion["caddies_libres"], situacion["personas_por_carrito"]
+        )
 
         holders = [p for p in data.players if p.is_holder]
         if len(holders) > 1:
@@ -480,7 +525,7 @@ class ReservationService_:
         # La salida se valida ANTES de escribir nada.
         self._assert_slot_available(slot, len(data.players), data.modality)
 
-        # 3. Valores congelados: TC y comisión del momento.
+        # 5. Valores congelados: TC y comisión del momento.
         exchange_rate = self.exchange.current_rate()
         commission_rate = hotel.commission_rate
 
@@ -496,6 +541,8 @@ class ReservationService_:
             holder_email=str(data.holder_email).lower().strip(),
             holder_phone=data.holder_phone,
             holder_room=data.holder_room,
+            booked_by_name=quien_reserva,
+            caddies_used=caddies,
             notes=data.notes,
             exchange_rate_applied=exchange_rate,
             commission_rate_applied=commission_rate,
@@ -505,7 +552,7 @@ class ReservationService_:
         )
         self.repo.add(reservation)
 
-        # 4. Jugadores y su tarifa congelada.
+        # 6. Jugadores y su tarifa congelada.
         #    El descuento PGA NO se aplica aquí: se valida en recepción.
         subtotal_green_fees = ZERO
         for entry in data.players:
@@ -516,6 +563,9 @@ class ReservationService_:
             plan = self.pricing.resolve_rate(
                 modality=data.modality.value, holes=data.holes,
                 category=category, on_date=slot.slot_date,
+                # La hora manda: las últimas salidas del día van a tarifa de
+                # twilight si el club la tiene dada de alta.
+                at_time=slot.slot_time,
             )
             player = ReservationPlayer(
                 reservation_id=reservation.id,
@@ -523,6 +573,7 @@ class ReservationService_:
                 age=entry.age,
                 category=category,
                 handicap=entry.handicap,
+                ghin=(entry.ghin or None),
                 club_hand=(entry.club_hand or None),
                 is_holder=entry.is_holder,
                 pga_code=entry.pga_code.upper().strip() if entry.pga_code else None,
@@ -547,7 +598,7 @@ class ReservationService_:
         subtotal_services += self._cargo_acompanantes(reservation, len(data.companions))
         reservation.carts_used = carritos
 
-        # 5. Descuento de la reserva (convenio, no PGA).
+        # 7. Descuento de la reserva (convenio, no PGA).
         discount_amount = ZERO
         if data.discount_code:
             discount = self.discounts.validate_for_reservation(
@@ -566,7 +617,7 @@ class ReservationService_:
         reservation.pga_discount_amount = ZERO
         reservation.total = money(subtotal_green_fees + subtotal_services - discount_amount)
 
-        # 6. Estado de la salida y auditoría, misma transacción.
+        # 8. Estado de la salida y auditoría, misma transacción.
         self.db.flush()
         self._recalculate_slot(slot)
         self.audit.log(
@@ -575,7 +626,9 @@ class ReservationService_:
             new_value=str(reservation.total),
             description=(
                 f"Reserva {reservation.folio} creada para {hotel.name} · "
-                f"{len(data.players)} jugadores · {slot.slot_date} {slot.slot_time.strftime('%H:%M')}"
+                f"{len(data.players)} jugadores · {slot.slot_date} "
+                f"{slot.slot_time.strftime('%H:%M')} · la levantó "
+                f"{reservation.booked_by_name}"
             ),
         )
 
@@ -587,17 +640,20 @@ class ReservationService_:
 
         self.db.refresh(reservation)
 
-        # El pase con el QR se encola aquí y sale en segundo plano: si el
-        # correo tarda o el servidor no contesta, la reserva ya está hecha.
+        # El pase con el QR sale aquí mismo, en cuanto la reserva queda
+        # guardada. Si el correo no pudiera salir en ese momento, queda en la
+        # bandeja y el repartidor lo manda después: la reserva ya está hecha y
+        # no se pierde por culpa de un correo.
         try:
             from app.modules.mailing.service import MailingService
             from app.shared.enums import EmailKind
 
-            MailingService(self.db).encolar(kind=EmailKind.PASE, reservation=reservation)
-            self.db.commit()
+            MailingService(self.db).enviar_ahora(
+                kind=EmailKind.PASE, reservation=reservation
+            )
         except Exception:
             self.db.rollback()
-            logger.exception("No se pudo encolar el pase de %s", reservation.folio)
+            logger.exception("No se pudo mandar el pase de %s", reservation.folio)
 
         # Ya está guardado: ahora sí se avisa. Antes del commit se correría el
         # riesgo de anunciar una reserva que terminó en rollback.
@@ -645,6 +701,11 @@ class ReservationService_:
             if service.code == "ACOMPANANTE":
                 # Se cobra solo por la lista de acompañantes; así no se duplica.
                 continue
+            if service.code == "CADDIE":
+                # El caddie no lo cobra el club: el huésped le paga directo. Se
+                # asigna como recurso (uno por carrito) y su precio se muestra
+                # solo para que la conserjería se lo informe al huésped.
+                continue
             if not service.is_active:
                 raise ValidationError(f"El servicio {service.name} está inactivo")
             line_total = money(money(service.price) * entry.quantity)
@@ -676,6 +737,11 @@ class ReservationService_:
         return reservation
 
     def get_by_qr(self, token: str) -> Reservation:
+        # El QR guarda la dirección completa del pase (…/pase/<token>). Un
+        # lector de mano la teclea entera en el buscador del mostrador, así que
+        # aquí se queda solo con el token y el recepcionista no tiene que
+        # recortar nada a mano.
+        token = token.strip().split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1]
         reservation = self.repo.get_by_qr(token)
         if not reservation:
             raise NotFoundError("Pase QR no válido")
@@ -809,6 +875,370 @@ class ReservationService_:
         self._avisar_reserva(reservation, EventType.RESERVA_ACTUALIZADA, al_hotel=False)
         return reservation
 
+    # ------------------------------------------------- campo suspendido
+    def interrumpir(
+        self, reservation_id: int, *, hoyo: int, motivo: str, actor: User
+    ) -> Reservation:
+        """La partida salió pero no se pudo terminar: llovió y se suspendió.
+
+        No es una cancelación: el huésped llegó, jugó y pagó. Queda en su propio
+        estado con el hoyo en el que se quedaron, y de ahí el operador le repone
+        la ronda cuando el huésped diga qué día vuelve.
+
+        Los carritos y los caddies se liberan, porque la partida ya no está en
+        el campo y el resto del día los necesita.
+        """
+        reservation = self.get(reservation_id)
+        assert_transition(reservation.status, ReservationStatus.INTERRUMPIDA)
+
+        if not 1 <= hoyo <= reservation.holes:
+            raise ValidationError(
+                f"El hoyo tiene que estar entre 1 y {reservation.holes}"
+            )
+
+        reservation.status = ReservationStatus.INTERRUMPIDA
+        reservation.interrupted_at_hole = hoyo
+        reservation.interrupted_reason = motivo.strip()
+        reservation.interrupted_at = datetime.utcnow()
+
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module=self.MODULE,
+            entity="Reservation", entity_id=reservation.id,
+            new_value=ReservationStatus.INTERRUMPIDA,
+            description=(
+                f"Campo suspendido en {reservation.folio}: se quedaron en el hoyo "
+                f"{hoyo} de {reservation.holes} · {motivo.strip()}"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(reservation)
+        self._avisar_reserva(reservation, EventType.RESERVA_ACTUALIZADA, al_hotel=False)
+        self._avisar_disponibilidad(
+            reservation.tee_slot, f"Partida {reservation.folio} interrumpida"
+        )
+        return reservation
+
+    def reagendar_por_cortesia(
+        self, reservation_id: int, *, tee_slot_id: int, actor: User,
+        quien_reserva: Optional[str] = None,
+    ) -> Reservation:
+        """Le repone la ronda al huésped, sin volver a cobrarle.
+
+        La reposición es otra reserva, con su propio folio y su propia salida:
+        así puede ser cualquier día y, en partida abierta, el huésped no tiene
+        que volver con la misma gente. Va en cero y sin comisión — el hotel ya
+        cobró la suya en la reserva original, y volver a pagarle por la misma
+        venta sería cobrarle dos veces al club.
+        """
+        original = self.get(reservation_id)
+        if original.status != ReservationStatus.INTERRUMPIDA:
+            raise BusinessRuleError(
+                "Solo se le repone la ronda a una partida que quedó interrumpida. "
+                "Márquela primero como campo suspendido, con el hoyo en el que se "
+                "quedaron."
+            )
+        if original.reposiciones:
+            otras = ", ".join(r.folio for r in original.reposiciones)
+            raise BusinessRuleError(
+                f"A esta partida ya se le repuso la ronda ({otras}). "
+                "Una sola cortesía por partida interrumpida."
+            )
+
+        slot = self.slots.get_for_update(tee_slot_id)
+        if not slot:
+            raise NotFoundError(f"Franja {tee_slot_id} no encontrada")
+        if slot.slot_date < hoy_local():
+            raise BusinessRuleError("La reposición no puede ser en una fecha pasada")
+
+        presentes = [p for p in original.players if p.arrived] or list(original.players)
+        self._assert_slot_available(slot, len(presentes), original.modality)
+
+        situacion = self.recursos.situacion(slot.slot_date)
+        carritos = self.recursos.carritos_para(
+            len(presentes), situacion["personas_por_carrito"]
+        )
+        if carritos > situacion["carritos_libres"]:
+            raise BusinessRuleError(
+                f"No hay carritos suficientes para el {slot.slot_date.strftime('%d/%m')}: "
+                f"la reposición necesita {carritos} y quedan {situacion['carritos_libres']}."
+            )
+        caddies = self.recursos.caddies_asignables(
+            len(presentes), situacion["caddies_libres"], situacion["personas_por_carrito"]
+        )
+
+        reposicion = Reservation(
+            folio=self._generate_folio(),
+            hotel_id=original.hotel_id,
+            created_by_id=actor.id,
+            tee_slot_id=slot.id,
+            modality=original.modality,
+            holes=original.holes,
+            status=ReservationStatus.CONFIRMADA,
+            holder_name=original.holder_name,
+            holder_email=original.holder_email,
+            holder_phone=original.holder_phone,
+            holder_room=original.holder_room,
+            booked_by_name=(quien_reserva or "").strip() or original.booked_by_name,
+            carts_used=carritos,
+            caddies_used=caddies,
+            exchange_rate_applied=original.exchange_rate_applied,
+            # Sin comisión: la de esta venta ya se le pagó al hotel en la
+            # partida original.
+            commission_rate_applied=ZERO,
+            rescheduled_from_id=original.id,
+            qr_token=secrets.token_urlsafe(24),
+            notes=(
+                f"Cortesía por campo suspendido en {original.folio}. "
+                f"Reanudan en el hoyo {original.interrupted_at_hole} de {original.holes}."
+            ),
+            confirmed_at=datetime.utcnow(),
+            confirmed_by_id=actor.id,
+        )
+        self.repo.add(reposicion)
+        self.db.flush()
+
+        for entry in presentes:
+            self.db.add(
+                ReservationPlayer(
+                    reservation_id=reposicion.id,
+                    full_name=entry.full_name,
+                    age=entry.age,
+                    category=entry.category,
+                    handicap=entry.handicap,
+                    ghin=entry.ghin,
+                    club_hand=entry.club_hand,
+                    is_holder=entry.is_holder,
+                    # La cortesía va en cero: no se le cobra nada al huésped.
+                    rate_applied=ZERO,
+                    final_rate=ZERO,
+                )
+            )
+
+        reposicion.subtotal_green_fees = ZERO
+        reposicion.subtotal_services = ZERO
+        reposicion.discount_amount = ZERO
+        reposicion.pga_discount_amount = ZERO
+        reposicion.total = ZERO
+
+        self.db.flush()
+        self._recalculate_slot(slot)
+
+        self.audit.log(
+            user=actor, action=AuditAction.CREAR, module=self.MODULE,
+            entity="Reservation", entity_id=reposicion.id,
+            new_value=reposicion.folio,
+            description=(
+                f"Ronda de cortesía {reposicion.folio} por el campo suspendido en "
+                f"{original.folio} · {slot.slot_date} "
+                f"{slot.slot_time.strftime('%H:%M')} · reanudan en el hoyo "
+                f"{original.interrupted_at_hole} · sin cargo y sin comisión"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(reposicion)
+
+        self._avisar_reserva(reposicion, EventType.RESERVA_CREADA)
+        self._avisar_disponibilidad(slot, f"Cortesía {reposicion.folio} agendada")
+        return reposicion
+
+    # ------------------------------------------- control de partidas abiertas
+    def dia_admite_abiertas(self, dia: date) -> bool:
+        """¿Ese día se están armando partidas abiertas?
+
+        Sin regla escrita, sí: es lo normal, y no tiene sentido dar de alta una
+        fila por cada día del año para decir que todo sigue igual.
+        """
+        regla = self.db.execute(
+            select(CourseDayRule).where(CourseDayRule.day == dia)
+        ).scalars().first()
+        return True if regla is None else regla.open_partidas_allowed
+
+    def fijar_regla_del_dia(
+        self, dia: date, *, admite: bool, nota: Optional[str], actor: User
+    ) -> CourseDayRule:
+        """Abre o cierra las partidas abiertas de un día."""
+        regla = self.db.execute(
+            select(CourseDayRule).where(CourseDayRule.day == dia)
+        ).scalars().first()
+        anterior = regla.open_partidas_allowed if regla else True
+
+        if regla is None:
+            regla = CourseDayRule(day=dia)
+            self.db.add(regla)
+        regla.open_partidas_allowed = admite
+        regla.note = (nota or "").strip() or None
+        regla.updated_by_id = actor.id
+        regla.updated_at = datetime.utcnow()
+
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module=self.MODULE,
+            entity="CourseDayRule", entity_id=regla.id,
+            old_value=str(anterior), new_value=str(admite),
+            description=(
+                f"Partidas abiertas del {dia}: "
+                f"{'permitidas' if admite else 'no se aceptan'}"
+                + (f" · {regla.note}" if regla.note else "")
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(regla)
+        # Va como aviso de disponibilidad porque es justo eso: las pantallas que
+        # están vendiendo tienen que dejar de ofrecer la modalidad. No se cuelga
+        # de una franja —la regla es del día completo— así que el payload lleva
+        # la fecha y nada más.
+        publish(
+            RealtimeEvent(
+                type=EventType.DISPONIBILIDAD_CAMBIADA,
+                payload={
+                    "fecha": dia.isoformat(),
+                    "admite_abiertas": admite,
+                    "motivo": (
+                        f"Partidas abiertas del {dia}: "
+                        f"{'permitidas' if admite else 'no se aceptan'}"
+                    ),
+                },
+            )
+        )
+        return regla
+
+    def cerrar_partida_abierta(self, slot_id: int, *, cerrar: bool, actor: User) -> TeeSlot:
+        """Cierra (o vuelve a abrir) una partida abierta antes de que se llene."""
+        slot = self.slots.get(slot_id)
+        if not slot:
+            raise NotFoundError(f"Franja {slot_id} no encontrada")
+
+        vivas = self.repo.active_reservations_in_slot(slot.id)
+        if not vivas or not all(
+            r.modality == BookingModality.PARTIDA_ABIERTA for r in vivas
+        ):
+            raise BusinessRuleError(
+                "Esa salida no es una partida abierta. Solo se cierran las que están "
+                "juntando jugadores de hoteles distintos."
+            )
+
+        slot.open_closed = cerrar
+        slot.open_closed_at = datetime.utcnow() if cerrar else None
+        self.db.flush()
+        self._recalculate_slot(slot)
+
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module=self.MODULE,
+            entity="TeeSlot", entity_id=slot.id,
+            new_value="cerrada" if cerrar else "abierta",
+            description=(
+                f"Partida abierta de las {slot.slot_time.strftime('%H:%M')} del "
+                f"{slot.slot_date}: {'cerrada' if cerrar else 'reabierta'} a mano con "
+                f"{slot.occupied} de {slot.capacity} lugares"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(slot)
+        self._avisar_disponibilidad(
+            slot,
+            f"Partida abierta de las {slot.slot_time.strftime('%H:%M')} "
+            f"{'cerrada' if cerrar else 'reabierta'}",
+        )
+        return slot
+
+    def mover_a_otra_salida(self, reservation_id: int, *, tee_slot_id: int, actor: User) -> Reservation:
+        """Pasa una reserva de partida abierta a otra salida del mismo tipo.
+
+        Se mueve la reserva completa, no jugadores sueltos: una reserva es lo que
+        pidió un hotel, con su cobro y su comisión. Partir eso a la mitad dejaría
+        dos medias cuentas que nadie sabría cobrar.
+        """
+        reservation = self.get(reservation_id)
+        if reservation.modality != BookingModality.PARTIDA_ABIERTA:
+            raise BusinessRuleError(
+                "Solo se mueven reservas de partida abierta. Un grupo tiene su salida "
+                "completa: para cambiarlo de horario, cancele y vuelva a reservar."
+            )
+        if reservation.status not in (
+            ReservationStatus.PENDIENTE, ReservationStatus.CONFIRMADA,
+        ):
+            raise BusinessRuleError(
+                "Esta partida ya pasó por el mostrador. Mover su horario ahora dejaría "
+                "el cobro colgado de una salida que no jugó."
+            )
+
+        origen = self.slots.get(reservation.tee_slot_id)
+        destino = self.slots.get_for_update(tee_slot_id)
+        if not destino:
+            raise NotFoundError(f"Franja {tee_slot_id} no encontrada")
+        if destino.id == reservation.tee_slot_id:
+            raise ValidationError("Esa reserva ya está en esa salida")
+        if destino.slot_date < hoy_local():
+            raise BusinessRuleError("No se puede mover a una fecha pasada")
+
+        self._assert_slot_available(
+            destino, len(reservation.players), BookingModality.PARTIDA_ABIERTA
+        )
+
+        reservation.tee_slot_id = destino.id
+        self.db.flush()
+        if origen:
+            self._recalculate_slot(origen)
+        self._recalculate_slot(destino)
+
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module=self.MODULE,
+            entity="Reservation", entity_id=reservation.id,
+            old_value=(
+                f"{origen.slot_date} {origen.slot_time.strftime('%H:%M')}" if origen else None
+            ),
+            new_value=f"{destino.slot_date} {destino.slot_time.strftime('%H:%M')}",
+            description=(
+                f"{reservation.folio} movida de partida abierta: "
+                f"{origen.slot_time.strftime('%H:%M') if origen else '—'} → "
+                f"{destino.slot_time.strftime('%H:%M')} del {destino.slot_date}"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(reservation)
+
+        self._avisar_reserva(reservation, EventType.RESERVA_ACTUALIZADA)
+        if origen:
+            self._avisar_disponibilidad(origen, f"{reservation.folio} salió de esa salida")
+        self._avisar_disponibilidad(destino, f"{reservation.folio} entró a esa salida")
+        return reservation
+
+    def partidas_abiertas(self, dia: date) -> dict:
+        """Las partidas abiertas del día, con quién se juntó en cada una."""
+        salidas = []
+        for slot in self.availability.day(dia):
+            vivas = self.repo.active_reservations_in_slot(slot.id)
+            if not vivas or not all(
+                r.modality == BookingModality.PARTIDA_ABIERTA for r in vivas
+            ):
+                continue
+            salidas.append({
+                "tee_slot_id": slot.id,
+                "slot_time": slot.slot_time,
+                "tee": slot.tee,
+                "capacity": slot.capacity,
+                "occupied": slot.occupied,
+                "libres": max(slot.capacity - slot.occupied, 0),
+                "cerrada": slot.open_closed,
+                "reservas": [
+                    {
+                        "id": r.id,
+                        "folio": r.folio,
+                        "hotel_id": r.hotel_id,
+                        "hotel_name": r.hotel.name if r.hotel else None,
+                        "holder_name": r.holder_name,
+                        "status": r.status,
+                        "booked_by_name": r.booked_by_name,
+                        "jugadores": [p.full_name for p in r.players],
+                    }
+                    for r in sorted(vivas, key=lambda x: x.id)
+                ],
+            })
+        return {
+            "fecha": dia,
+            "admite_abiertas": self.dia_admite_abiertas(dia),
+            "salidas": salidas,
+        }
+
     def update(self, reservation_id: int, data: dict, actor: User) -> Reservation:
         reservation = self.get(reservation_id)
         if reservation.status in (ReservationStatus.COMPLETADA, ReservationStatus.CANCELADA):
@@ -832,7 +1262,15 @@ class ReservationService_:
     # ------------------------------------------------------------- cotización
     def quote(self, data: ReservationCreate, actor: User) -> dict:
         """Calcula el total sin guardar nada ni comprometer cupo."""
-        hotel_id = actor.hotel_id if actor.role == UserRole.HOTEL else data.hotel_id
+        # La cotización sigue las mismas reglas de quién reserva para quién:
+        # si no, recepción vería el precio con la comisión de un hotel al que
+        # de todos modos no le puede colgar la reserva.
+        if actor.role == UserRole.HOTEL:
+            hotel_id = actor.hotel_id
+        elif actor.role == UserRole.RECEPCION:
+            hotel_id = self.hotels.venta_directa().id
+        else:
+            hotel_id = data.hotel_id
         if hotel_id is None:
             raise ValidationError("Debe indicar el hotel")
         hotel = self.hotels.get(hotel_id)
@@ -840,6 +1278,9 @@ class ReservationService_:
         self._validate_modality(data.modality, len(data.players))
         slot = self.slots.get(data.tee_slot_id)
         on_date = slot.slot_date if slot else date.today()
+        # La cotización tiene que dar el mismo número que la reserva, así que
+        # también mira la hora para decidir si es twilight.
+        on_time = slot.slot_time if slot else None
 
         detail: List[str] = []
         subtotal_green_fees = ZERO
@@ -849,7 +1290,7 @@ class ReservationService_:
                 category = PlayerCategory.INFANTIL
             plan = self.pricing.resolve_rate(
                 modality=data.modality.value, holes=data.holes,
-                category=category, on_date=on_date,
+                category=category, on_date=on_date, at_time=on_time,
             )
             subtotal_green_fees += money(plan.price)
             detail.append(f"{entry.full_name}: {category} · ${plan.price} MXN")

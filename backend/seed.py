@@ -10,6 +10,7 @@ En producción no se crean cuentas de prueba ni contraseñas conocidas: el
 administrador sale de las variables SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD, y
 desde su pantalla de control se dan de alta las demás cuentas.
 """
+import secrets
 import os
 import sys
 from datetime import date, datetime, time
@@ -111,8 +112,10 @@ def sembrar(produccion: bool = False):
         ]
         DIA = {DayType.ENTRE_SEMANA: "lun a jue", DayType.FIN_DE_SEMANA: "vie a dom"}
         tarifas = []
+        # Individual ya no se vende: quien llega solo entra a una partida
+        # abierta. Por eso no se le dan de alta tarifas — una tarifa de una
+        # modalidad que nadie puede elegir solo confunde a quien ve la lista.
         for modalidad, etiqueta in (
-            (BookingModality.INDIVIDUAL, "Individual"),
             (BookingModality.GRUPO, "Grupo"),
             (BookingModality.PARTIDA_ABIERTA, "Partida abierta"),
         ):
@@ -175,11 +178,15 @@ def sembrar(produccion: bool = False):
         print(f"✓ {len(descuentos)} convenios comerciales")
 
         # ---------------------------------------------------------------- PGA
+        # Monto fijo por jugador con credencial, no porcentaje: el club decidió
+        # que el beneficio valga lo mismo cualquier día, y un 75% pagaba muy
+        # distinto entre semana que en fin de semana. Se puede cambiar a
+        # porcentaje desde Control del sistema sin tocar esto.
         db.add(
             PGABenefitConfig(
-                discount_type=DiscountType.PORCENTAJE,
-                value=Decimal("75.00"),
-                description="Beneficio PGA: 75% sobre la tarifa del titular de la credencial",
+                discount_type=DiscountType.MONTO,
+                value=Decimal("1000.00"),
+                description="Beneficio PGA: $1,000 por jugador con credencial",
                 valid_from=date(HOY.year, 1, 1),
             )
         )
@@ -198,7 +205,7 @@ def sembrar(produccion: bool = False):
                     valid_until=date(HOY.year + 1, 12, 31),
                 )
             )
-        print(f"✓ Beneficio PGA configurado (75%) y {len(credenciales)} credenciales")
+        print(f"✓ Beneficio PGA configurado ($1,000 por credencial) y {len(credenciales)} credenciales")
 
         # ----------------------------------------------------------- horarios
         # Un solo campo. El recorrido (9 o 18 hoyos) lo elige cada reserva; no
@@ -206,11 +213,11 @@ def sembrar(produccion: bool = False):
         db.add(
             CourseScheduleConfig(
                 tee="CAMPO", label="Horarios de salida",
-                start_time=time(9, 0), end_time=time(12, 30),
+                start_time=time(7, 0), end_time=time(15, 0),
                 interval_minutes=30, slot_capacity=4, holes=18,
             )
         )
-        print("✓ Horarios de salida: 09:00–12:30 cada 30 min (8 salidas)")
+        print("✓ Horarios de salida: 07:00–15:00 cada 30 min (17 salidas)")
 
         # ----------------------------------------------------- tipo de cambio
         db.add(
@@ -232,10 +239,22 @@ def sembrar(produccion: bool = False):
             ("carritos_totales", "20", "Carritos de golf del club"),
             ("personas_por_carrito", "2", "Personas que caben en cada carrito"),
             ("caddies_totales", "2", "Caddies disponibles en el campo"),
+            ("cierre_de_campo", "18:00", "Hora en que el campo cierra y ya no hay juego"),
+            ("twilight_desde", "14:00", "Desde esta hora la salida toma tarifa twilight"),
         ]
+        # Algunos parámetros los inserta una migración (los que el club
+        # necesitó después del primer despliegue), así que aquí se salta lo que
+        # ya exista en vez de chocar contra el UNIQUE de la clave.
+        ya_estan = {
+            fila[0] for fila in db.execute(select(SystemSetting.key)).all()
+        }
+        nuevos = 0
         for key, value, description in parametros:
+            if key in ya_estan:
+                continue
             db.add(SystemSetting(key=key, value=value, description=description))
-        print(f"✓ {len(parametros)} parámetros del sistema")
+            nuevos += 1
+        print(f"✓ {nuevos} parámetros del sistema")
 
         # --------------------------------------------------------- inventario
         # La lista del Pro-Shop tal como la pasó el club (data/inventario_inicial.tsv).
@@ -291,6 +310,26 @@ def sembrar(produccion: bool = False):
                 )
             )
         print(f"✓ {len(usuarios)} cuenta(s) de acceso")
+
+        # La cuenta a cuyo nombre quedan las reservas del sitio. No es de una
+        # persona: existe para que una reserva hecha por internet tenga autor
+        # en la bitácora, y para que caiga en público general con cero
+        # comisión, igual que las que levanta recepción.
+        #
+        # Va desactivada y con una contraseña que nadie conoce ni necesita: el
+        # login la rechaza por inactiva, así que no es una puerta de entrada.
+        from app.modules.pagos.service import CUENTA_DEL_SITIO
+
+        db.add(
+            User(
+                email=CUENTA_DEL_SITIO,
+                full_name="Reservas en línea",
+                hashed_password=hash_password(secrets.token_urlsafe(32)),
+                role=UserRole.RECEPCION,
+                is_active=False,
+            )
+        )
+        print("✓ Cuenta de reservas en línea (sin acceso)")
 
         db.commit()
 

@@ -36,6 +36,8 @@ const TRAZOS = {
   escudo: 'M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3ZM9 12l2 2 4-4',
   cancelar: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9 9l6 6M15 9l-6 6',
   check: 'M5 13l4 4L19 7',
+  // Dos flechas cruzadas: pasar algo de un lado al otro.
+  intercambiar: 'M4 8h13M14 5l3 3-3 3M20 16H7M10 13l-3 3 3 3',
   etiquetaPrecio:
     'M3 12.5V4.5a1 1 0 0 1 1-1h8l8.5 8.5a1.5 1.5 0 0 1 0 2.1l-6.4 6.4a1.5 1.5 0 0 1-2.1 0L3.5 13.2a1 1 0 0 1-.5-.7ZM7.5 8.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
   arqueo: 'M3 20h18M5 20V9l7-5 7 5v11M9.5 20v-6h5v6M9 11.5h6',

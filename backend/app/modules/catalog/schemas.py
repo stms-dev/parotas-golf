@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.shared.enums import DayType, DiscountType, PlayerCategory, ServiceUnit
+from app.shared.enums import DayType, DiscountType, PlayerCategory, ServiceUnit, TimeBand
 
 
 # --------------------------------------------------------------------- hoteles
@@ -47,6 +47,8 @@ class RatePlanBase(BaseModel):
     category: PlayerCategory = PlayerCategory.ADULTO
     # Lunes a jueves, viernes a domingo, o todos los días.
     day_type: DayType = DayType.TODOS
+    # A qué hora aplica: TWILIGHT para las últimas salidas, TODAS para el resto.
+    time_band: TimeBand = TimeBand.TODAS
     price: Decimal = Field(ge=0)
     currency: str = "MXN"
     valid_from: date

@@ -47,13 +47,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     la revisión del código.
     """
 
+    # Cloudflare inyecta su propio medidor de visitas cuando el dominio pasa
+    # por su proxy. No lo pedimos nosotros, pero si no se permite, la consola
+    # del navegador se llena de errores y el que revise el sistema va a creer
+    # que algo está roto. Es de Cloudflare, no usa cookies y no lee la página.
     CSP = (
         "default-src 'self'; "
-        "script-src 'self'; "
+        "script-src 'self' https://static.cloudflareinsights.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         "img-src 'self' data: blob:; "
-        "connect-src 'self' ws: wss:; "
+        "connect-src 'self' ws: wss: https://cloudflareinsights.com; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "form-action 'self'"

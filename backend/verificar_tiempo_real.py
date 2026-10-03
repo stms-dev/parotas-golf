@@ -68,7 +68,35 @@ def login(client, email):
     return response.json()["access_token"]
 
 
+def hora_de_corte(valor=None):
+    """Lee, y de paso cambia, la hora en que la caja deja de admitir cobros.
+
+    De noche la caja cierra —y con razón—, pero esta prueba necesita cobrar para
+    ver si el aviso del check-in llega. Se levanta el corte mientras corre y se
+    repone al final, para no dejar la configuración alterada.
+    """
+    # app.models registra todos los modelos de una vez. Importar solo el del
+    # catálogo dejaría relaciones apuntando a clases que aún no existen.
+    import app.models  # noqa: F401
+    from app.core.database import SessionLocal
+    from app.modules.catalog.models import SystemSetting
+    from sqlalchemy import select
+
+    with SessionLocal() as db:
+        fila = db.execute(
+            select(SystemSetting).where(SystemSetting.key == "cash_cutoff_hour")
+        ).scalars().first()
+        if fila is None:
+            return None
+        anterior = fila.value
+        if valor is not None:
+            fila.value = valor
+            db.commit()
+        return anterior
+
+
 def main():
+    corte_original = hora_de_corte("25")   # ninguna hora del día lo alcanza
     servidor = uvicorn.Server(
         uvicorn.Config("app.main:app", host="127.0.0.1", port=8901, log_level="error")
     )
@@ -130,9 +158,13 @@ def main():
             "holes": 18,
             "holder_name": "Prueba Tiempo Real",
             "holder_email": "prueba@ejemplo.com",
+        "booked_by_name": "Quien Atiende de Prueba",
+            # Un grupo lleva cuatro: es el mínimo del paquete.
             "players": [
                 {"full_name": "Jugador Uno", "age": 40},
                 {"full_name": "Jugador Dos", "age": 38},
+                {"full_name": "Jugador Tres", "age": 44},
+                {"full_name": "Jugador Cuatro", "age": 36},
             ],
         },
     )
@@ -175,6 +207,7 @@ def main():
         f"/api/checkin/{reserva['id']}",
         headers={"Authorization": f"Bearer {token_recepcion}"},
         json={
+            "attended_by_name": "Recepcion de Prueba",
             "arrivals": [{"player_id": p["id"], "arrived": True} for p in reserva["players"]],
             # Se paga exactamente lo que cuesta la partida: el precio cambia
             # entre semana y fin de semana, y el cobro tiene que cuadrar.
@@ -250,7 +283,10 @@ def main():
         json={
             "tee_slot_id": otra_libre["id"], "modality": "GRUPO", "holes": 18,
             "holder_name": "Prueba Cancelación", "holder_email": "cancela@ejemplo.com",
-            "players": [{"full_name": "Jugador Uno", "age": 40}, {"full_name": "Jugador Dos", "age": 38}],
+        "booked_by_name": "Quien Atiende de Prueba",
+            "players": [
+                {"full_name": f"Jugador {n}", "age": 36 + n} for n in range(1, 5)
+            ],
         },
     ).json()
     time.sleep(1.0)
@@ -282,10 +318,11 @@ def main():
         headers={"Authorization": f"Bearer {token_celeste}"},
         json={
             "tee_slot_id": libre2["id"],
-            "modality": "INDIVIDUAL",
+            "modality": "PARTIDA_ABIERTA",
             "holes": 9,
             "holder_name": "Segunda Prueba",
             "holder_email": "prueba2@ejemplo.com",
+        "booked_by_name": "Quien Atiende de Prueba",
             "players": [{"full_name": "Jugador Solo", "age": 50}],
         },
     )
@@ -307,6 +344,7 @@ def main():
         print("  TODAS LAS VERIFICACIONES DE TIEMPO REAL PASARON")
     print("=" * 66 + "\n")
 
+    hora_de_corte(corte_original)
     servidor.should_exit = True
     return 1 if FALLOS else 0
 

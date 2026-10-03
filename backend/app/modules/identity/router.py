@@ -16,7 +16,9 @@ from app.modules.identity.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.core.exceptions import AuthenticationError
 from app.modules.identity.service import IdentityService
+from app.shared import limites
 from app.shared.enums import UserRole
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
@@ -30,9 +32,43 @@ def _to_out(user: User) -> UserOut:
     return data
 
 
+# Dos frenos distintos, y hacen falta los dos.
+#
+# `RateLimitMiddleware` ya corta a 10 peticiones de login por minuto, lo que
+# detiene una ráfaga. Pero se reinicia cada minuto: quien tenga paciencia prueba
+# 14,400 contraseñas al día desde una sola dirección, que es de sobra para
+# adivinar una floja.
+#
+# Este otro cuenta solo los **fallos**, en una ventana larga, y los olvida en
+# cuanto alguien entra bien desde esa dirección. Ocho da margen para un dedazo
+# o una contraseña que no se recuerda bien, y a quien está probando una lista
+# lo deja fuera. Lo de limpiar al entrar importa: si no, el recepcionista que
+# se equivocó tres veces en la mañana dejaría a la caseta sin margen por la
+# tarde.
+INTENTOS_PERMITIDOS = 8
+VENTANA_MINUTOS = 15
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    result = IdentityService(db).authenticate(payload.email, payload.password, ip=get_client_ip(request))
+    ip = get_client_ip(request)
+    clave = f"login:{ip}"
+
+    if limites.cuantos(clave, ventana_minutos=VENTANA_MINUTOS) >= INTENTOS_PERMITIDOS:
+        # El mensaje no dice si el correo existe ni cuántos intentos quedan:
+        # eso solo le serviría a quien está probando.
+        raise AuthenticationError(
+            f"Demasiados intentos fallidos. Espere {VENTANA_MINUTOS} minutos "
+            "y vuelva a intentar."
+        )
+
+    try:
+        result = IdentityService(db).authenticate(payload.email, payload.password, ip=ip)
+    except AuthenticationError:
+        limites.registrar(clave, ventana_minutos=VENTANA_MINUTOS)
+        raise
+
+    limites.limpiar(clave)
     return TokenResponse(
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],

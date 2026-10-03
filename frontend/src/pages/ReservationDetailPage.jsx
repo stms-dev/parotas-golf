@@ -6,11 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { Alert, Badge, Button, Card, Modal, Spinner, Stat, Table, Textarea } from '../components/ui';
 import Icono from '../components/Icono';
 import { error as avisoError, exito, pedirCorreo } from '../utils/avisos';
-import { ESTADO_RESERVA, MODALIDAD, fecha, fechaHora, hora, mxn } from '../utils/format';
+import {
+  ESTADO_RESERVA, MODALIDAD, fecha, fechaHora, fechaLocal, hora, mxn,
+} from '../utils/format';
 
 export default function ReservationDetailPage() {
   const { id } = useParams();
-  const { can } = useAuth();
+  const { can, isHotel } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,6 +24,14 @@ export default function ReservationDetailPage() {
   const [reason, setReason] = useState('');
   const [correos, setCorreos] = useState([]);
   const [enviando, setEnviando] = useState(false);
+  /** Campo suspendido: en qué hoyo se quedaron y por qué. */
+  const [suspenderOpen, setSuspenderOpen] = useState(false);
+  const [suspension, setSuspension] = useState({ hoyo: '', motivo: 'Lluvia' });
+  /** Reposición: la salida nueva donde juegan su ronda de cortesía. */
+  const [reponerOpen, setReponerOpen] = useState(false);
+  const [diaReposicion, setDiaReposicion] = useState('');
+  const [salidasReposicion, setSalidasReposicion] = useState([]);
+  const [salidaElegida, setSalidaElegida] = useState(null);
 
   function cargarCorreos() {
     correosApi.deLaReserva(id).then(setCorreos).catch(() => setCorreos([]));
@@ -53,6 +63,72 @@ export default function ReservationDetailPage() {
     }
   }
 
+  /** Marca la partida como suspendida por el clima. */
+  async function suspender() {
+    const hoyo = Number(suspension.hoyo);
+    if (!hoyo || hoyo < 1 || hoyo > (reservation?.holes || 18)) {
+      await avisoError(
+        'Falta el hoyo',
+        `Escriba en qué hoyo se quedaron, entre 1 y ${reservation?.holes || 18}.`,
+      );
+      return;
+    }
+    if (suspension.motivo.trim().length < 3) {
+      await avisoError('Falta el motivo', 'Anote por qué se suspendió el campo.');
+      return;
+    }
+    setSuspenderOpen(false);
+    await accion(
+      () => bookingApi.interrumpir(id, { hoyo, motivo: suspension.motivo.trim() }),
+      `Partida suspendida en el hoyo ${hoyo}. Ya se le puede reponer la ronda.`,
+    );
+  }
+
+  /** Abre el selector de salida para la ronda de cortesía. */
+  async function abrirReposicion() {
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const dia = fechaLocal(manana);
+    setDiaReposicion(dia);
+    setReponerOpen(true);
+    await cargarSalidas(dia);
+  }
+
+  async function cargarSalidas(dia) {
+    setSalidaElegida(null);
+    try {
+      const data = await bookingApi.availability({ slot_date: dia });
+      // Solo las que de verdad admiten la partida: con lugar, sin bloqueo y
+      // cuya hora no pasó.
+      setSalidasReposicion(
+        data.slots.filter((x) => x.available > 0 && !x.expirada && x.status !== 'BLOQUEADO'),
+      );
+    } catch (err) {
+      setSalidasReposicion([]);
+      await avisoError('No se pudieron leer los horarios', err.message);
+    }
+  }
+
+  async function reponer() {
+    if (!salidaElegida) {
+      await avisoError('Elija el horario', 'La ronda de cortesía necesita una salida.');
+      return;
+    }
+    setReponerOpen(false);
+    setError(null);
+    try {
+      const cortesia = await bookingApi.reagendar(id, { tee_slot_id: salidaElegida });
+      await exito(
+        'Ronda repuesta',
+        `Se agendó el folio <b>${cortesia.folio}</b> sin costo. Reanudan en el hoyo ` +
+          `${reservation.interrupted_at_hole} de ${reservation.holes}.`,
+      );
+      navigate(`/reservas/${cortesia.id}`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   if (loading) return <Spinner />;
   if (!reservation) return <Alert tone="error">{error || 'Reserva no encontrada'}</Alert>;
 
@@ -67,10 +143,12 @@ export default function ReservationDetailPage() {
       if (correo.status === 'ENVIADO') {
         await exito('Pase enviado', `Salió a <b>${correo.to_email}</b>.`);
       } else {
+        // No salió al primer intento. No se pierde: el repartidor lo vuelve a
+        // intentar solo, y en Control del sistema se ve en qué quedó.
         await exito(
-          'Pase en cola',
-          `Quedó encolado para <b>${correo.to_email}</b> y sale en cuanto el servidor ` +
-            'de correo responda.',
+          'Pase pendiente',
+          `No salió al momento para <b>${correo.to_email}</b>. El sistema lo reintenta ` +
+            'solo; puede seguirlo en Control del sistema → Correos.',
         );
       }
     } catch (err) {
@@ -115,6 +193,41 @@ export default function ReservationDetailPage() {
         />
       </div>
 
+      {/* La cadena de la cortesía, cuando hay. Se enseña arriba de las
+          acciones porque cambia lo que tiene sentido hacer. */}
+      {(reservation.interrupted_at_hole ||
+        reservation.rescheduled_from_folio ||
+        reservation.reposicion_folio) && (
+        <Card title="Campo suspendido">
+          <div className="space-y-2 text-body-lg">
+            {reservation.interrupted_at_hole && (
+              <p>
+                La partida se suspendió en el{' '}
+                <span className="text-primary">hoyo {reservation.interrupted_at_hole}</span> de{' '}
+                {reservation.holes}
+                {reservation.interrupted_reason ? ` · ${reservation.interrupted_reason}` : ''}.
+              </p>
+            )}
+            {reservation.reposicion_folio && (
+              <p className="text-outline">
+                Se le repuso la ronda en el folio{' '}
+                <span className="font-mono text-on-surface">{reservation.reposicion_folio}</span>,
+                sin costo.
+              </p>
+            )}
+            {reservation.rescheduled_from_folio && (
+              <p className="text-outline">
+                Esta es la ronda de cortesía de{' '}
+                <span className="font-mono text-on-surface">
+                  {reservation.rescheduled_from_folio}
+                </span>
+                : no se le cobra al huésped y no genera comisión.
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Las acciones disponibles dependen del estado y del permiso: no se
           muestra un botón que el backend va a rechazar. */}
       <Card title="Acciones">
@@ -139,15 +252,28 @@ export default function ReservationDetailPage() {
               Marcar no-show
             </Button>
           )}
+          {/* Llovió y la partida no se pudo terminar. Es cortesía del campo,
+              así que la decide operaciones. */}
+          {reservation.status === 'EN_JUEGO' && can('reservation:reschedule') && (
+            <Button variant="secondary" onClick={() => setSuspenderOpen(true)}>
+              Campo suspendido
+            </Button>
+          )}
+          {reservation.status === 'INTERRUMPIDA' &&
+            can('reservation:reschedule') &&
+            !reservation.reposicion_folio && (
+              <Button onClick={abrirReposicion}>Reponer la ronda</Button>
+            )}
           {['PENDIENTE', 'CONFIRMADA', 'CHECK_IN'].includes(reservation.status) && can('reservation:cancel') && (
             <Button variant="danger" onClick={() => setCancelOpen(true)}>
               Cancelar reserva
             </Button>
           )}
-          {/* El pase se puede volver a mandar: el huésped borró el correo,
-              lo escribió mal el concierge, o se lo quieren mandar a otro. */}
+          {/* El pase ya salió solo al crear la reserva. Esto es para cuando
+              hace falta repetirlo: el huésped lo borró, el concierge escribió
+              mal el correo, o se lo quieren mandar a alguien más. */}
           <Button variant="secondary" onClick={reenviarPase} disabled={enviando}>
-            {enviando ? 'Enviando…' : 'Reenviar pase por correo'}
+            {enviando ? 'Enviando…' : 'Volver a mandar el pase'}
           </Button>
           {['COMPLETADA', 'CANCELADA', 'NO_SHOW'].includes(reservation.status) && (
             <p className="text-body-lg text-outline">Esta reserva ya no admite cambios.</p>
@@ -171,9 +297,36 @@ export default function ReservationDetailPage() {
         </dl>
       </Card>
 
+      {/* Las cuentas son del hotel y del puesto, no de la persona. Estos dos
+          nombres son lo único que dice quién estuvo del otro lado. */}
+      <Card title="Quién la atendió">
+        <dl className="grid gap-4 text-body-lg sm:grid-cols-2">
+          <div>
+            <dt className="text-body-md uppercase tracking-wide text-outline">
+              La levantó
+            </dt>
+            <dd className="mt-0.5">
+              {reservation.booked_by_name || (
+                <span className="text-outline">Sin registrar · reserva anterior a este control</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-body-md uppercase tracking-wide text-outline">
+              Atendió en el mostrador
+            </dt>
+            <dd className="mt-0.5">
+              {reservation.attended_by_name || (
+                <span className="text-outline">Todavía no pasa por recepción</span>
+              )}
+            </dd>
+          </div>
+        </dl>
+      </Card>
+
       <Card title="Jugadores">
         <Table
-          columns={['Jugador', 'Categoría', 'HCP', 'Tarifa', 'PGA', 'Final', 'Llegó']}
+          columns={['Jugador', 'Categoría', 'Handicap/GHIN', 'Tarifa', 'PGA', 'Final', 'Llegó']}
           rows={reservation.players}
           renderRow={(player) => (
             <tr key={player.id}>
@@ -184,7 +337,11 @@ export default function ReservationDetailPage() {
                 {player.category === 'INFANTIL' ? 'Infantil' : 'Adulto'}
                 {player.age ? ` · ${player.age} años` : ''}
               </td>
-              <td className="px-3 py-2 text-on-surface-variant">{player.handicap || '—'}</td>
+              {/* Una sola columna. `ghin` sigue en la base y se muestra si
+                  la reserva es de antes de que los dos campos se juntaran. */}
+              <td className="px-3 py-2 text-on-surface-variant">
+                {player.handicap || player.ghin || '—'}
+              </td>
               <td className="px-3 py-2 text-right">{mxn(player.rate_applied)}</td>
               <td className="px-3 py-2 text-right">
                 {player.pga_validated ? (
@@ -312,13 +469,126 @@ export default function ReservationDetailPage() {
           </div>
         </dl>
 
+        {isHotel ? (
+          <p className="mt-4 rounded bg-surface-container-low px-3 py-2 text-body-md text-outline">
+            Sobre este total se calcula su comisión del{' '}
+            {Number(reservation.commission_rate_applied).toFixed(2)}%. Puede bajar en el campo: si
+            se acredita una credencial PGA el descuento es individual y se refleja aquí, y si
+            alguien de la partida no se presenta su green fee deja de cobrarse. Lo que el huésped
+            consuma en el mostrador no entra en esta cuenta.
+          </p>
+        ) : (
         <p className="mt-4 rounded bg-surface-container-low px-3 py-2 text-body-md text-outline">
           Valores congelados al momento de la operación · tipo de cambio{' '}
           {Number(reservation.exchange_rate_applied).toFixed(4)} · comisión hotelera{' '}
           {Number(reservation.commission_rate_applied).toFixed(2)}%. No se recalculan si estos
           parámetros cambian después.
         </p>
+        )}
       </Card>
+
+      <Modal
+        open={suspenderOpen}
+        title="Campo suspendido"
+        onClose={() => setSuspenderOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSuspenderOpen(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={suspender}>Marcar suspendida</Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-body-lg text-outline">
+          La partida ya salió y ya se cobró, así que esto no la cancela: queda marcada en el hoyo
+          donde se quedaron y de ahí se le repone la ronda sin costo. Los carritos y los caddies se
+          liberan para el resto del día.
+        </p>
+        <label className="mb-3 block">
+          <span className="mb-1 block text-body-md uppercase tracking-wide text-outline">
+            ¿En qué hoyo se quedaron?
+          </span>
+          <input
+            type="number"
+            min="1"
+            max={reservation.holes}
+            value={suspension.hoyo}
+            onChange={(e) => setSuspension({ ...suspension, hoyo: e.target.value })}
+            placeholder={`1 a ${reservation.holes}`}
+            className="w-32 rounded border border-outline-variant bg-surface-container-low px-3 py-2 font-mono text-body-lg"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-body-md uppercase tracking-wide text-outline">
+            Motivo
+          </span>
+          <input
+            value={suspension.motivo}
+            onChange={(e) => setSuspension({ ...suspension, motivo: e.target.value })}
+            placeholder="Lluvia, tormenta eléctrica…"
+            className="w-full rounded border border-outline-variant bg-surface-container-low px-3 py-2 text-body-lg"
+          />
+        </label>
+      </Modal>
+
+      <Modal
+        open={reponerOpen}
+        title="Reponer la ronda"
+        onClose={() => setReponerOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setReponerOpen(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={reponer}>Agendar sin costo</Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-body-lg text-outline">
+          Se crea un folio nuevo, sin cargo y sin comisión para el hotel, donde el huésped reanuda
+          en el hoyo {reservation.interrupted_at_hole}. Puede ser cualquier día
+          {reservation.modality === 'PARTIDA_ABIERTA'
+            ? ', y al ser partida abierta no tiene que volver con la misma gente.'
+            : '.'}
+        </p>
+        <label className="mb-3 block">
+          <span className="mb-1 block text-body-md uppercase tracking-wide text-outline">Día</span>
+          <input
+            type="date"
+            value={diaReposicion}
+            min={fechaLocal(new Date())}
+            onChange={(e) => {
+              setDiaReposicion(e.target.value);
+              cargarSalidas(e.target.value);
+            }}
+            className="rounded border border-outline-variant bg-surface-container-low px-3 py-2 text-body-lg"
+          />
+        </label>
+        {salidasReposicion.length === 0 ? (
+          <p className="text-body-lg text-outline">
+            Ese día no tiene salidas libres. Pruebe con otro.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {salidasReposicion.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => setSalidaElegida(x.id)}
+                className={`rounded border px-3 py-2 font-mono text-body-lg transition ${
+                  salidaElegida === x.id
+                    ? 'border-primary-container bg-primary-container text-on-primary'
+                    : 'border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container'
+                }`}
+              >
+                {hora(x.slot_time)}
+                <span className="ml-2 text-label-sm opacity-75">{x.available} libres</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={cancelOpen}

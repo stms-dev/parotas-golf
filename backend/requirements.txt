@@ -20,6 +20,10 @@ bcrypt==4.2.1
 
 # --- QR y correo ---
 qrcode[pil]==8.0
+# El correo sale por HTTPS (la API de Resend), no por SMTP: los servidores
+# administrados bloquean los puertos de SMTP. httpx es también el cliente con
+# el que corren las pruebas.
+httpx==0.28.1
 
 # --- Zonas horarias ---
 # Windows no incluye la base de zonas del sistema; sin esto, zoneinfo no
@@ -30,6 +34,4 @@ tzdata==2024.2
 # uvicorn[standard] ya incluye el soporte WebSocket del servidor;
 # el paquete websockets se usa además como cliente en las pruebas.
 websockets==14.1
-
-# --- Desarrollo ---
-httpx==0.28.1
+stripe==16.0.0

@@ -72,6 +72,8 @@ class CheckInService:
             "status": reservation.status,
             "slot_time": reservation.tee_slot.slot_time.strftime("%H:%M") if reservation.tee_slot else None,
             "holes": reservation.holes,
+            "booked_by_name": reservation.booked_by_name,
+            "attended_by_name": reservation.attended_by_name,
             "subtotal_green_fees": money(reservation.subtotal_green_fees),
             "subtotal_services": money(reservation.subtotal_services),
             "discount_amount": money(reservation.discount_amount),
@@ -355,9 +357,10 @@ class CheckInService:
         # 3. Servicios agregados en mostrador.
         for entry in data.services:
             service = self.services.get(entry.service_id)
-            if service.code in ("REPLAY", "ACOMPANANTE"):
-                # El replay tiene su propio ticket y el acompañante viene
-                # cobrado desde la reserva del hotel.
+            if service.code in ("REPLAY", "ACOMPANANTE", "CADDIE"):
+                # El replay tiene su propio ticket, el acompañante viene cobrado
+                # desde la reserva del hotel, y el caddie no lo cobra el club:
+                # el huésped le paga directo.
                 raise ValidationError(
                     f"{service.name} no se agrega como servicio en el mostrador"
                 )
@@ -373,6 +376,8 @@ class CheckInService:
                     unit_price_applied=service.price,
                     total=line_total,
                     notes=entry.notes,
+                    # Venta del campo: el hotel no la ve ni la cobra.
+                    added_at_counter=True,
                 )
             )
         self.db.flush()
@@ -414,6 +419,9 @@ class CheckInService:
 
         # 5. Transición de estado.
         arrived_count = sum(1 for p in reservation.players if p.arrived)
+        # Quién atendió, por su nombre. Se guarda en cada llamada porque el
+        # check-in se puede retomar en otro turno: vale el último que atendió.
+        reservation.attended_by_name = data.attended_by_name.strip()
         message = "Check-in registrado"
         if reservation.status == ReservationStatus.CONFIRMADA and arrived_count > 0:
             assert_transition(reservation.status, ReservationStatus.CHECK_IN)
@@ -445,23 +453,24 @@ class CheckInService:
             new_value=str(reservation.total),
             description=(
                 f"Check-in de {reservation.folio}: {arrived_count}/{len(reservation.players)} "
-                f"jugadores · total ${reservation.total} · saldo ${balance}"
+                f"jugadores · total ${reservation.total} · saldo ${balance} · "
+                f"atendió {reservation.attended_by_name}"
             ),
         )
         self.db.commit()
         self.db.refresh(reservation)
 
-        # Pagada y cerrada la cuenta: el recibo sale por correo. Igual que el
-        # pase, se encola; el mostrador no espera al servidor de correo.
+        # Pagada y cerrada la cuenta: el recibo sale solo, sin que nadie tenga
+        # que apretar nada. Si el correo no pudiera salir en ese momento, queda
+        # en la bandeja y el repartidor lo manda después.
         if data.payments and balance == 0:
             try:
                 from app.modules.mailing.service import MailingService
                 from app.shared.enums import EmailKind
 
-                MailingService(self.db).encolar(
+                MailingService(self.db).enviar_ahora(
                     kind=EmailKind.RECIBO, reservation=reservation
                 )
-                self.db.commit()
             except Exception:
                 self.db.rollback()
 
@@ -627,7 +636,10 @@ class CheckInService:
             salidas = [s for s in salidas if not ya_paso(s.slot_date, s.slot_time)]
         return salidas
 
-    def replay(self, reservation_id: int, tee_slot_id: int, lines: list, actor: User) -> ReplayTicket:
+    def replay(
+        self, reservation_id: int, tee_slot_id: int, lines: list, actor: User,
+        *, attended_by_name: str,
+    ) -> ReplayTicket:
         """Ronda extra: segundo ticket del mismo folio, cobrado aparte.
 
         Se cobra por partida, no por jugador: un solo precio fijo, sin PGA ni
@@ -675,6 +687,7 @@ class CheckInService:
             unit_price=unit,
             total=total,
             created_by_id=actor.id,
+            attended_by_name=attended_by_name.strip(),
         )
         self.db.add(ticket)
         # La salida del replay queda tomada completa, como una partida más.

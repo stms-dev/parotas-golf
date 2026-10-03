@@ -184,7 +184,7 @@ for etiqueta, metodo, ruta in prohibidos_recepcion:
 
 escrituras_recepcion = [
     ("Cambiar tarifas", "POST", "/api/catalog/rates", {
-        "name": "Pirata", "modality": "INDIVIDUAL", "holes": 18,
+        "name": "Pirata", "modality": "GRUPO", "holes": 18,
         "category": "ADULTO", "price": "1.00", "valid_from": date.today().isoformat(),
     }),
     ("Cambiar el tipo de cambio", "POST", "/api/catalog/exchange-rate", {"rate": "1.00"}),
@@ -222,7 +222,7 @@ for etiqueta, ruta in consultas_operaciones:
 
 escrituras_operaciones = [
     ("Cambiar tarifas", "POST", "/api/catalog/rates", {
-        "name": "Pirata", "modality": "INDIVIDUAL", "holes": 18,
+        "name": "Pirata", "modality": "GRUPO", "holes": 18,
         "category": "ADULTO", "price": "1.00", "valid_from": date.today().isoformat(),
     }),
     ("Cambiar el tipo de cambio", "POST", "/api/catalog/exchange-rate", {"rate": "1.00"}),
@@ -300,9 +300,14 @@ creada = client.post(
     json={
         "tee_slot_id": libre["id"], "modality": "GRUPO", "holes": 18,
         "holder_name": "Huésped de Celeste", "holder_email": "huesped@ejemplo.com",
+        "booked_by_name": "Quien Atiende de Prueba",
+        # Un grupo lleva cuatro: es el mínimo desde que se quitó el paquete
+        # individual, y con menos la salida dejaba lugares que nadie compraba.
         "players": [
             {"full_name": "Jugador A", "age": 40},
             {"full_name": "Jugador B", "age": 41},
+            {"full_name": "Jugador C", "age": 42},
+            {"full_name": "Jugador D", "age": 43},
         ],
     },
 )
@@ -395,6 +400,43 @@ check("Operaciones consulta precios y tarifas", r.status_code == 200, f"HTTP {r.
 
 r = client.get("/api/treasury/summary", headers=RECEPCION["headers"])
 check("Recepción ve el resumen financiero", r.status_code == 200, f"HTTP {r.status_code}")
+
+# ------------------------------------- las decisiones de piso son de operaciones
+# Suspender el campo, reponer una ronda y armar las partidas abiertas cuestan
+# dinero o cambian con quién juega un huésped. Eso lo decide quien está viendo
+# el campo, no el mostrador y menos un hotel.
+print("\n9. Las decisiones de piso son de operaciones")
+
+_de_piso = [
+    ("Ver el control de partidas abiertas", "GET",
+     f"/api/booking/partidas-abiertas?slot_date={MANANA}", None),
+    ("Abrir o cerrar la modalidad del día", "POST",
+     "/api/booking/partidas-abiertas/regla-del-dia",
+     {"dia": MANANA, "admite": True}),
+]
+for etiqueta, metodo, ruta, cuerpo in _de_piso:
+    for quien, cuenta in (("Recepción", RECEPCION), ("Un hotel", HOTEL)):
+        r = client.request(metodo, ruta, headers=cuenta["headers"], json=cuerpo)
+        check(f"{quien} NO puede: {etiqueta}", r.status_code == 403, f"HTTP {r.status_code}")
+    r = client.request(metodo, ruta, headers=OPERACIONES["headers"], json=cuerpo)
+    check(f"Operaciones puede: {etiqueta}", r.status_code in (200, 201), f"HTTP {r.status_code}")
+
+# Las dos rutas que dependen de una reserva se prueban por el 403/404: un rol
+# sin permiso rebota antes de que el sistema busque la reserva.
+for etiqueta, ruta in (
+    ("Suspender el campo", "/api/booking/reservations/999999/interrumpir"),
+    ("Reponer una ronda", "/api/booking/reservations/999999/reagendar"),
+    ("Mover una partida abierta", "/api/booking/reservations/999999/mover"),
+):
+    for quien, cuenta in (("Recepción", RECEPCION), ("Un hotel", HOTEL)):
+        r = client.post(ruta, headers=cuenta["headers"],
+                        json={"hoyo": 9, "motivo": "Prueba", "tee_slot_id": 1})
+        check(f"{quien} NO puede: {etiqueta}", r.status_code == 403, f"HTTP {r.status_code}")
+    r = client.post("/api/booking" + ruta.split("/api/booking")[1],
+                    headers=OPERACIONES["headers"],
+                    json={"hoyo": 9, "motivo": "Prueba", "tee_slot_id": 1})
+    check(f"A operaciones sí le pasa el permiso: {etiqueta}",
+          r.status_code == 404, f"HTTP {r.status_code}")
 
 print("\n" + "=" * 70)
 if FALLOS:

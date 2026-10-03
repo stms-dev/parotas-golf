@@ -48,6 +48,10 @@ class PaymentLine(BaseModel):
 class CheckInRequest(BaseModel):
     """Cierre del check-in: llegadas, PGA, servicios y cobro, en una operación."""
 
+    # Quién está atendiendo en el mostrador, por su nombre: la cuenta de
+    # recepción la usan los tres turnos.
+    attended_by_name: str = Field(min_length=3, max_length=120)
+
     arrivals: List[PlayerArrival] = Field(default_factory=list)
     companion_arrivals: List[CompanionArrival] = Field(default_factory=list)
     pga_validations: List[PlayerPGAValidation] = Field(default_factory=list)
@@ -114,6 +118,10 @@ class AccountSummary(BaseModel):
     status: str
     slot_time: Optional[str] = None
     holes: int
+    # Quién levantó la reserva del otro lado: con cuentas compartidas, es a
+    # quien el mostrador le puede preguntar si algo no cuadra.
+    booked_by_name: Optional[str] = None
+    attended_by_name: Optional[str] = None
 
     subtotal_green_fees: Decimal
     subtotal_services: Decimal
@@ -132,6 +140,7 @@ class ReplayRequest(BaseModel):
     """Cobro del replay. Es por partida: se elige la salida y con qué se paga."""
 
     tee_slot_id: int
+    attended_by_name: str = Field(min_length=3, max_length=120)
     payments: List[PaymentLine] = Field(default_factory=list)
 
 

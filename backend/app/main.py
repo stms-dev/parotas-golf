@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
@@ -33,6 +33,7 @@ from app.modules.identity.router import router as auth_router
 from app.modules.identity.router import users_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.mailing.router import router as mailing_router
+from app.modules.pagos.router import router as publico_router
 from app.modules.treasury.router import router as treasury_router
 from app.realtime.manager import manager as realtime_manager
 from app.realtime.router import router as realtime_router
@@ -201,6 +202,8 @@ for router in (
     events_router,
     inventory_router,
     mailing_router,
+    # Las rutas que el sitio del club llama sin cuenta.
+    publico_router,
     audit_router,
     dashboard_router,
     realtime_router,
@@ -209,26 +212,76 @@ for router in (
 
 
 # --------------------------------------------------------------- pantallas
-# El mismo contenedor entrega la aplicación compilada. Compartir origen es lo
-# que hace que el tiempo real funcione sin configurar nada aparte.
-ESTATICOS = Path(__file__).resolve().parent.parent / "static"
+# El mismo contenedor entrega las dos aplicaciones compiladas:
+#
+#   parotasgolf.com/          → el sitio del club, para el público
+#   parotasgolf.com/sistema   → el sistema de operación, para hoteles y campo
+#   parotasgolf.com/api       → la API, para los dos
+#
+# Son compilaciones distintas, no una sola partida en dos: quien entra a ver
+# el campo baja el sitio y nada más — el sistema pesa tres veces más y no lo
+# necesita hasta que le pica a Acceder. Y al compartir dominio no hay CORS que
+# configurar ni tiempo real que apuntar a otro lado.
+RAIZ = Path(__file__).resolve().parent.parent
+ESTATICOS = RAIZ / "static"          # el sistema de operación
+SITIO = RAIZ / "sitio"               # el sitio público
+
+BASE_SISTEMA = "/sistema"
 
 if ESTATICOS.is_dir():
     app.mount(
-        "/assets",
+        f"{BASE_SISTEMA}/assets",
         StaticFiles(directory=ESTATICOS / "assets"),
-        name="assets",
+        name="assets-sistema",
     )
+
+if SITIO.is_dir():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=SITIO / "assets"),
+        name="assets-sitio",
+    )
+
+
+def _entregar(carpeta: Path, ruta: str) -> FileResponse:
+    """Un archivo si existe; si no, el index de esa aplicación.
+
+    Las rutas de las dos viven en el navegador. Si el servidor respondiera 404,
+    recargar la página en cualquier pantalla distinta del inicio rompería todo.
+    """
+    archivo = carpeta / ruta if ruta else None
+    if archivo and archivo.is_file():
+        return FileResponse(archivo)
+    return FileResponse(carpeta / "index.html")
+
+
+if ESTATICOS.is_dir():
+
+    @app.get("/pase/{token:path}", include_in_schema=False)
+    def pase_antiguo(token: str):
+        """Los pases con QR que se enviaron cuando el sistema vivía en la raíz.
+
+        Esos códigos ya están impresos y en los correos de los huéspedes: no se
+        pueden cambiar. Se reenvían a su dirección nueva y siguen sirviendo.
+        """
+        return RedirectResponse(f"{BASE_SISTEMA}/pase/{token}", status_code=301)
+
+    @app.get(BASE_SISTEMA, include_in_schema=False)
+    @app.get(BASE_SISTEMA + "/{ruta_completa:path}", include_in_schema=False)
+    def sistema(ruta_completa: str = ""):
+        return _entregar(ESTATICOS, ruta_completa)
+
+
+if SITIO.is_dir():
 
     @app.get("/{ruta_completa:path}", include_in_schema=False)
     def pantallas(ruta_completa: str):
-        """Cualquier dirección que no sea de la API entrega la aplicación.
+        """Lo que no es la API ni el sistema es el sitio del club."""
+        return _entregar(SITIO, ruta_completa)
 
-        Las rutas viven en el navegador (/recepcion, /finanzas…). Si el
-        servidor respondiera 404, recargar la página en cualquier pantalla
-        distinta del inicio rompería el sistema.
-        """
-        archivo = ESTATICOS / ruta_completa
-        if ruta_completa and archivo.is_file():
-            return FileResponse(archivo)
-        return FileResponse(ESTATICOS / "index.html")
+elif ESTATICOS.is_dir():
+    # Sin el sitio compilado —una imagen vieja, o una compilación a medias— la
+    # raíz lleva al sistema. Vale más eso que una página en blanco.
+    @app.get("/{ruta_completa:path}", include_in_schema=False)
+    def pantallas_sin_sitio(ruta_completa: str):
+        return _entregar(ESTATICOS, ruta_completa)

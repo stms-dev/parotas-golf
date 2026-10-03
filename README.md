@@ -249,14 +249,47 @@ Fernando → sin PGA          →           $2,064.00
 Mateo    → infantil         →           $1,032.00
 ```
 
-### 5. El cierre de caja es un turno, no un horario
+El beneficio se configura desde Control del sistema y admite las dos formas que
+maneja el club: **un porcentaje** de la tarifa del portador, o **un monto fijo
+en pesos**. En los dos casos se aplica por persona acreditada, y nunca descuenta
+más de lo que cuesta ese green fee — si no, la partida saldría en negativo.
+
+Y el hotel lo ve. Su total baja cuando se acredita una credencial en el campo,
+porque de ese total sale su comisión: ocultárselo solo provocaría que reclamara
+comisión sobre dinero que nadie pagó. Lo que no ve es lo que el huésped consumió
+después en el mostrador, que es venta del campo y no pasa por el convenio.
+
+### 5. La cuenta no es la persona
+
+Las cuentas son del hotel y del puesto: la del concierge de Celeste la usan
+varios turnos, y la de recepción también. Así que `created_by_id` dice
+"Celeste", que es justo lo que no sirve cuando hay que aclarar una reserva mal
+capturada o un cobro que no cuadra.
+
+Por eso cada reserva guarda **el nombre de la persona** que estuvo frente a la
+pantalla, y se pide en cada movimiento:
+
+- `booked_by_name` — quién levantó la reserva, del lado del hotel o del mostrador
+- `attended_by_name` — quién atendió en recepción (y en el ticket del replay, quién lo vendió)
+
+Sin ese nombre no se crea una reserva ni se cobra un check-in; el servidor lo
+rechaza, no solo la pantalla. Cotizar sí funciona sin él, porque una cotización
+no guarda nada. El nombre queda escrito junto al movimiento, en la bitácora y en
+los documentos que entrega el mostrador — que es donde se resuelve un reclamo.
+
+El navegador recuerda el último nombre usado en ese equipo y lo precarga, así
+que en la práctica es confirmar en vez de teclear. Las reservas anteriores al
+cambio se quedan **sin nombre**: no hay forma de saber quién las levantó, y
+rellenarlas con "desconocido" sería inventar un dato.
+
+### 6. El cierre de caja es un turno, no un horario
 
 Las 22:00 es cuando la caja deja de admitir cobros, pero el arqueo necesita un
 **turno**: apertura, fondo inicial, responsable, cierre. Sin eso, una diferencia
 en el conteo no tiene a quién responsabilizarse ni a qué corte pertenece cada
 pago.
 
-### 6. El tiempo real difunde; REST sigue escribiendo
+### 7. El tiempo real difunde; REST sigue escribiendo
 
 Los WebSockets se montan **encima** de la API, no la reemplazan. Crear una
 reserva sigue siendo un `POST` que responde éxito o error, porque el cliente
@@ -312,7 +345,7 @@ llenes el formulario completo para nada.
 > `app/realtime/manager.py` por un canal de Redis pub/sub. El resto del código
 > no se entera, porque todos publican a través de `publish()`.
 
-### 7. Cada pantalla muestra lo que ese perfil necesita, y nada más
+### 8. Cada pantalla muestra lo que ese perfil necesita, y nada más
 
 El hotel solicita salidas; el campo cobra y administra. Esa frontera define
 qué aparece en cada pantalla:
@@ -356,18 +389,18 @@ de todos los días, modificarlo no.
 convenios, padrón PGA, generador de horarios, servicios y la bitácora de
 cambios, en una sola pantalla.
 
-### 8. Cada perfil ve solo lo suyo, y eso se valida en el servidor
+### 9. Cada perfil ve solo lo suyo, y eso se valida en el servidor
 
 | Perfil | Pantallas |
 |---|---|
 | Administrador general | Todas, incluida la configuración financiera y los usuarios |
 | Dirección de operaciones | Todas; tarifas, tipo de cambio, convenios y PGA en **consulta** |
-| Recepción | Solicitudes del día · Recepción & Check-In · Liquidaciones (solo su turno de caja) |
+| Recepción | Solicitudes del día · Recepción & Check-In · Liquidaciones (solo su turno de caja) · Nueva reserva **solo de público general** |
 | Hotel | Panel del Hotel · Nueva reserva |
 
 El menú se arma desde permisos de pantalla (`screen:…`) que manda el backend
 en `/api/auth/me`, y cada ruta del frontend lleva guard. Pero eso es solo
-presentación: **esconder un enlace no protege nada**. La defensa real son tres
+presentación: **esconder un enlace no protege nada**. La defensa real son cuatro
 capas en el servidor:
 
 1. **`RequirePermission` en cada endpoint.** Un hotel que escriba
@@ -375,7 +408,12 @@ capas en el servidor:
 2. **Filtro por hotel en el repositorio, no en el router.** Así un endpoint
    nuevo no puede olvidarse de restringir el alcance: la consulta ya sale
    limitada de origen.
-3. **Filtrado de listados que parecen inocentes.** El catálogo de hoteles trae
+3. **Quién reserva para quién.** Un usuario de hotel queda amarrado a su propia
+   entidad aunque mande el id de otra. Y recepción solo puede levantar reservas
+   de público general: colgarle una reserva a un hotel con convenio le genera
+   comisión a ese hotel, y esa decisión es de operaciones. El servidor lo
+   rechaza, no solo la pantalla.
+4. **Filtrado de listados que parecen inocentes.** El catálogo de hoteles trae
    la participación negociada con cada entidad, y los convenios pueden ser
    exclusivos de uno: a un usuario de hotel se le devuelve solo su propia
    entidad y los convenios generales más los suyos. El padrón PGA es una lista

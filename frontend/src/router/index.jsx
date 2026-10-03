@@ -19,6 +19,7 @@ import DashboardPage from '../pages/DashboardPage';
 import HotelPanelPage from '../pages/HotelPanelPage';
 import TeeSheetPage from '../pages/TeeSheetPage';
 import PartidasPage from '../pages/PartidasPage';
+import PartidasAbiertasPage from '../pages/PartidasAbiertasPage';
 import NewReservationPage from '../pages/NewReservationPage';
 import ReservationDetailPage from '../pages/ReservationDetailPage';
 import CheckInPage from '../pages/CheckInPage';
@@ -30,6 +31,7 @@ import InventoryPage from '../pages/InventoryPage';
 import AuditPage from '../pages/AuditPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import ForbiddenPage from '../pages/ForbiddenPage';
+import PublicPassPage from '../pages/PublicPassPage';
 
 export const PERMISOS = {
   PANEL: 'screen:panel',
@@ -45,6 +47,9 @@ export const PERMISOS = {
   AUDITORIA: 'screen:audit',
   CONTROL: 'user:manage',
   INVENTARIO: 'screen:inventory',
+  // Armar las partidas abiertas es trabajo de piso: lo decide quien está
+  // viendo el campo, no el mostrador y menos un hotel.
+  PARTIDAS_ABIERTAS: 'open_partida:manage',
 };
 
 function Protected({ children, permission, anyOf }) {
@@ -86,6 +91,8 @@ export default function AppRouter() {
 
   return (
     <Routes>
+      {/* El pase del huésped: se abre desde el celular, sin cuenta ni sesión. */}
+      <Route path="/pase/:token" element={<PublicPassPage />} />
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
 
       <Route
@@ -132,6 +139,15 @@ export default function AppRouter() {
           element={
             <Protected anyOf={[PERMISOS.RESERVAS, PERMISOS.PANEL, PERMISOS.CHECKIN]}>
               <ReservationDetailPage />
+            </Protected>
+          }
+        />
+
+        <Route
+          path="/partidas-abiertas"
+          element={
+            <Protected permission={PERMISOS.PARTIDAS_ABIERTAS}>
+              <PartidasAbiertasPage />
             </Protected>
           }
         />

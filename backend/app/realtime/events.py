@@ -24,6 +24,7 @@ class EventType(str, Enum):
     DISPONIBILIDAD_CAMBIADA = "disponibilidad.cambiada"
 
     # Mostrador
+    PASE_ESCANEADO = "pase.escaneado"
     CHECKIN_REGISTRADO = "checkin.registrado"
     PAGO_REGISTRADO = "pago.registrado"
 

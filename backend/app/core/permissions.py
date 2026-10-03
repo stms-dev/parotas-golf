@@ -41,6 +41,15 @@ class Permission:
     RESERVATION_CREATE = "reservation:create"
     RESERVATION_CONFIRM = "reservation:confirm"
     RESERVATION_CANCEL = "reservation:cancel"
+    # Marcar una partida como suspendida por el clima y reponerle la ronda al
+    # huésped. Es una cortesía que sale del bolsillo del campo, así que la
+    # decide operaciones y no el mostrador.
+    RESERVATION_RESCHEDULE = "reservation:reschedule"
+    # Armar las partidas abiertas: cerrar una antes de que se llene, pasar a un
+    # hotel de una salida a otra, o no aceptar partidas abiertas ese día. Es
+    # trabajo de piso, no de quien vende: el que decide con quién juega un
+    # huésped es el que está viendo el campo.
+    OPEN_PARTIDA_MANAGE = "open_partida:manage"
 
     # ------------------------------------------------------ check-in y cobro
     CHECKIN_PERFORM = "checkin:perform"
@@ -160,6 +169,10 @@ _ADMIN_OPERACIONES: Set[str] = {
     # servicios, hoteles y comisiones los cambia la Administración.
 
     Permission.EVENT_MANAGE,
+    # La cortesía por campo suspendido la da operaciones.
+    Permission.RESERVATION_RESCHEDULE,
+    # Y las partidas abiertas también las arma operaciones.
+    Permission.OPEN_PARTIDA_MANAGE,
 
     Permission.FINANCE_VIEW_GLOBAL,
     # Operaciones es quien abre y cierra el turno de caja.

@@ -23,6 +23,8 @@ const NAV = [
   // Partidas se quedó también con el tablero de hoteles: era la misma lista
   // de reservas contada de otra forma.
   { to: '/reservas', label: 'Partidas & Hoteles', icono: 'historial', permission: 'screen:reservations' },
+  // Armar los grupos revueltos es trabajo de piso: solo operaciones lo ve.
+  { to: '/partidas-abiertas', label: 'Partidas abiertas', icono: 'grupo', permission: 'open_partida:manage' },
   { to: '/solicitudes', label: 'Solicitudes del día', icono: 'registro', permission: 'screen:requests' },
   { to: '/recepcion', label: 'Recepción & Check-In', icono: 'how_to_reg', permission: 'screen:checkin' },
   { to: '/finanzas', label: 'Liquidaciones', icono: 'payments', permission: 'screen:finance' },
@@ -93,6 +95,16 @@ export default function AppLayout() {
     ],
     () => contarPendientes(),
   );
+
+  // Escanearon un pase con el celular: la partida se abre en recepción desde
+  // donde sea que esté el recepcionista. Si ya está en esa pantalla, ella sola
+  // la abre y aquí no hay nada que hacer.
+  useRealtimeEvent([EVENTOS.PASE_ESCANEADO], (mensaje) => {
+    const folio = mensaje.payload?.folio;
+    if (!folio || !can('screen:checkin')) return;
+    if (window.location.pathname === '/recepcion') return;
+    navigate(`/recepcion?folio=${encodeURIComponent(folio)}`);
+  });
 
   function alternarMenu() {
     setPlegado((actual) => {

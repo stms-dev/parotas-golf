@@ -1,22 +1,32 @@
 """Envío de correos del club: el pase de la partida y el recibo del cobro.
 
-Dos reglas mandan aquí:
+Tres reglas mandan aquí:
 
 1. **Un correo nunca frena la operación.** El concierge no puede quedarse
-   mirando la pantalla porque Gmail tardó; ni perder una reserva porque el
-   SMTP estaba caído. Todo se encola en la bandeja de salida y sale después,
-   en segundo plano.
-2. **Nada se pierde en silencio.** Cada intento queda escrito con su error.
-   Si algo no llegó, se ve y se reenvía.
+   mirando la pantalla porque el servidor de correo tardó; ni perder una
+   reserva porque estaba caído. Todo se escribe primero en la bandeja de
+   salida.
+2. **Pero sale al momento.** Encolar no es aplazar: apenas queda escrito se
+   intenta entregar. Si eso falla, el repartidor de segundo plano lo reintenta
+   solito cada minuto. El huésped recibe su pase en segundos, y si algo se
+   atora, nadie tiene que acordarse de volver a mandarlo.
+3. **Nada se pierde en silencio.** Cada intento queda escrito con su error.
+
+Se entrega por **HTTPS**, no por SMTP. Los servidores administrados bloquean
+los puertos de SMTP para que no se manden campañas de spam desde ahí, así que
+un sistema que dependa de SMTP simplemente no manda correos en producción. La
+API de Resend viaja por el puerto 443, el mismo de cualquier página web.
 """
 from __future__ import annotations
 
+import base64
 import logging
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 from typing import List, Optional
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,6 +43,16 @@ logger = logging.getLogger(__name__)
 # como fallido y con un botón para reenviar a mano.
 MAX_INTENTOS = 3
 
+RESEND_URL = "https://api.resend.com/emails"
+
+# Cuánto se espera al proveedor. Corto cuando hay alguien esperando frente a
+# la pantalla; holgado cuando el repartidor trabaja solo en segundo plano.
+ESPERA_AL_MOMENTO = 6
+ESPERA_EN_SEGUNDO_PLANO = 20
+
+# El identificador con el que el HTML llama a la imagen del QR.
+CID_QR = "pase-qr"
+
 
 class MailingService:
     def __init__(self, db: Session):
@@ -46,7 +66,7 @@ class MailingService:
         reservation: Reservation,
         destino: Optional[str] = None,
     ) -> Optional[OutboxEmail]:
-        """Deja el correo listo para salir. No lo manda todavía."""
+        """Deja el correo escrito en la bandeja. Todavía no sale."""
         destinatario = (destino or reservation.holder_email or "").strip()
         if not destinatario:
             return None
@@ -66,6 +86,33 @@ class MailingService:
         )
         self.db.add(correo)
         self.db.flush()
+        return correo
+
+    def enviar_ahora(
+        self,
+        *,
+        kind: EmailKind,
+        reservation: Reservation,
+        destino: Optional[str] = None,
+    ) -> Optional[OutboxEmail]:
+        """Lo encola y lo manda de inmediato, sin esperar al repartidor.
+
+        Si la entrega falla, el correo se queda pendiente y el repartidor de
+        segundo plano lo reintenta. Quien llamó no se entera del tropiezo: su
+        reserva ya está hecha y eso es lo que importa.
+        """
+        correo = self.encolar(kind=kind, reservation=reservation, destino=destino)
+        if correo is None:
+            return None
+        self.db.commit()
+        try:
+            # Espera corta a propósito: del otro lado hay una persona parada en
+            # el mostrador. Si el proveedor no contesta en unos segundos, el
+            # correo se queda pendiente y el repartidor lo saca después; nadie
+            # se queda mirando la pantalla por un correo.
+            self._intentar(correo, timeout=ESPERA_AL_MOMENTO)
+        except Exception:  # pragma: no cover
+            logger.exception("Falló el envío inmediato del correo %s", correo.id)
         return correo
 
     # ------------------------------------------------------------- consulta
@@ -96,76 +143,148 @@ class MailingService:
     # --------------------------------------------------------------- envío
     @staticmethod
     def configurado() -> bool:
-        """¿Hay servidor de correo puesto? Sin esto, todo se queda encolado."""
-        return bool(settings.SMTP_HOST and settings.SMTP_FROM)
+        """¿Hay por dónde mandar? Sin esto, todo se queda en la bandeja."""
+        if not settings.remitente:
+            return False
+        return bool(settings.RESEND_API_KEY or settings.SMTP_HOST)
 
-    def _armar(self, correo: OutboxEmail) -> EmailMessage:
+    def _piezas(self, correo: OutboxEmail) -> tuple[str, str, Optional[bytes]]:
+        """Texto, HTML y —si es el pase— la imagen del QR."""
         reservation = correo.reservation
-        mensaje = EmailMessage()
-        mensaje["Subject"] = correo.subject
-        mensaje["From"] = f"Las Parotas Club de Golf <{settings.SMTP_FROM}>"
-        mensaje["To"] = correo.to_email
-
         if correo.kind == EmailKind.PASE:
             texto, html = cuerpo_pase(reservation)
-        else:
-            texto, html = cuerpo_recibo(reservation)
+            qr = (
+                generar_qr_png(reservation.qr_token)
+                if reservation and reservation.qr_token
+                else None
+            )
+            return texto, html, qr
+        texto, html = cuerpo_recibo(reservation)
+        return texto, html, None
 
+    def cuerpo_resend(self, correo: OutboxEmail) -> dict:
+        """El correo tal como lo recibe la API, ya listo para mandar.
+
+        El QR va **dentro** del mensaje, no como liga a otro servidor: casi
+        todos los clientes de correo bloquean las imágenes remotas y el pase se
+        vería en blanco justo cuando hace falta. Va dos veces a propósito: una
+        pegada al cuerpo para que se vea, y otra como archivo adjunto para
+        quien lo quiera imprimir.
+        """
+        texto, html, qr = self._piezas(correo)
+
+        cuerpo = {
+            "from": f"{settings.MAIL_FROM_NAME} <{settings.remitente}>",
+            "to": [correo.to_email],
+            "subject": correo.subject,
+            "text": texto,
+            "html": html,
+        }
+
+        if qr:
+            folio = correo.reservation.folio if correo.reservation else "pase"
+            imagen = base64.b64encode(qr).decode("ascii")
+            cuerpo["attachments"] = [
+                # El nombre de las dos copias tiene que ser distinto o hay
+                # clientes que enseñan una sola.
+                {
+                    "filename": "qr.png",
+                    "content": imagen,
+                    "content_type": "image/png",
+                    "content_id": CID_QR,
+                },
+                {
+                    "filename": f"pase-{folio}.png",
+                    "content": imagen,
+                    "content_type": "image/png",
+                },
+            ]
+
+        return cuerpo
+
+    def _entregar_por_https(self, correo: OutboxEmail, timeout: int) -> None:
+        """Le entrega el correo a Resend por su API."""
+        respuesta = httpx.post(
+            RESEND_URL,
+            json=self.cuerpo_resend(correo),
+            headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+            timeout=timeout,
+        )
+        if respuesta.status_code >= 400:
+            # El detalle del proveedor es lo que dice si fue la dirección, la
+            # llave o el dominio sin verificar. Sin él, el error no sirve.
+            raise RuntimeError(f"Resend {respuesta.status_code}: {respuesta.text[:300]}")
+
+    def _armar_mime(self, correo: OutboxEmail) -> EmailMessage:
+        """El mismo correo en formato MIME, para la salida por SMTP."""
+        texto, html, qr = self._piezas(correo)
+
+        mensaje = EmailMessage()
+        mensaje["Subject"] = correo.subject
+        mensaje["From"] = f"{settings.MAIL_FROM_NAME} <{settings.remitente}>"
+        mensaje["To"] = correo.to_email
         mensaje.set_content(texto)
         mensaje.add_alternative(html, subtype="html")
 
-        # El QR va pegado al correo, no como liga a otro servidor: casi todos
-        # los clientes de correo bloquean imágenes remotas y el pase se vería
-        # en blanco justo cuando hace falta.
-        if correo.kind == EmailKind.PASE and reservation and reservation.qr_token:
-            imagen = generar_qr_png(reservation.qr_token)
+        if qr:
+            folio = correo.reservation.folio if correo.reservation else "pase"
             parte_html = mensaje.get_payload()[1]
-            parte_html.add_related(
-                imagen, maintype="image", subtype="png", cid="<pase-qr>"
-            )
+            parte_html.add_related(qr, maintype="image", subtype="png", cid=f"<{CID_QR}>")
             mensaje.add_attachment(
-                imagen,
-                maintype="image",
-                subtype="png",
-                filename=f"pase-{reservation.folio}.png",
+                qr, maintype="image", subtype="png", filename=f"pase-{folio}.png"
             )
-
         return mensaje
 
-    def _entregar(self, mensaje: EmailMessage) -> None:
-        """Habla con el servidor de correo. Es lo único que sale a la red."""
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as servidor:
+    def _entregar_por_smtp(self, correo: OutboxEmail, timeout: int) -> None:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=timeout) as servidor:
             if settings.SMTP_TLS:
                 servidor.starttls()
             if settings.SMTP_USER:
                 servidor.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            servidor.send_message(mensaje)
+            servidor.send_message(self._armar_mime(correo))
+
+    def _entregar(self, correo: OutboxEmail, timeout: int) -> None:
+        """Lo saca por donde haya. HTTPS primero, que es lo que funciona."""
+        if settings.RESEND_API_KEY:
+            self._entregar_por_https(correo, timeout)
+        else:
+            self._entregar_por_smtp(correo, timeout)
+
+    def _intentar(self, correo: OutboxEmail, timeout: int = ESPERA_EN_SEGUNDO_PLANO) -> bool:
+        """Un intento de entrega, con su resultado escrito. No lanza errores."""
+        if not self.configurado():
+            return False
+
+        correo.attempts += 1
+        try:
+            self._entregar(correo, timeout)
+            correo.status = EmailStatus.ENVIADO
+            correo.sent_at = datetime.utcnow()
+            correo.last_error = None
+            self.db.commit()
+            return True
+        except Exception as exc:  # el detalle importa: queda escrito
+            correo.last_error = str(exc)[:500]
+            if correo.attempts >= MAX_INTENTOS:
+                correo.status = EmailStatus.FALLIDO
+            self.db.commit()
+            logger.warning(
+                "No se pudo enviar el correo %s a %s: %s",
+                correo.id, correo.to_email, exc,
+            )
+            return False
 
     def procesar_pendientes(self, limite: int = 20) -> dict:
-        """Intenta mandar lo que está en cola. Devuelve el resumen."""
+        """Intenta mandar lo que quedó en cola. Devuelve el resumen."""
         if not self.configurado():
             return {"enviados": 0, "fallidos": 0, "motivo": "sin servidor de correo"}
 
         enviados = fallidos = 0
         for correo in self.pendientes(limite):
-            correo.attempts += 1
-            try:
-                self._entregar(self._armar(correo))
-                correo.status = EmailStatus.ENVIADO
-                correo.sent_at = datetime.utcnow()
-                correo.last_error = None
+            if self._intentar(correo):
                 enviados += 1
-            except Exception as exc:  # el detalle importa: queda escrito
-                correo.last_error = str(exc)[:500]
-                if correo.attempts >= MAX_INTENTOS:
-                    correo.status = EmailStatus.FALLIDO
+            else:
                 fallidos += 1
-                logger.warning(
-                    "No se pudo enviar el correo %s a %s: %s",
-                    correo.id, correo.to_email, exc,
-                )
-            self.db.commit()
-
         return {"enviados": enviados, "fallidos": fallidos}
 
     def reintentar(self, correo_id: int) -> OutboxEmail:

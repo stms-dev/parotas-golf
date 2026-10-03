@@ -95,6 +95,8 @@ export function Responsiva({ reservation, onCerrar }) {
           t="Salida"
           v={`${hora(reservation.slot_time)} hrs · ${reservation.holes} hoyos`}
         />
+        <Dato t="Reserva levantada por" v={reservation.booked_by_name || '—'} />
+        <Dato t="Atendió en el mostrador" v={reservation.attended_by_name || '—'} />
       </dl>
 
       <section className="mb-5">
@@ -214,6 +216,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
         <Dato t="Hotel" v={reservation.hotel_name || '—'} />
         <Dato t="Fecha de juego" v={fecha(reservation.slot_date)} />
         <Dato t="Salida" v={`${hora(reservation.slot_time)} hrs`} />
+        <Dato t="Atendió" v={reservation.attended_by_name || '—'} />
       </dl>
 
       <table className="mb-4 w-full text-left text-body-md">
@@ -265,6 +268,22 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
                 </span>
               </td>
               <td className="py-2 text-right font-mono text-outline">Incluido</td>
+            </tr>
+          )}
+
+          {/* El caddie va en la responsiva a propósito: el club no lo cobra,
+              pero el huésped tiene que saber que le paga directo y cuánto. */}
+          {reservation.caddies_used > 0 && (
+            <tr className="border-b border-outline-variant/30">
+              <td className="py-2">
+                <span className="block text-on-surface">
+                  {reservation.caddies_used} caddie{reservation.caddies_used === 1 ? '' : 's'}
+                </span>
+                <span className="block text-label-sm text-outline">
+                  Uno por carrito · se le paga directo al caddie en el campo
+                </span>
+              </td>
+              <td className="py-2 text-right font-mono text-outline">Pago directo</td>
             </tr>
           )}
 
@@ -409,7 +428,9 @@ export function ReciboReplay({ reservation, replay, numero = 1, onCerrar }) {
         <Dato t="Fecha de juego" v={fecha(reservation.slot_date)} />
         <Dato t="Salida original" v={`${hora(reservation.slot_time)} hrs`} />
         {replay.slot_time && <Dato t="Salida del replay" v={`${hora(replay.slot_time)} hrs`} />}
-        <Dato t="Cobrado por" v={replay.created_by_name || '—'} />
+        {/* El nombre de la persona manda sobre el de la cuenta: la del
+            mostrador la comparten los turnos. */}
+        <Dato t="Cobrado por" v={replay.attended_by_name || replay.created_by_name || '—'} />
       </dl>
 
       <table className="mb-4 w-full text-left text-body-md">

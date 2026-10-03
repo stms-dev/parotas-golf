@@ -9,7 +9,10 @@ import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
+    {/* Todas las rutas del sistema cuelgan de /sistema: la raíz del dominio
+        es el sitio público. Sin esto, /recepcion buscaría en la raíz y caería
+        en el sitio. */}
+    <BrowserRouter basename="/sistema">
       <AuthProvider>
         {/* El canal de tiempo real vive dentro de la sesión: se conecta al
             iniciar sesión y se cierra al salir. */}

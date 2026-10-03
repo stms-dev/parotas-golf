@@ -101,6 +101,9 @@ class ReplayTicket(Base):
     created_by_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Quién lo vendió, por su nombre: el replay se cobra aparte y puede caer en
+    # otro turno que la cuenta del mostrador no distingue.
+    attended_by_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     reservation = relationship("Reservation", back_populates="replays")
