@@ -94,6 +94,20 @@ async def lifespan(app: FastAPI):
     realtime_manager.bind_loop(asyncio.get_running_loop())
     logger.info("Canal de tiempo real listo")
 
+    # Cómo quedó el cobro en línea, escrito al arrancar.
+    #
+    # Es el único momento en que alguien mira la bitácora sin que haya pasado
+    # algo malo, y es justo cuando conviene enterarse de que la llave está mal
+    # puesta — no cuando un huésped con la tarjeta en la mano le da a pagar.
+    # No se escribe ningún secreto: del prefijo se sabe si es de prueba o real
+    # y eso basta para saber si está bien.
+    from app.modules.pagos import stripe_gateway
+
+    logger.info(stripe_gateway.resumen())
+    mal_configurado = stripe_gateway.problema_de_configuracion()
+    if mal_configurado:
+        logger.error("REVISAR EL COBRO EN LÍNEA: %s", mal_configurado)
+
     # El cartero: cada minuto revisa la bandeja de salida y manda lo que
     # quedó pendiente. Sin servidor de correo configurado, ni arranca.
     tarea_correos = None
@@ -158,6 +172,35 @@ async def domain_error_handler(request: Request, exc: DomainError):
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message, "detail": exc.detail}},
+    )
+
+
+@app.exception_handler(Exception)
+async def error_no_previsto(request: Request, exc: Exception):
+    """Lo que nadie esperaba, escrito con nombre y apellido.
+
+    Sin esto, una excepción que no sea del dominio sale como un 500 pelón: el
+    visitante ve una pantalla rota y la bitácora no dice ni qué ruta fue. Pasó
+    de verdad con el primer cobro que intentó Stripe, y no hubo forma de saber
+    el motivo hasta reproducirlo. Ahora la traza completa queda escrita con la
+    ruta y el identificador de la petición, y al de afuera se le contesta algo
+    corto — el detalle de un error interno no es asunto suyo.
+    """
+    logger.exception(
+        "Error no previsto en %s %s", request.method, request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "ERROR_INTERNO",
+                "message": (
+                    "Algo falló de nuestro lado. Vuelva a intentarlo; si "
+                    "sigue igual, comuníquese con el club."
+                ),
+                "detail": None,
+            }
+        },
     )
 
 

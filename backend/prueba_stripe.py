@@ -194,6 +194,56 @@ r = c.post(f"/api/public/reservas/{ap3['folio']}/pago", json={
     "numero": "4242424242424242", "mes": 12, "anio": 2030, "cvv": "123", "nombre": "Turista de Prueba"})
 check("El cobro de mentiras no corre", r.status_code == 409, r.json()["error"]["message"][:60])
 
+print("\n10. Una llave mal puesta se detecta antes de cobrar")
+# El error más fácil de cometer al configurar: copiar la llave publicable, que
+# en el panel de Stripe está pegadita a la secreta. Con ella puesta todo se ve
+# bien hasta que alguien le da a pagar.
+guardadas = (settings.STRIPE_SECRET_KEY, settings.SITIO_URL)
+for llave, sitio, esperado in [
+    ("pk_test_51abc", "https://parotasgolf.com", "publicable"),
+    ("sk_test_51abc", "parotasgolf.com", "SITIO_URL"),
+    ("  sk_test_51abc  ", "https://parotasgolf.com", "espacios"),
+    ("hola", "https://parotasgolf.com", "no parece una llave"),
+]:
+    settings.STRIPE_SECRET_KEY, settings.SITIO_URL = llave, sitio
+    aviso = stripe_gateway.problema_de_configuracion() or ""
+    check(f"Se detecta: {esperado}", esperado in aviso, aviso[:70])
+
+settings.STRIPE_SECRET_KEY, settings.SITIO_URL = "sk_test_51abc", "https://parotasgolf.com"
+check("Una llave bien puesta no se queja",
+      stripe_gateway.problema_de_configuracion() is None)
+check("El resumen del arranque no escribe el secreto",
+      "51abc" not in stripe_gateway.resumen(), stripe_gateway.resumen())
+settings.STRIPE_SECRET_KEY, settings.SITIO_URL = guardadas
+
+print("\n11. Un error de Stripe no sale como 500 mudo")
+# Esto es lo que rompió el primer cobro en producción: cualquier queja de
+# Stripe subía sin traducir y salía como un 500 pelón, sin motivo en ninguna
+# parte. Ahora sale como 409 con una frase que el huésped puede leer, y el
+# motivo de verdad queda en la bitácora.
+import stripe as _stripe
+from app.core.exceptions import BusinessRuleError
+
+ap4 = apartar(correo="falla@ejemplo.com")
+original = stripe_gateway.crear_sesion
+
+for tipo, como_se_llama in [
+    (_stripe.error.AuthenticationError("Invalid API Key provided"), "llave rechazada"),
+    (_stripe.error.InvalidRequestError("Not a valid URL", "success_url"), "dirección inválida"),
+    (_stripe.error.APIConnectionError("Network error"), "sin salida a internet"),
+]:
+    def revienta(*a, _e=tipo, **k):
+        raise stripe_gateway._traducir(_e, "abrir la página de pago") from _e
+    stripe_gateway.crear_sesion = revienta
+    r = c.post(f"/api/public/reservas/{ap4['folio']}/checkout")
+    check(f"{como_se_llama} → 409, no 500", r.status_code == 409, f"HTTP {r.status_code}")
+    check(f"{como_se_llama} → el huésped lee algo útil",
+          "salida sigue apartada" in r.json()["error"]["message"], r.json()["error"]["message"][:60])
+
+stripe_gateway.crear_sesion = original
+check("Y la reserva no se perdió por el error",
+      c.get(f"/api/public/reservas/{ap4['folio']}").json()["estado"] == "PENDIENTE")
+
 print("\n" + "=" * 58)
 if FALLOS:
     print(f"  {len(FALLOS)} FALLARON:")

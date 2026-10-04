@@ -53,6 +53,23 @@ class Settings(BaseSettings):
     # club; en desarrollo, el que corre en el 5180.
     SITIO_URL: str = "http://localhost:5180"
 
+    @field_validator("SITIO_URL")
+    @classmethod
+    def _completar_sitio(cls, valor: str) -> str:
+        """Le pone el esquema si falta y le quita la diagonal del final.
+
+        Stripe exige la dirección completa: con `parotasgolf.com` a secas
+        contesta "An explicit scheme (such as https) must be provided" y el
+        cobro se cae. Y es un error facilísimo de cometer, porque al teclear
+        un dominio en una variable de entorno nadie piensa en el https://.
+        Costó un 500 en producción averiguarlo, así que mejor que el servidor
+        lo complete en vez de esperar a que alguien lo note.
+        """
+        valor = (valor or "").strip().rstrip("/")
+        if valor and not valor.startswith(("http://", "https://")):
+            valor = f"https://{valor}"
+        return valor
+
     # El simulador de tarjetas, para desarrollar sin tocar Stripe. Queda
     # apagado por omisión y Stripe le gana si las dos están prendidas: un
     # servidor que confirma reservas con tarjetas inventadas es peor que uno
