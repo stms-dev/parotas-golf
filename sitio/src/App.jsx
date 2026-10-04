@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from 'react';
 
-import Copa from './componentes/Copa';
+import Fondo from './componentes/Fondo';
 import Recorrido from './componentes/Recorrido';
 import Salida from './componentes/estaciones/Salida';
 import ElCampo from './componentes/estaciones/ElCampo';
@@ -112,7 +112,10 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      <Copa />
+      {/* El campo pone su propia foto, grande y nítida; otro paisaje detrás
+          sería una foto encima de otra. En las demás paradas el fondo es lo
+          único que hay, y es lo que le da aire al sitio. */}
+      {estacion !== 'campo' && <Fondo cambiarCon={estacion} />}
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
         {/* ------------------------------------------------------ encabezado */}
@@ -150,23 +153,34 @@ export default function App() {
         <main className="mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:flex-row lg:items-stretch lg:gap-10">
           {/* El mapa. En celular se queda con una franja; en escritorio, con
               la mitad, que es cuando de verdad se puede leer el trazo. */}
-          <div className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:w-[52%] lg:flex-1 ${
+          <div className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:w-[15rem] xl:w-[17rem] ${
               // Llenar un formulario en un celular necesita pantalla. El mapa
               // es contexto; la reserva es la tarea. En una pantalla ancha
               // caben los dos, pero en un celular el mapa se quita de en
               // medio: con él puesto solo cabía un jugador a la vez, y la
               // reserva es justo la pantalla donde no se puede estar
               // deslizando a ciegas.
-              estacion === 'reservar' ? 'hidden lg:block' : 'h-[29svh]'
+              // En celular el mapa estorba en dos paradas. En Reservar,
+              // porque el formulario necesita la pantalla. En El campo,
+              // porque a ancho de pulgar el trazo se encoge tanto que los
+              // números no se leen ni se atinan — y para elegir hoyo está la
+              // regla de dieciocho barras del panel, que ahí sí se toca.
+              estacion === 'reservar' || estacion === 'campo'
+                ? 'hidden lg:block'
+                : 'h-[29svh]'
             }`}>
             <Recorrido
               hoyoActivo={hoyo}
               hoyoEstaciones={HOYOS_ESTACION}
               onElegirHoyo={setHoyo}
             />
-            <p className="pointer-events-none absolute bottom-0 left-0 font-texto text-menudo text-arena/40">
-              Hoyo {hoyo} · par {parDelHoyo} — toque cualquier hoyo del trazo
-            </p>
+            {estacion !== 'campo' && (
+              // En celular el mapa va centrado y angosto, y esta leyenda
+              // pegada a la izquierda quedaba huérfana en un hueco vacío.
+              <p className="pointer-events-none absolute bottom-0 left-0 hidden font-texto text-menudo text-arena/40 lg:block">
+                Hoyo {hoyo} · par {parDelHoyo}
+              </p>
+            )}
           </div>
 
           {/* El panel. Tiene su propio desplazamiento para que la página nunca
@@ -175,7 +189,16 @@ export default function App() {
               cuando no — sin él, un panel largo se corta por el encabezado. */}
           <section
             key={estacion}
-            className="panel flex min-h-0 flex-1 flex-col [justify-content:safe_center] overflow-y-auto lg:w-[48%] lg:max-w-[46rem]"
+            className={`panel flex min-h-0 flex-1 flex-col overflow-y-auto ${
+              // El campo quiere toda la pantalla: su foto es el contenido, y
+              // cuanto más grande, mejor. Las demás paradas son texto y
+              // formularios, y un renglón de mil pixeles de ancho no se lee:
+              // se topan para que la línea quede del largo de una lectura
+              // cómoda, y se centra su contenido cuando cabe.
+              estacion === 'campo'
+                ? ''
+                : '[justify-content:safe_center] lg:max-w-[54rem]'
+            }`}
           >
             {paneles[estacion]}
           </section>

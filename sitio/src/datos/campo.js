@@ -11,39 +11,62 @@
 
 // --------------------------------------------------------------- el recorrido
 /**
- * Los 18 hoyos como una ruta: cada uno va de su salida a su green, y entre el
- * green de uno y la salida del siguiente hay una caminata.
+ * El campo, trazado de la foto aérea del club.
  *
- * El trazo es una interpretación para la pantalla, no el plano topográfico del
- * campo. Suma par 72, que es el del campo de verdad. Para ajustarlo al trazo
- * real basta mover estas coordenadas: el mapa, los números y el viaje de la
- * bola se recalculan solos.
+ * Esto ya no es una interpretación: la silueta, los cuerpos de agua y la
+ * posición de los 18 hoyos salieron de la lámina oficial del campo, medidas
+ * sobre la imagen. El sistema de coordenadas es el de esa lámina —de ahí los
+ * números grandes— y el viewBox de abajo la encuadra.
+ *
+ * Es un campo largo y angosto, casi tres veces y media más alto que ancho:
+ * sube por un cañón hasta la laguna del hoyo 4 y baja abriéndose en dos
+ * dedos al sur. Por eso el mapa vive en una columna delgada, no en media
+ * pantalla — estirarlo para llenar un hueco sería dibujar otro campo.
  */
-export const HOYOS = [
-  // Ida: sale a la izquierda, sube por la ladera y vuelve por en medio.
-  { n: 1, par: 4, salida: [470, 604], green: [368, 528], curva: [416, 548] },
-  { n: 2, par: 4, salida: [348, 512], green: [198, 452], curva: [262, 478] },
-  { n: 3, par: 3, salida: [180, 436], green: [132, 372], curva: [146, 404] },
-  { n: 4, par: 4, salida: [126, 352], green: [172, 252], curva: [112, 298] },
-  { n: 5, par: 4, salida: [190, 234], green: [310, 198], curva: [242, 196] },
-  { n: 6, par: 5, salida: [330, 186], green: [470, 150], curva: [398, 152] },
-  { n: 7, par: 3, salida: [492, 160], green: [528, 232], curva: [530, 188] },
-  { n: 8, par: 4, salida: [516, 252], green: [416, 318], curva: [474, 306] },
-  { n: 9, par: 5, salida: [400, 338], green: [462, 566], curva: [396, 470] },
-  // Vuelta: abre a la derecha, sube al punto más alto y baja de frente.
-  { n: 10, par: 4, salida: [524, 592], green: [640, 548], curva: [578, 580] },
-  { n: 11, par: 4, salida: [662, 536], green: [762, 476], curva: [722, 520] },
-  { n: 12, par: 3, salida: [782, 460], green: [836, 392], curva: [828, 434] },
-  { n: 13, par: 5, salida: [850, 374], green: [820, 236], curva: [876, 306] },
-  { n: 14, par: 4, salida: [804, 218], green: [690, 190], curva: [744, 190] },
-  { n: 15, par: 4, salida: [668, 180], green: [588, 128], curva: [612, 142] },
-  { n: 16, par: 5, salida: [570, 120], green: [628, 290], curva: [592, 206] },
-  { n: 17, par: 3, salida: [636, 312], green: [580, 364], curva: [616, 350] },
-  { n: 18, par: 4, salida: [562, 384], green: [508, 576], curva: [568, 482] },
+export const VISTA = { x: 420, y: 70, ancho: 424, alto: 1396 };
+
+/** El contorno del campo. */
+export const SILUETA =
+  "M565 88L536 105L524 130L533 215L515 288L520 318L562 405L563 423L543 435L519 472L513 513L535 543L578 563L622 632L622 647L576 680L558 712L558 761L568 791L587 816L587 830L551 835L524 860L516 877L520 930L504 971L509 1014L534 1036L578 1051L579 1067L465 1243L440 1319L437 1363L460 1415L491 1447L533 1439L551 1416L573 1359L609 1310L635 1214L650 1198L668 1197L686 1226L689 1388L714 1419L756 1439L817 1374L826 1319L817 1296L811 1196L792 1142L778 1064L751 988L723 957L748 849L727 724L748 676L754 512L731 469L665 430L663 397L641 343L637 288L687 188L684 154L667 130L626 102Z";
+
+/** La laguna del 4 y los tres estanques de en medio. */
+export const AGUA = [
+  "M542 136L545 163L561 178L590 175L600 180L655 180L664 175L659 145L622 118L601 116L590 108L569 108L554 112Z",
+  "M673 689L648 683L633 691L636 735L631 739L607 737L605 749L614 762L633 768L656 755Z",
+  "M684 784L664 784L657 792L657 806L666 827L683 825L692 818L695 799Z",
+  "M655 851L640 854L640 860L646 861L651 873L644 898L661 894L666 885L665 865Z",
 ];
 
-/** La casa club, donde empieza y termina la vuelta. */
-export const CASA_CLUB = [492, 614];
+/**
+ * Los 18 hoyos en el orden en que se juegan, en su lugar real.
+ *
+ * El par de cada uno todavía no lo tenemos del club; la suma sí da 72, que es
+ * la del campo. Cuando llegue la tarjeta buena se cambian estos números y
+ * nada más se mueve.
+ */
+export const HOYOS = [
+  { n: 1, par: 4, x: 720, y: 802 },
+  { n: 2, par: 4, x: 712, y: 542 },
+  { n: 3, par: 3, x: 556, y: 290 },
+  { n: 4, par: 4, x: 610, y: 200 },
+  { n: 5, par: 4, x: 622, y: 320 },
+  { n: 6, par: 5, x: 562, y: 456 },
+  { n: 7, par: 3, x: 624, y: 570 },
+  { n: 8, par: 4, x: 604, y: 688 },
+  { n: 9, par: 5, x: 626, y: 836 },
+  { n: 10, par: 4, x: 614, y: 1076 },
+  { n: 11, par: 4, x: 516, y: 1236 },
+  { n: 12, par: 3, x: 488, y: 1394 },
+  { n: 13, par: 5, x: 570, y: 1320 },
+  { n: 14, par: 4, x: 654, y: 1156 },
+  { n: 15, par: 4, x: 718, y: 1164 },
+  { n: 16, par: 5, x: 716, y: 1292 },
+  { n: 17, par: 3, x: 790, y: 1266 },
+  { n: 18, par: 4, x: 750, y: 1064 },
+];
+
+/** La casa club: entre el 9 y el 10, que es donde está en la lámina. */
+export const CASA_CLUB = [575, 980];
 
 export const PAR_TOTAL = HOYOS.reduce((suma, h) => suma + h.par, 0); // 72
 
@@ -199,3 +222,35 @@ export const pesos = (n) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
+
+// ------------------------------------------------------------------ las fotos
+/**
+ * Las fotos del campo, tomadas por el fotógrafo del club.
+ *
+ * Están partidas en dos grupos porque cumplen dos oficios distintos:
+ *
+ * · **FONDOS** van detrás del contenido, difuminadas y oscurecidas. Nadie las
+ *   mira de frente: dan atmósfera y tienen que dejar leer encima. Por eso
+ *   pesan poco — el desenfoque se come cualquier detalle que tuvieran.
+ * · **POR_HOYO** son la foto que se enseña al tocar un hoyo. Esas sí se miran,
+ *   así que van a más resolución.
+ *
+ * El reparto de POR_HOYO es provisional: una foto por hoyo, en el orden en que
+ * vinieron. Cuando el club las entregue identificadas, se reacomodan aquí y
+ * ninguna pantalla se entera.
+ */
+const FONDOS_N = 19;
+const HOYOS_N = 18;
+
+export const FONDOS = Array.from(
+  { length: FONDOS_N },
+  (_, i) => `/fotos/fondo/${String(i + 1).padStart(2, '0')}.webp`,
+);
+
+export const POR_HOYO = Array.from(
+  { length: HOYOS_N },
+  (_, i) => `/fotos/hoyo/${String(i + 1).padStart(2, '0')}.webp`,
+);
+
+/** La foto que le toca a un hoyo. Siempre la misma para el mismo hoyo. */
+export const fotoDelHoyo = (n) => POR_HOYO[(n - 1) % POR_HOYO.length];

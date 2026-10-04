@@ -46,7 +46,7 @@ export default function CasaClub() {
           >
             el sistema de reservas
           </a>
-          , el mismo botón de Socio de arriba.
+           — el botón «Acceder» de arriba.
         </p>
       </div>
     </div>
