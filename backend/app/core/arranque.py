@@ -33,6 +33,10 @@ def migrar() -> None:
         config = Config(str(RAIZ / "alembic.ini"))
         config.set_main_option("script_location", str(RAIZ / "alembic"))
         config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        # Aquí migra la aplicación, no una terminal: la bitácora ya está
+        # armada y Alembic no debe rehacerla. Ver el comentario largo en
+        # alembic/env.py — sin esta bandera, el servidor se queda mudo.
+        config.attributes["app_configuro_log"] = True
         command.upgrade(config, "head")
         logger.info("Esquema al día")
     except Exception as exc:  # pragma: no cover

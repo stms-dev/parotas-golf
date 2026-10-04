@@ -103,3 +103,6 @@ def configurar_logging(*, produccion: bool, debug: bool = False) -> None:
     logging.getLogger("uvicorn.access").addFilter(SinRuidoDeSalud())
     # SQLAlchemy en INFO imprime cada consulta con sus parámetros.
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    # Alembic anuncia cada complemento que carga. Lo que sí interesa de él son
+    # las migraciones que aplica, y eso sale por `alembic.runtime.migration`.
+    logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)

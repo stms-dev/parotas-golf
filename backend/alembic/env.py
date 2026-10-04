@@ -14,8 +14,20 @@ from app.models import Base  # importa todos los modelos y llena Base.metadata
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# La bitácora del .ini solo se arma cuando Alembic se corre a mano.
+#
+# `fileConfig` no es inocente: reemplaza los manejadores de la raíz, le baja el
+# nivel a WARNING y —lo peor— trae `disable_existing_loggers=True`, que apaga
+# TODOS los loggers que ya existían. En el servidor la aplicación migra sola al
+# arrancar, dentro de su propio proceso, así que esa llamada dejaba muda a la
+# aplicación entera desde el primer segundo de vida: ni los avisos del arranque,
+# ni las trazas de los errores, nada. Un cobro con Stripe se cayó y no hubo
+# manera de saber por qué, porque el log terminaba justo aquí.
+#
+# Cuando migra la aplicación, `arranque.migrar()` marca esta bandera y la
+# bitácora que ya está puesta se queda como está.
+if config.config_file_name is not None and not config.attributes.get("app_configuro_log"):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

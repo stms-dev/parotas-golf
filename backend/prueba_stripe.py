@@ -244,6 +244,30 @@ stripe_gateway.crear_sesion = original
 check("Y la reserva no se perdió por el error",
       c.get(f"/api/public/reservas/{ap4['folio']}").json()["estado"] == "PENDIENTE")
 
+print("\n12. Migrar al arrancar no deja muda a la aplicación")
+# Alembic, al correr dentro del proceso, llamaba a `fileConfig`, que trae
+# `disable_existing_loggers=True` y apagaba TODOS los loggers de la aplicación.
+# En el servidor eso dejó al sistema sin bitácora desde el primer segundo: un
+# cobro con Stripe se cayó y no hubo forma de saber por qué.
+import logging as _log
+from alembic import command as _cmd
+from alembic.config import Config as _Cfg
+from app.core.arranque import RAIZ as _RAIZ
+
+_antes = _log.getLogger("app.main")
+check("El logger está vivo antes de migrar", not _antes.disabled)
+
+_cfg = _Cfg(str(_RAIZ / "alembic.ini"))
+_cfg.set_main_option("script_location", str(_RAIZ / "alembic"))
+_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+_cfg.attributes["app_configuro_log"] = True
+_cmd.upgrade(_cfg, "head")
+
+check("Y sigue vivo después", not _log.getLogger("app.main").disabled)
+check("La raíz conserva su manejador", len(_log.getLogger().handlers) > 0)
+check("Y su nivel, no el WARNING del .ini",
+      _log.getLogger().level <= _log.INFO, f"nivel {_log.getLogger().level}")
+
 print("\n" + "=" * 58)
 if FALLOS:
     print(f"  {len(FALLOS)} FALLARON:")
