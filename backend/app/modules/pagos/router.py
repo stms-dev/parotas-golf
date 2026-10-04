@@ -285,6 +285,23 @@ def checkout(folio: str, request: Request, db: Session = Depends(get_db)):
     return ReservaPublicaService(db).iniciar_cobro(folio)
 
 
+def _como_diccionario(objeto) -> dict:
+    """Aplana lo que manda Stripe a un diccionario de toda la vida.
+
+    Los objetos de la biblioteca de Stripe se parecen a un diccionario pero no
+    lo son, y tratarlos como tal revienta. Un diccionario de verdad, en cambio,
+    pasa derecho — así la función sirve igual para lo que llega por la red que
+    para lo que arman las pruebas.
+    """
+    if isinstance(objeto, dict):
+        return objeto
+    for metodo in ("to_dict_recursive", "to_dict"):
+        convertir = getattr(objeto, metodo, None)
+        if callable(convertir):
+            return convertir()
+    return dict(objeto)
+
+
 @router.post("/stripe/webhook", include_in_schema=False)
 async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
     """Stripe avisa que un pago se completó. **Esto es lo que confirma.**
@@ -302,7 +319,15 @@ async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
         # hacer, pero se contesta 200 para que no los reintente en vano.
         return {"recibido": True}
 
-    sesion = evento["data"]["object"]
+    # Stripe no entrega un diccionario: entrega un objeto `Session` de su
+    # biblioteca, y desde la versión 8 ese objeto se niega a propósito a
+    # responder `.get()` — contesta "'get' is a dict method, but a Session is
+    # not a dict". Así que primero se convierte.
+    #
+    # Esto rompió el primer pago de verdad en producción, y la prueba no lo
+    # vio porque el doble que usaba devolvía un diccionario: demasiado amable
+    # con el código. Ahora la prueba arma un evento de Stripe auténtico.
+    sesion = _como_diccionario(evento["data"]["object"])
     folio = (sesion.get("metadata") or {}).get("folio")
     if not folio:
         return {"recibido": True, "nota": "aviso sin folio"}

@@ -49,12 +49,25 @@ def _devolver(payment_intent, motivo="requested_by_customer"):
 EVENTO = {}
 
 def _leer_evento(cuerpo, firma):
-    # El doble solo acepta la firma buena: así se comprueba que la ruta
-    # realmente verifica en lugar de creerle a cualquiera.
+    """Devuelve un evento de Stripe DE VERDAD, no un diccionario.
+
+    Esta distinción costó el primer pago real. El doble devolvía un `dict`, y
+    con un `dict` la ruta funcionaba de maravilla; pero lo que Stripe entrega
+    es un objeto `Event` de su biblioteca, y ese objeto se niega a propósito a
+    responder `.get()`. En producción el pago entró, el aviso llegó y la ruta
+    reventó con un 500 — con la prueba en verde.
+
+    Así que el doble construye el objeto auténtico con la misma función que usa
+    la biblioteca al recibirlo por la red. Si el código vuelve a tratarlo como
+    diccionario, la prueba se cae aquí y no en la cuenta de un huésped.
+    """
     if firma != "firma-buena":
         from app.core.exceptions import BusinessRuleError
         raise BusinessRuleError("Aviso de pago no verificable")
-    return EVENTO
+
+    from stripe import _util
+
+    return _util.convert_to_stripe_object(dict(EVENTO), "sk_test_doble", None)
 
 stripe_gateway.crear_sesion = _crear_sesion
 stripe_gateway.devolver = _devolver
@@ -124,7 +137,7 @@ check("Sigue pendiente aunque el huésped ya 'volvió'", estado["estado"] == "PE
 
 print("\n4. Un aviso sin firma buena se rechaza")
 EVENTO.clear()
-EVENTO.update({"type": "checkout.session.completed", "data": {"object": {}}})
+EVENTO.update({"type": "checkout.session.completed", "data": {"object": {"object": "checkout.session"}}})
 r = c.post("/api/public/stripe/webhook", content=b"{}", headers={"stripe-signature": "inventada"})
 check("Firma inválida rechazada", r.status_code == 409, f"HTTP {r.status_code}")
 check("Y la reserva sigue sin confirmar",
@@ -133,7 +146,7 @@ check("Y la reserva sigue sin confirmar",
 print("\n5. El aviso firmado sí confirma")
 centavos = int(float(total) * 100)
 EVENTO.clear()
-EVENTO.update({"type": "checkout.session.completed", "data": {"object": {
+EVENTO.update({"type": "checkout.session.completed", "data": {"object": {"object": "checkout.session", 
     "id": "cs_test_1", "metadata": {"folio": folio}, "payment_status": "paid",
     "amount_total": centavos, "payment_intent": "pi_test_1",
 }}})
@@ -170,7 +183,7 @@ c.get(f"/api/public/disponibilidad?fecha={dia}")       # el barrido la cancela
 check("El apartado venció", c.get(f"/api/public/reservas/{ap2['folio']}").json()["estado"] == "CANCELADA")
 
 EVENTO.clear()
-EVENTO.update({"type": "checkout.session.completed", "data": {"object": {
+EVENTO.update({"type": "checkout.session.completed", "data": {"object": {"object": "checkout.session", 
     "id": "cs_test_2", "metadata": {"folio": ap2["folio"]}, "payment_status": "paid",
     "amount_total": int(float(ap2["total"]) * 100), "payment_intent": "pi_test_2",
 }}})
@@ -181,7 +194,7 @@ check("La devolución se pidió a Stripe", "pi_test_2" in DEVUELTOS, str(DEVUELT
 print("\n8. Un pago a medias no confirma")
 ap3 = apartar(correo="pendiente@ejemplo.com")
 EVENTO.clear()
-EVENTO.update({"type": "checkout.session.completed", "data": {"object": {
+EVENTO.update({"type": "checkout.session.completed", "data": {"object": {"object": "checkout.session", 
     "id": "cs_test_3", "metadata": {"folio": ap3["folio"]}, "payment_status": "unpaid",
     "amount_total": int(float(ap3["total"]) * 100), "payment_intent": "pi_test_3",
 }}})
