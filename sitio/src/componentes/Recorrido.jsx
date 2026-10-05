@@ -135,15 +135,42 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
         </filter>
       </defs>
 
-      {/* El terreno. Primero una copia desenfocada por debajo: le quita el
-          filo de recorte y lo asienta sobre el fondo en vez de pegarlo. */}
-      <path d={SILUETA} fill="#14362A" opacity="0.75" filter="url(#orillaSuave)" />
-      <path d={SILUETA} fill="url(#luzDelCampo)" />
+      {/*
+        El dibujo va partido en dos capas, y el nombre de cada una no es
+        decorativo: en El campo el mapa va de marca de agua sobre la foto, y
+        ahí las dos capas se encienden por separado —en reposo solo se ve el
+        trazo, y el relieve aparece al acercarse el cursor—. Quién las enciende
+        es cosa de `.marca` en estilos.css; aquí solo se dice qué es cada cosa.
+        Fuera de ese contexto las clases no hacen nada y el mapa se ve entero,
+        que es como va en las demás paradas.
 
-      {AGUA.map((d_, i) => (
-        <path key={i} d={d_} fill="#2E6E79" opacity="0.92" />
-      ))}
+        · marca-relieve → el terreno, el agua, la casa club, la bola: lo que
+          dice cómo es el campo.
+        · marca-trazo   → la vuelta y los dieciocho hoyos: lo que se toca.
+      */}
+      <g className="marca-relieve">
+        {/* El terreno. Primero una copia desenfocada por debajo: le quita el
+            filo de recorte y lo asienta sobre el fondo en vez de pegarlo. */}
+        <path d={SILUETA} fill="#14362A" opacity="0.75" filter="url(#orillaSuave)" />
+        <path d={SILUETA} fill="url(#luzDelCampo)" />
 
+        {AGUA.map((d_, i) => (
+          <path key={i} d={d_} fill="#2E6E79" opacity="0.92" />
+        ))}
+
+        {/* La casa club. */}
+        <g transform={`translate(${CASA_CLUB[0]} ${CASA_CLUB[1]})`} opacity="0.85">
+          <path d="M-13 7 L0 -7 L13 7 Z" fill="#F2EBDC" />
+          <rect x="-10" y="6" width="20" height="13" fill="#F2EBDC" />
+        </g>
+
+        {/* La bola, por debajo de los hoyos: puesta encima tapaba justo el
+            número del hoyo al que acababa de llegar. */}
+        <circle cx={bola.x} cy={bola.y} r="20" fill="#DCE86B" opacity="0.55" filter="url(#brilloBola)" />
+        <circle cx={bola.x} cy={bola.y} r="8" fill="#FFFFFF" />
+      </g>
+
+      <g className="marca-trazo">
       {/* La vuelta completa, del 1 al 18, como un rastro de puntos.
           Probé la cinta ancha de calles y pesaba demasiado: se comía el
           terreno y los hoyos quedaban nadando encima. El punteado fino dice
@@ -151,6 +178,7 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
           siga siendo la forma del campo. */}
       <path
         ref={ruta}
+        className="marca-vuelta"
         d={d}
         fill="none"
         stroke="#DCE86B"
@@ -159,17 +187,6 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
         strokeLinecap="round"
         strokeDasharray="1 14"
       />
-
-      {/* La casa club. */}
-      <g transform={`translate(${CASA_CLUB[0]} ${CASA_CLUB[1]})`} opacity="0.85">
-        <path d="M-13 7 L0 -7 L13 7 Z" fill="#F2EBDC" />
-        <rect x="-10" y="6" width="20" height="13" fill="#F2EBDC" />
-      </g>
-
-      {/* La bola, por debajo de los hoyos: puesta encima tapaba justo el
-          número del hoyo al que acababa de llegar. */}
-      <circle cx={bola.x} cy={bola.y} r="20" fill="#DCE86B" opacity="0.55" filter="url(#brilloBola)" />
-      <circle cx={bola.x} cy={bola.y} r="8" fill="#FFFFFF" />
 
       {/* Los hoyos. El activo y los de parada se ven; los demás se insinúan,
           para que el mapa no sea una constelación de puntos iguales. */}
@@ -228,7 +245,7 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
           </g>
         );
       })}
-
+      </g>
     </svg>
   );
 }

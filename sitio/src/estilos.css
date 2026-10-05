@@ -57,6 +57,99 @@
   }
 }
 
+/* ------------------------------------------- la marca de agua de El campo */
+/*
+   El mapa montado sobre la foto no se enciende de golpe: tiene dos estados.
+
+   En reposo se ve solo lo que sirve para moverse —la vuelta punteada y los
+   dieciocho hoyos—, nítidos, porque de nada vale una marca de agua tan tenue
+   que no se atine a un hoyo. El relieve (el terreno, el agua, la casa club) se
+   queda fuera: es lo que pesa visualmente, y es justo lo que no debe competir
+   con la foto.
+
+   Al acercarse el cursor aparece el campo entero. Es el gesto de «a ver,
+   enséñamelo» y no hay que explicarlo.
+
+   El relieve vuelve con `visibility` además de con opacidad: en opacidad cero
+   el terreno sigue atrapando el cursor, y entonces pasar por un hueco del mapa
+   lo encendía sin que hubiera nada ahí que tocar.
+
+   `:has(:focus-visible)` y no `:focus-within` a propósito. Con focus-within,
+   pulsar un hoyo con el ratón dejaba el mapa encendido hasta ir a picarle a
+   otro lado —el visitante elige un hoyo y se queda con el mapa tapándole la
+   foto que acaba de pedir—. Con focus-visible solo se enciende para quien
+   llegó con el teclado, que es quien de verdad necesita verlo. */
+.marca .marca-relieve,
+.marca .marca-fondo {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 450ms ease,
+    visibility 450ms;
+}
+
+.marca .marca-trazo {
+  opacity: 0.85;
+  transition: opacity 450ms ease;
+}
+
+/* La vuelta, aparte del resto del trazo.
+   Sobre el terreno verde del mapa normal, un punteado al 30% se lee de sobra.
+   Montada sobre una foto ya no: los puntos quedaban tan separados y tan
+   tenues que en reposo se veían los hoyos sueltos, sin nada que los uniera, y
+   lo que dice el orden de la vuelta es justamente la línea. Aquí va más junta
+   y más marcada; en el mapa de las otras paradas se queda como estaba. */
+.marca .marca-vuelta {
+  stroke-opacity: 0.9;
+  stroke-width: 6;
+  stroke-dasharray: 2 11;
+}
+
+.marca:hover .marca-relieve,
+.marca:hover .marca-fondo,
+.marca:has(:focus-visible) .marca-relieve,
+.marca:has(:focus-visible) .marca-fondo {
+  opacity: 1;
+  visibility: visible;
+}
+
+.marca:hover .marca-trazo,
+.marca:has(:focus-visible) .marca-trazo {
+  opacity: 1;
+}
+
+/* -------------------------------------------- el cambio de hoyo, en la foto */
+/*
+   La foto nueva entra deslizándose por el lado hacia el que se va: adelante
+   entra por la derecha, atrás por la izquierda. Debajo se queda la anterior
+   mientras dura el paso, así que nunca hay un hueco — y como la nueva entra
+   además apareciendo, el cambio es un pase y no un parpadeo.
+
+   El desplazamiento es corto. Con un deslizamiento largo la foto se lee como
+   un carrusel y cada hoyo tarda en asentarse; con un palmo basta para que el
+   ojo entienda que se avanzó. */
+@keyframes pasar-adelante {
+  from {
+    opacity: 0;
+    transform: translate3d(5%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pasar-atras {
+  from {
+    opacity: 0;
+    transform: translate3d(-5%, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
