@@ -20,12 +20,13 @@ import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
 import { CONTACTO, ESTACIONES, HOYOS, fotoDelHoyo } from './datos/campo';
+import { useIdioma } from './datos/idioma';
 import logo from './assets/logo-las-parotas-claro.png';
 
 const HOYOS_ESTACION = ESTACIONES.map((e) => e.hoyo);
 
 /** Las cinco paradas. Se dibujan arriba o abajo según quepan. */
-function Paradas({ estacion, onIr }) {
+function Paradas({ estacion, onIr, t }) {
   return ESTACIONES.map((e) => {
     const activa = e.id === estacion;
     return (
@@ -37,13 +38,14 @@ function Paradas({ estacion, onIr }) {
           activa ? 'bg-arena/[0.12] text-hoja' : 'text-arena/85 hover:text-arena'
         }`}
       >
-        {e.nombre}
+        {t(e.clave)}
       </button>
     );
   });
 }
 
 export default function App() {
+  const { idioma, cambiar, t } = useIdioma();
   const [estacion, setEstacion] = useState('salida');
   // Horario, tarifas y reglas, leídos del sistema. Si no contesta se queda en
   // null y las pantallas usan los datos de campo.js: la presentación no se
@@ -83,7 +85,14 @@ export default function App() {
   }
 
   // Flechas para moverse entre paradas, como en cualquier presentación.
+  //
+  // Menos en El campo. Ahí las flechas ya tienen dueño —pasan de hoyo— y
+  // durante un rato las dos cosas escucharon la misma tecla: una flecha
+  // derecha adelantaba el hoyo *y* además saltaba a Tarifas, así que el
+  // visitante se salía de la galería sin haber pedido salirse. La tecla es
+  // una sola; en esa pantalla es de los hoyos.
   useEffect(() => {
+    if (estacion === 'campo') return undefined;
     function teclado(e) {
       if (e.target.matches('input, textarea, select')) return;
       const i = ESTACIONES.findIndex((x) => x.id === estacion);
@@ -96,7 +105,6 @@ export default function App() {
 
   const paneles = {
     salida: <Salida onIr={irA} />,
-    campo: <ElCampo hoyoActivo={hoyo} onElegirHoyo={setHoyo} />,
     tarifas: <Tarifas onIr={irA} />,
     reservar: (
       <Reservar
@@ -123,7 +131,7 @@ export default function App() {
         {/* ------------------------------------------------------ encabezado */}
         <header className="shrink-0">
           <div className="flex items-center justify-between gap-5">
-            <button onClick={() => irA('salida')} className="shrink-0" aria-label="Ir al inicio">
+            <button onClick={() => irA('salida')} className="shrink-0" aria-label={t('nav.irAlInicio')}>
               <img
                 src={logo}
                 alt="Las Parotas, Club de Golf Huatulco"
@@ -134,7 +142,7 @@ export default function App() {
             <div className="flex items-center gap-2 sm:gap-4">
               {/* En pantalla ancha las paradas caben junto al logo. */}
               <nav className="hidden items-center gap-1.5 md:flex">
-                <Paradas estacion={estacion} onIr={irA} />
+                <Paradas estacion={estacion} onIr={irA} t={t} />
               </nav>
 
               {/* Va aparte de las paradas, con su contorno, porque no es una
@@ -146,7 +154,7 @@ export default function App() {
                 href={CONTACTO.acceso}
                 className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
               >
-                Acceder
+                {t('nav.acceder')}
               </a>
             </div>
           </div>
@@ -157,85 +165,109 @@ export default function App() {
               ahí competían con el pie del sitio y quedaban enterradas bajo el
               contenido. */}
           <nav className="-mx-1 mt-3 flex items-center gap-1 overflow-x-auto md:hidden">
-            <Paradas estacion={estacion} onIr={irA} />
+            <Paradas estacion={estacion} onIr={irA} t={t} />
           </nav>
         </header>
 
         {/* ----------------------------------------------- mapa y contenido */}
-        <main
-          className={`mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:w-full lg:flex-row lg:items-stretch lg:self-center ${
-            estacion === 'campo'
-              ? 'lg:max-w-none lg:gap-6'
-              : 'lg:max-w-[57rem] lg:gap-[10rem]'
-          }`}
-        >
-          {/* El mapa. En celular se queda con una franja; en escritorio, con
-              la mitad, que es cuando de verdad se puede leer el trazo. */}
-          <div className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:py-[2%] ${
-              estacion === 'campo' ? 'lg:w-[23rem]' : 'lg:w-[13rem]'
-            } ${
-              // Llenar un formulario en un celular necesita pantalla. El mapa
-              // es contexto; la reserva es la tarea. En una pantalla ancha
-              // caben los dos, pero en un celular el mapa se quita de en
-              // medio: con él puesto solo cabía un jugador a la vez, y la
-              // reserva es justo la pantalla donde no se puede estar
-              // deslizando a ciegas.
-              // En celular el mapa estorba en dos paradas. En Reservar,
-              // porque el formulario necesita la pantalla. En El campo,
-              // porque a ancho de pulgar el trazo se encoge tanto que los
-              // números no se leen ni se atinan — y para elegir hoyo está la
-              // regla de dieciocho barras del panel, que ahí sí se toca.
-              estacion === 'reservar' || estacion === 'campo'
-                ? 'hidden lg:block'
-                : 'h-[29svh]'
-            }`}>
-            <Recorrido
-              hoyoActivo={hoyo}
-              hoyoEstaciones={HOYOS_ESTACION}
-              onElegirHoyo={setHoyo}
-            />
-            {estacion !== 'campo' && (
-              // En celular el mapa va centrado y angosto, y esta leyenda
-              // pegada a la izquierda quedaba huérfana en un hueco vacío.
+        {/*
+          El campo se sale del reparto de todas las demás paradas.
+          En el resto hay dos columnas: el trazo a la izquierda, el texto a la
+          derecha. Ahí el mapa es contexto y el texto es el contenido.
+          En El campo el contenido es la foto, y una foto quiere la pantalla
+          entera. Así que el trazo se va de su columna y se monta encima de la
+          foto como marca de agua: sigue estando —y sigue pudiéndose tocar
+          hoyo por hoyo— pero ya no le quita la mitad del espacio.
+        */}
+        {estacion === 'campo' ? (
+          <main className="mt-4 flex min-h-0 flex-1 lg:mt-6">
+            <ElCampo hoyoActivo={hoyo} onElegirHoyo={setHoyo} />
+          </main>
+        ) : (
+          <main className="mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:w-full lg:max-w-[57rem] lg:flex-row lg:items-stretch lg:gap-[10rem] lg:self-center">
+            {/* El mapa, en su columna. En celular se queda con una franja; en
+                Reservar desaparece, porque un formulario a ancho de pulgar
+                necesita toda la pantalla. */}
+            <div
+              className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:w-[13rem] lg:py-[2%] ${
+                estacion === 'reservar' ? 'hidden lg:block' : 'h-[29svh]'
+              }`}
+            >
+              <Recorrido
+                hoyoActivo={hoyo}
+                hoyoEstaciones={HOYOS_ESTACION}
+                onElegirHoyo={setHoyo}
+              />
               <p className="pointer-events-none absolute bottom-0 left-0 right-0 hidden text-center font-texto text-menudo text-arena/75 lg:block">
-                Hoyo {hoyo} · par {parDelHoyo}
+                {t('mapa.hoyo', { n: hoyo, par: parDelHoyo })}
               </p>
-            )}
-          </div>
 
-          {/* El panel. Tiene su propio desplazamiento para que la página nunca
-              crezca: lo que se mueve es el contenido, no el sitio.
-              `safe center` centra cuando el contenido cabe y lo pega arriba
-              cuando no — sin él, un panel largo se corta por el encabezado. */}
-          <section
-            key={estacion}
-            className={`panel flex min-h-0 flex-1 flex-col overflow-y-auto ${
-              // El campo quiere toda la pantalla: su foto es el contenido, y
-              // cuanto más grande, mejor. Las demás paradas son texto y
-              // formularios, y un renglón de mil pixeles de ancho no se lee:
-              // se topan para que la línea quede del largo de una lectura
-              // cómoda, y se centra su contenido cuando cabe.
-              estacion === 'campo'
-                ? 'lg:max-w-[56rem]'
-                : '[justify-content:safe_center]'
-            }`}
-          >
-            {paneles[estacion]}
-          </section>
-        </main>
+            </div>
+
+            {/* El panel. Tiene su propio desplazamiento para que la página
+                nunca crezca: lo que se mueve es el contenido, no el sitio.
+                `safe center` centra cuando el contenido cabe y lo pega arriba
+                cuando no — sin él, un panel largo se corta por el
+                encabezado. */}
+            <section
+              key={estacion}
+              className="panel flex min-h-0 flex-1 flex-col [justify-content:safe_center] overflow-y-auto"
+            >
+              {paneles[estacion]}
+            </section>
+          </main>
+        )}
 
         {/* ---------------------------------------------------------- pie */}
         <footer className="mt-3 shrink-0 border-t border-arena/12 pt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-texto text-menudo text-arena/75">
-              Club de Golf Huatulco · Bahías de Huatulco, Oaxaca
-            </p>
-            <span className="font-texto text-menudo text-arena/75">
-              Español · <span className="text-arena/70">English</span>
-            </span>
+            <p className="font-texto text-menudo text-arena/75">{t('pie.lugar')}</p>
+
+            {/* El cambio de idioma. Estuvo un buen rato aquí como adorno —dos
+                palabras que no hacían nada—; ahora son botones. Se quedan al
+                pie porque quien llega en inglés ya lo tiene en inglés desde que
+                abre: el navegador dice en qué idioma viene, y el que ya eligió
+                una vez no vuelve a elegir. Esto es para la excepción. */}
+            <div className="flex items-center gap-2 font-texto text-menudo">
+              <Idioma cual="es" actual={idioma} onCambiar={cambiar}>
+                Español
+              </Idioma>
+              <span aria-hidden="true" className="text-arena/40">
+                ·
+              </span>
+              <Idioma cual="en" actual={idioma} onCambiar={cambiar}>
+                English
+              </Idioma>
+            </div>
           </div>
         </footer>
       </div>
     </div>
+  );
+}
+
+/**
+ * Uno de los dos idiomas, al pie.
+ *
+ * El que ya está puesto no es un botón: es la etiqueta de dónde está uno. Si
+ * los dos se vieran iguales y los dos se pudieran pulsar, no habría nada que
+ * dijera en qué idioma se está leyendo.
+ */
+function Idioma({ cual, actual, onCambiar, children }) {
+  if (cual === actual) {
+    return (
+      <span aria-current="true" className="font-semibold text-arena">
+        {children}
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={() => onCambiar(cual)}
+      lang={cual}
+      className="text-arena/70 underline decoration-arena/25 underline-offset-4 transition hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+    >
+      {children}
+    </button>
   );
 }

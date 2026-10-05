@@ -75,12 +75,17 @@ export const PAR_TOTAL = HOYOS.reduce((suma, h) => suma + h.par, 0); // 72
  * El sitio no tiene secciones apiladas: tiene paradas sobre el recorrido. Cada
  * una se ancla en un hoyo, y la bola viaja hasta ahí cuando se elige.
  */
+/*
+ * El nombre no vive aquí: vive en el diccionario. Si estuviera aquí, la barra
+ * de arriba seguiría en español con la página en inglés —era justo lo que
+ * pasaba—. Lo que se guarda es la clave con la que se busca.
+ */
 export const ESTACIONES = [
-  { id: 'salida', hoyo: 1, nombre: 'Inicio', pie: 'Hoyo 1' },
-  { id: 'campo', hoyo: 5, nombre: 'El campo', pie: 'Hoyo 5' },
-  { id: 'tarifas', hoyo: 9, nombre: 'Tarifas', pie: 'La vuelta' },
-  { id: 'reservar', hoyo: 14, nombre: 'Reservar', pie: 'Hoyo 14' },
-  { id: 'casa', hoyo: 18, nombre: 'Casa club', pie: 'Hoyo 18' },
+  { id: 'salida', hoyo: 1, clave: 'nav.inicio' },
+  { id: 'campo', hoyo: 5, clave: 'nav.campo' },
+  { id: 'tarifas', hoyo: 9, clave: 'nav.tarifas' },
+  { id: 'reservar', hoyo: 14, clave: 'nav.reservar' },
+  { id: 'casa', hoyo: 18, clave: 'nav.evento' },
 ];
 
 // ----------------------------------------------------------------- el horario
@@ -147,15 +152,16 @@ export const EXTRAS = [
 export const INCLUIDO = ['Carrito compartido', 'Agua', 'Cerveza', 'Refresco'];
 
 /**
- * Una lista en español de verdad: comas y una «y» antes del último.
+ * Una lista escrita de verdad: comas y una conjunción antes del último.
  *
  * Unir con comas a secas daba «carrito compartido, agua, cerveza, refresco»,
- * que en una enumeración escrita se lee a medio terminar.
+ * que en una enumeración escrita se lee a medio terminar. La conjunción cambia
+ * con el idioma —«y» o «and»—, así que viene de fuera.
  */
-export const enLista = (cosas) => {
+export const enLista = (cosas, union = 'y') => {
   const partes = cosas.map((c) => c.toLowerCase());
   if (partes.length < 2) return partes.join('');
-  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+  return `${partes.slice(0, -1).join(', ')} ${union} ${partes[partes.length - 1]}`;
 };
 
 export const esFinDeSemana = (iso) => {
@@ -189,26 +195,18 @@ export const REGLAS = {
  * Los dos paquetes que se venden, con las mismas palabras que usa el
  * mostrador. Individual ya no se ofrece.
  *
- * El nombre y la explicación viven aquí porque son texto del sitio; los
- * límites de gente los manda el servidor en /campo, para que el día que el
- * club cambie el mínimo de un grupo no haya que tocar dos lados. Lo que está
- * abajo es el respaldo para cuando el sistema no contesta.
+ * El nombre y la explicación ya no viven aquí: están en el diccionario, bajo
+ * `paquete.GRUPO` y `paquete.GRUPO.detalle`, porque son texto del sitio y el
+ * sitio habla dos idiomas. Lo que queda es la `modalidad` —que es la palabra
+ * que entiende el servidor, y esa no se traduce— y los límites de gente.
+ *
+ * Los límites los manda el servidor en /campo, para que el día que el club
+ * cambie el mínimo de un grupo no haya que tocar dos lados. Lo que está abajo
+ * es el respaldo para cuando el sistema no contesta.
  */
 export const PAQUETES = [
-  {
-    modalidad: 'GRUPO',
-    nombre: 'En Grupo',
-    detalle: 'La salida es suya: arma su propio grupo y nadie más se les junta.',
-    minimo: 4,
-    maximo: 8,
-  },
-  {
-    modalidad: 'PARTIDA_ABIERTA',
-    nombre: 'Partida Abierta',
-    detalle: 'Sale con los que se junten, hasta llegar a cuatro. Para cuando van menos.',
-    minimo: 1,
-    maximo: 4,
-  },
+  { modalidad: 'GRUPO', minimo: 4, maximo: 8 },
+  { modalidad: 'PARTIDA_ABIERTA', minimo: 1, maximo: 4 },
 ];
 
 export const CONTACTO = {

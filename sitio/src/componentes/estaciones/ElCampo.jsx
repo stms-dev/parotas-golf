@@ -1,42 +1,37 @@
 /**
- * El campo: la foto del hoyo que se está mirando.
+ * El campo: la foto del hoyo, a toda pantalla, con el trazo encima.
  *
- * Antes aquí vivía la tarjeta de hoyos —dos hileras de dieciocho botones con
- * su par—, y era información que nadie venía a buscar: quien entra al sitio
- * del club quiere ver cómo se ve el campo, no calcular su vuelta. La tarjeta
- * se fue.
+ * Las versiones anteriores le daban media pantalla al mapa y la otra media a
+ * la foto, y la foto siempre salía perdiendo: en un campo de golf lo que vende
+ * es cómo se ve, y lo que se veía era un rectángulo de la mitad del tamaño que
+ * podía tener. Pero el mapa tampoco sobraba — es como se elige hoyo y es lo
+ * único que dice dónde queda cada uno.
  *
- * Lo que queda es el campo mirándose a sí mismo: a la izquierda el trazo con
- * los dieciocho hoyos, a la derecha la foto del que esté señalado. Se toca un
- * hoyo en el mapa y la foto cambia; la bola viaja hasta allá. Es la misma
- * mecánica de todo el sitio —recorrer en vez de deslizar— pero aquí con lo
- * único que de verdad vende un campo de golf, que son sus fotos.
+ * La salida fue dejar de tratarlos como dos cosas que compiten por el espacio.
+ * La foto se queda con todo, y el trazo se monta encima como marca de agua:
+ * apenas un fantasma verde que no estorba la vista y que, sin embargo, sigue
+ * respondiendo al dedo hoyo por hoyo. Se enciende al acercarse el cursor, para
+ * quien lo busque.
  *
- * La foto no va cortada a cuchillo: las orillas se desvanecen hacia el fondo.
- * Un rectángulo con filo encima de un fondo difuminado se ve pegado; así
- * parece que la imagen sale del fondo en vez de estar puesta sobre él.
+ * Y las flechas se fueron a las orillas, una de cada lado, grandes. Es el
+ * gesto de pasar página de toda la vida y no ocupa un renglón propio.
  */
 import { useEffect, useState } from 'react';
 
+import Recorrido from '../Recorrido';
 import { HOYOS, fotoDelHoyo } from '../../datos/campo';
+import { useIdioma } from '../../datos/idioma';
 
-/** El desvanecido de las cuatro orillas, como una sola máscara.
+/**
+ * El desvanecido de las cuatro orillas, como una sola máscara.
  *
  * Los dos degradados —uno horizontal y otro vertical— se cruzan, y cada uno
  * lleva varias paradas en vez de dos. Esa es toda la gracia: un degradado de
  * transparente a opaco en línea recta deja una banda que el ojo encuentra, y
  * entonces se sigue viendo dónde termina el rectángulo. Con las paradas
- * repartidas en curva —despacio al principio, de golpe en medio, despacio al
- * final— no hay ningún punto donde el cambio se note, y la foto se disuelve
- * de verdad en lugar de apagarse.
- *
- * Corto y suave: se come menos de un décimo de la foto por lado. Probé con un
- * quinto y el remedio fue peor —la imagen se deshacía y los cielos claros se
- * derramaban—. Lo que quita el filo no es la distancia, es la curva.
+ * repartidas en curva no hay ningún punto donde el cambio se note.
  */
 function orilla(eje, largo) {
-  // Una curva suave repartida en seis paradas. En el centro no hay nada: la
-  // foto queda intacta de `largo` a `100 - largo`.
   const curva = [
     [0, 0],
     [0.18, 0.03],
@@ -55,9 +50,10 @@ function orilla(eje, largo) {
   return `linear-gradient(${eje}, ${paradas.join(', ')})`;
 }
 
-const BORDES = [orilla('to right', 9), orilla('to bottom', 8)].join(', ');
+const BORDES = [orilla('to right', 7), orilla('to bottom', 8)].join(', ');
 
 export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
+  const { t } = useIdioma();
   const hoyo = HOYOS.find((h) => h.n === hoyoActivo) || HOYOS[0];
   const foto = fotoDelHoyo(hoyo.n);
 
@@ -89,65 +85,109 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
   const anterior = HOYOS[(hoyo.n - 2 + 18) % 18].n;
   const siguiente = HOYOS[hoyo.n % 18].n;
 
+  // Las flechas del teclado también pasan de hoyo, que es como se recorre
+  // cualquier galería.
+  useEffect(() => {
+    function teclado(e) {
+      if (e.target.matches('input, textarea, select')) return;
+      if (e.key === 'ArrowLeft') onElegirHoyo(anterior);
+      if (e.key === 'ArrowRight') onElegirHoyo(siguiente);
+    }
+    window.addEventListener('keydown', teclado);
+    return () => window.removeEventListener('keydown', teclado);
+  }, [anterior, siguiente, onElegirHoyo]);
+
   return (
-    <div className="flex h-full min-h-0 flex-col [justify-content:safe_center] py-2">
-      {/* Sin título: el mapa de al lado ya trae ese número encendido, y
-          repetirlo le robaba aire a la foto. Del encabezado solo sobrevive el
-          par, que es el dato que no está en ninguna otra parte. */}
-      <p className="shrink-0 text-right font-texto text-cifra uppercase tracking-wider text-arena/75">
-        Par {hoyo.par} · {hoyo.n <= 9 ? 'la ida' : 'la vuelta'}
-      </p>
+    <div className="relative flex min-h-0 w-full flex-1 items-center">
+      {/* ----------------------------------------------------------- la foto */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+        style={{
+          backgroundImage: `url(${puesta})`,
+          opacity: lista ? 1 : 0.2,
+          WebkitMaskImage: BORDES,
+          maskImage: BORDES,
+          WebkitMaskComposite: 'source-in',
+          maskComposite: 'intersect',
+        }}
+        role="img"
+        aria-label={t('campo.foto', { n: hoyo.n })}
+      />
 
-      {/* --------------------------------------------------------- la foto */}
-      <figure className="relative mt-2 w-full shrink-0">
+      {/* ------------------------------------------------- el trazo, encima */}
+      {/*
+        Marca de agua: se ve lo justo para saber que está ahí, y se enciende al
+        acercarse.
+
+        Lo difícil de una marca de agua sobre foto es que la foto cambia debajo.
+        El primer intento era solo opacidad baja, y el resultado fue peor que
+        tenue: sobre los árboles del 5 se leía bien y sobre el cielo blanco del
+        mismo hoyo desaparecía por completo. Una marca que a veces está y a
+        veces no, no es discreta: es un error.
+
+        Lo que la sostiene son dos cosas. El `drop-shadow` le da filo propio, no
+        prestado del fondo. Y detrás va un charco de sombra muy suave —una
+        elipse que se desvanece antes de llegar a sus orillas, así que no se lee
+        como un recuadro— que le pone piso al trazo pase lo que pase en la foto.
+        Cae justo en la orilla derecha, donde la foto ya se está desvaneciendo,
+        y por eso no se nota como algo agregado.
+
+        En celular no va: a ancho de pulgar el trazo se encoge tanto que no se
+        atina a un hoyo, y lo que sí funciona ahí son las flechas.
+      */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[32%] max-w-[21rem] items-center justify-center md:flex">
         <div
-          className="aspect-[3/2] max-h-[62svh] w-full bg-cover bg-center transition-opacity duration-700"
+          aria-hidden="true"
+          className="absolute inset-0"
           style={{
-            backgroundImage: `url(${puesta})`,
-            opacity: lista ? 1 : 0.2,
-            // Dos degradados que se cruzan y se apagan en curva. Nada
-            // encima: la sombra interior que probé la dejaba plana.
-            WebkitMaskImage: BORDES,
-            maskImage: BORDES,
-            WebkitMaskComposite: 'source-in',
-            maskComposite: 'intersect',
+            background:
+              'radial-gradient(ellipse 62% 48% at 50% 50%, rgba(10,42,33,0.5), ' +
+              'rgba(10,42,33,0.22) 58%, rgba(10,42,33,0) 78%)',
           }}
-          role="img"
-          aria-label={`El campo en el hoyo ${hoyo.n}`}
         />
-      </figure>
-
-      {/* ------------------------------------------------- de un hoyo a otro */}
-      {/* Dos flechas y la cuenta. La regla de dieciocho barras que hubo aquí
-          dejaba saltar a cualquier hoyo, pero era un renglón de ruido debajo
-          de la foto; para saltar está el mapa, que además dice dónde queda
-          cada hoyo en el campo. */}
-      <div className="mt-5 flex w-full shrink-0 items-center justify-center gap-7">
-        <Flecha hacia="anterior" onIr={() => onElegirHoyo(anterior)} numero={anterior} />
-        <span className="font-texto text-[0.95rem] tabular-nums tracking-widest text-arena/80">
-          {String(hoyo.n).padStart(2, '0')} / 18
-        </span>
-        <Flecha hacia="siguiente" onIr={() => onElegirHoyo(siguiente)} numero={siguiente} />
+        <div
+          className="pointer-events-auto relative h-[86%] w-full opacity-[0.26] transition-opacity duration-500 hover:opacity-95 focus-within:opacity-95"
+          style={{ filter: 'drop-shadow(0 2px 12px rgba(10, 42, 33, 0.95))' }}
+        >
+          <Recorrido hoyoActivo={hoyo.n} hoyoEstaciones={[]} onElegirHoyo={onElegirHoyo} />
+        </div>
       </div>
+
+      {/* --------------------------------------------------- de hoyo en hoyo */}
+      <Flecha hacia="anterior" onIr={() => onElegirHoyo(anterior)} etiqueta={t('campo.anterior')} />
+      <Flecha hacia="siguiente" onIr={() => onElegirHoyo(siguiente)} etiqueta={t('campo.siguiente')} />
+
+      {/* ------------------------------------------------------- el renglón */}
+      {/* Qué hoyo es y de cuántos, abajo a la izquierda sobre la foto. Es lo
+          único escrito que queda aquí, y va chico porque la foto manda. */}
+      <p className="pointer-events-none absolute bottom-1 left-1 font-texto text-menudo uppercase tracking-wider text-arena drop-shadow-[0_1px_6px_rgba(10,42,33,0.95)]">
+        {t('campo.cuenta', { n: String(hoyo.n).padStart(2, '0') })} ·{' '}
+        {t('campo.par', {
+          par: hoyo.par,
+          mitad: hoyo.n <= 9 ? t('campo.ida') : t('campo.vuelta'),
+        })}
+      </p>
     </div>
   );
 }
 
-function Flecha({ hacia, onIr, numero }) {
+function Flecha({ hacia, onIr, etiqueta }) {
   const atras = hacia === 'anterior';
   return (
     <button
       onClick={onIr}
-      aria-label={`Hoyo ${numero}`}
-      title={`Hoyo ${numero}`}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-arena/25 font-texto text-arena/90 transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+      aria-label={etiqueta}
+      title={etiqueta}
+      className={`absolute top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-arena/25 bg-sombra/40 text-arena backdrop-blur-sm transition hover:border-hoja hover:bg-sombra/70 hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote sm:h-14 sm:w-14 ${
+        atras ? 'left-0 sm:left-1' : 'right-0 sm:right-1'
+      }`}
     >
-      <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+      <svg viewBox="0 0 16 16" className="h-6 w-6" aria-hidden="true">
         <path
           d={atras ? 'M10 3 L5 8 L10 13' : 'M6 3 L11 8 L6 13'}
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
         />

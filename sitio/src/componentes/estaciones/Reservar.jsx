@@ -33,6 +33,7 @@ import {
   esFinDeSemana,
   pesos,
 } from '../../datos/campo';
+import { useIdioma } from '../../datos/idioma';
 
 /** El día de mañana: lo mínimo razonable para reservar en línea. */
 function manana() {
@@ -41,16 +42,29 @@ function manana() {
   return d.toISOString().slice(0, 10);
 }
 
-const FECHA_LARGA = new Intl.DateTimeFormat('es-MX', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-});
+/**
+ * «sábado 12 de octubre» o «Saturday, October 12».
+ *
+ * El formato no se escribe a mano: `Intl` ya sabe que en español el día va
+ * antes del mes y en inglés al revés, y sabe los nombres de los meses en los
+ * dos. Un diccionario de meses propio sería trabajo para reinventar esto peor.
+ * Se construye uno por idioma y se guardan, porque armar un `DateTimeFormat`
+ * no es gratis y aquí se llama en cada pintada.
+ */
+const FORMATOS = {};
+const diaEnPalabras = (iso, idioma = 'es') => {
+  const etiqueta = idioma === 'en' ? 'en-US' : 'es-MX';
+  FORMATOS[etiqueta] ||= new Intl.DateTimeFormat(etiqueta, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  return FORMATOS[etiqueta].format(new Date(`${iso}T12:00:00`));
+};
 
-const diaEnPalabras = (iso) => FECHA_LARGA.format(new Date(`${iso}T12:00:00`));
 const hhmm = (h) => String(h || '').slice(0, 5);
 
-const PASOS = ['Paquete', 'Día y hora', 'Jugadores', 'Revisión'];
+const PASOS = ['reservar.paso1', 'reservar.paso2', 'reservar.paso3', 'reservar.paso4'];
 
 const entrada =
   'rounded-sm border border-arena/25 bg-arena/[0.07] px-3 py-2 font-texto ' +
@@ -68,6 +82,7 @@ const jugadorNuevo = () => ({
 const CORREO = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
 export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
+  const { idioma, t } = useIdioma();
   const [paso, setPaso] = useState(0);
 
   const [paquete, setPaquete] = useState('GRUPO');
@@ -110,12 +125,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         .finally(() => {
           if (!vigente) return;
           onLimpiarLlegada?.();
-          problema(
-            'No se hizo la reserva',
-            'Se canceló el pago, así que la salida volvió a estar disponible. ' +
-              'No se le cobró nada y no hay nada que cancelar. ' +
-              'Puede elegir otro horario cuando quiera.',
-          );
+          problema(t('cancelado.titulo'), t('cancelado.cuerpo'), t('dialogo.entendido'));
         });
       return () => {
         vigente = false;
@@ -130,7 +140,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         // pagada se enseña; si no, se le dice que estamos confirmando.
         setListo(r);
       })
-      .catch(() => vigente && setAviso('No encontramos esa reserva.'));
+      .catch(() => vigente && setAviso(t('listo.noEncontrada')));
     return () => {
       vigente = false;
     };
@@ -149,11 +159,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       .catch((e) => {
         if (!vigente) return;
         setDia(null);
-        setAviso(
-          e.sinConexion
-            ? 'No pudimos conectar con el sistema de reservas. Llámenos y con gusto le apartamos su salida.'
-            : e.message,
-        );
+        setAviso(e.sinConexion ? t('reservar.sinConexion') : e.message);
       })
       .finally(() => vigente && setCargando(false));
     return () => {
@@ -167,12 +173,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   useEffect(() => {
     if (dia && !dia.admite_partida_abierta && paquete === 'PARTIDA_ABIERTA') {
       setPaquete('GRUPO');
-      setAviso(
-        `El ${diaEnPalabras(fecha)} el campo no está armando partidas abiertas. ` +
-          'Se cambió el paquete a En Grupo.',
-      );
+      setAviso(t('reservar.cambioPaquete', { dia: diaEnPalabras(fecha, idioma) }));
     }
-  }, [dia, paquete, fecha]);
+  }, [dia, paquete, fecha, idioma]);
 
   // Si el paquete nuevo pide más gente de la que hay capturada, se completan
   // los renglones; si admite menos, se recortan los de atrás.
@@ -254,26 +257,20 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const falta = useMemo(() => {
     if (paso === 0) return null; // siempre hay un paquete elegido
     if (paso === 1) {
-      if (!slot) return 'Elija una hora de salida.';
+      if (!slot) return t('falta.hora');
       return null;
     }
     if (paso === 2) {
       const sinNombre = jugadores.findIndex((j) => j.nombre.trim().length < 3);
-      if (sinNombre >= 0) {
-        return `Falta el nombre completo del jugador ${sinNombre + 1}.`;
-      }
+      if (sinNombre >= 0) return t('falta.nombre', { n: sinNombre + 1 });
       const sinEdad = jugadores.findIndex((j) => !j.edad);
-      if (sinEdad >= 0) {
-        return `Falta la edad del jugador ${sinEdad + 1}: de ella depende su tarifa.`;
-      }
-      if (!CORREO.test(contacto.correo.trim())) {
-        return 'Hace falta el correo del titular: ahí le llega su pase.';
-      }
+      if (sinEdad >= 0) return t('falta.edad', { n: sinEdad + 1 });
+      if (!CORREO.test(contacto.correo.trim())) return t('falta.correo');
       return null;
     }
-    if (!cotizacion) return 'Estamos calculando su cuenta.';
+    if (!cotizacion) return t('falta.cuenta');
     return null;
-  }, [paso, slot, jugadores, contacto.correo, cotizacion]);
+  }, [paso, slot, jugadores, contacto.correo, cotizacion, t]);
 
   function cuantos(n) {
     setJugadores((actuales) => {
@@ -325,6 +322,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     return (
       <Listo
         reserva={listo}
+        t={t}
+        idioma={idioma}
         onOtra={() => {
           setListo(null);
           setPaso(0);
@@ -342,16 +341,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     <div>
       {/* --------------------------------------------------------- cabeza */}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <h2 className="font-titulo text-rotulo-lg text-arena">Reservar</h2>
+        <h2 className="font-titulo text-rotulo-lg text-arena">{t('reservar.titulo')}</h2>
         {/* En celular se calla: la pantalla la necesitan los campos. */}
         <p className="hidden font-texto text-menudo text-arena/80 sm:block">
-          Le apartamos la salida
-          {campo?.apartado_minutos ? ` durante ${campo.apartado_minutos} minutos` : ''}{' '}
-          mientras paga
+          {campo?.apartado_minutos
+            ? t('reservar.apartado', { minutos: campo.apartado_minutos })
+            : t('reservar.apartadoSinMinutos')}
         </p>
       </div>
 
-      <Rail paso={paso} onIr={setPaso} />
+      <Rail paso={paso} onIr={setPaso} t={t} />
 
       {aviso && <Aviso>{aviso}</Aviso>}
 
@@ -372,11 +371,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                     onClick={() => !apagado && setPaquete(p.modalidad)}
                     disabled={apagado}
                     aria-pressed={puesto}
-                    title={
-                      apagado
-                        ? 'Ese día el campo no está armando partidas abiertas.'
-                        : undefined
-                    }
+                    title={apagado ? t('paquete.noAbiertas') : undefined}
                     className={`flex flex-col rounded-sm border p-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote ${
                       apagado
                         ? 'cursor-not-allowed border-arena/10 opacity-45'
@@ -391,35 +386,36 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                           puesto ? 'text-hoja' : 'text-arena'
                         }`}
                       >
-                        {p.nombre}
+                        {t(`paquete.${p.modalidad}`)}
                       </span>
                       <span className="shrink-0 font-texto text-cifra uppercase text-arena/75">
                         {limites.minimo === limites.maximo
-                          ? `${limites.maximo} pax`
-                          : `${limites.minimo}–${limites.maximo} pax`}
+                          ? t('reservar.paxFijo', { max: limites.maximo })
+                          : t('reservar.pax', {
+                              min: limites.minimo,
+                              max: limites.maximo,
+                            })}
                       </span>
                     </span>
                     <span className="mt-1.5 font-texto text-menudo leading-relaxed text-arena/85">
-                      {p.detalle}
+                      {t(`paquete.${p.modalidad}.detalle`)}
                     </span>
                   </button>
                 );
               })}
             </div>
 
-            <Campo etiqueta="Recorrido del campo">
+            <Campo etiqueta={t('reservar.recorrido')}>
               <Alternador
                 opciones={[
-                  { valor: 9, texto: '9 hoyos' },
-                  { valor: 18, texto: '18 hoyos' },
+                  { valor: 9, texto: t('reservar.nueve') },
+                  { valor: 18, texto: t('reservar.dieciocho') },
                 ]}
                 valor={Number(hoyos)}
                 onElegir={setHoyos}
               />
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                {Number(hoyos) === 9
-                  ? 'Media vuelta. Por internet solo con jugadores adultos.'
-                  : 'La vuelta completa, par 72.'}
+                {Number(hoyos) === 9 ? t('reservar.media') : t('reservar.completa')}
               </p>
             </Campo>
           </Paso>
@@ -427,7 +423,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
 
         {paso === 1 && (
           <Paso>
-            <Campo etiqueta="¿Qué día?">
+            <Campo etiqueta={t('reservar.queDia')}>
               <input
                 type="date"
                 value={fecha}
@@ -436,21 +432,23 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 className={`${entrada} w-full [color-scheme:dark] sm:max-w-[16rem]`}
               />
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                {diaEnPalabras(fecha)}
-                {esFinDeSemana(fecha) && ' · fin de semana, la tarifa es más alta'}
+                {diaEnPalabras(fecha, idioma)}
+                {esFinDeSemana(fecha) && t('reservar.finDeSemana')}
               </p>
             </Campo>
 
-            <Campo etiqueta="¿A qué hora?">
+            <Campo etiqueta={t('reservar.queHora')}>
               {cargando && !dia ? (
-                <p className="font-texto text-menudo text-arena/80">Consultando las salidas…</p>
+                <p className="font-texto text-menudo text-arena/80">
+                  {t('reservar.consultando')}
+                </p>
               ) : sinSistema ? (
                 <p className="font-texto text-menudo text-arena/80">
-                  No podemos consultar las salidas en este momento.
+                  {t('reservar.sinSistema')}
                 </p>
               ) : dia?.dia_cerrado ? (
                 <p className="font-texto text-menudo text-arena/80">
-                  Las reservas para ese día ya cerraron. Elija una fecha posterior.
+                  {t('reservar.diaCerrado')}
                 </p>
               ) : (
                 <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
@@ -463,7 +461,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         onClick={() => setSlot(s.id)}
                         disabled={lleno}
                         aria-pressed={elegida}
-                        title={lleno ? 'No quedan lugares a esa hora' : undefined}
+                        title={lleno ? t('reservar.sinLugares') : undefined}
                         className={`rounded-sm border py-1.5 text-center font-texto text-menudo font-semibold tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote ${
                           elegida
                             ? 'border-hoja bg-hoja text-sombra-honda'
@@ -481,9 +479,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 </div>
               )}
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                Las de color turquesa son twilight, desde las{' '}
-                {hhmm(dia?.twilight_desde) || HORARIO.twilight} · el campo cierra a
-                las {hhmm(dia?.cierre_de_campo) || HORARIO.cierre}
+                {t('reservar.twilight', {
+                  desde: hhmm(dia?.twilight_desde) || HORARIO.twilight,
+                  cierre: hhmm(dia?.cierre_de_campo) || HORARIO.cierre,
+                })}
               </p>
             </Campo>
           </Paso>
@@ -493,13 +492,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           <Paso>
             <div className="flex items-end justify-between gap-4">
               <p className="font-texto text-[0.95rem] font-semibold text-arena">
-                Quiénes juegan
+                {t('reservar.quienes')}
               </p>
               <Contador
                 valor={jugadores.length}
                 min={topes?.minimo ?? 1}
                 max={topes?.maximo ?? 8}
                 onCambiar={cuantos}
+                t={t}
               />
             </div>
 
@@ -516,12 +516,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                     <input
                       value={j.nombre}
                       onChange={(e) => cambiar(i, 'nombre', e.target.value)}
-                      placeholder={i === 0 ? 'Nombre completo del titular' : 'Nombre completo'}
+                      placeholder={
+                        i === 0 ? t('reservar.nombreTitular') : t('reservar.nombre')
+                      }
                       className={`${entrada} min-w-0 flex-1`}
                     />
                     {i === 0 && (
                       <span className="shrink-0 rounded-sm bg-hoja/15 px-2 py-1 font-texto text-cifra uppercase text-hoja">
-                        Titular
+                        {t('reservar.titular')}
                       </span>
                     )}
                   </div>
@@ -533,33 +535,33 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       max="120"
                       value={j.edad}
                       onChange={(e) => cambiar(i, 'edad', e.target.value)}
-                      placeholder="Edad"
+                      placeholder={t('reservar.edad')}
                       className={`${entrada} w-[5.5rem]`}
                     />
                     <input
                       value={j.handicap}
                       onChange={(e) => cambiar(i, 'handicap', e.target.value)}
-                      placeholder="Handicap/GHIN"
+                      placeholder={t('reservar.handicap')}
                       className={`${entrada} w-[9.5rem]`}
                     />
                     <input
                       value={j.pga}
                       onChange={(e) => cambiar(i, 'pga', e.target.value)}
-                      placeholder="PGA (opcional)"
+                      placeholder={t('reservar.pga')}
                       className={`${entrada} w-[9.5rem]`}
                     />
                     <Alternador
                       opciones={[
-                        { valor: '', texto: 'Trae bastones' },
-                        { valor: 'DIESTRO', texto: 'Diestro' },
-                        { valor: 'ZURDO', texto: 'Zurdo' },
+                        { valor: '', texto: t('reservar.traeBastones') },
+                        { valor: 'DIESTRO', texto: t('reservar.diestro') },
+                        { valor: 'ZURDO', texto: t('reservar.zurdo') },
                       ]}
                       valor={j.bastones}
                       onElegir={(v) => cambiar(i, 'bastones', v)}
                     />
                     {j.bastones && (
                       <span className="font-texto text-menudo tabular-nums text-arena/80">
-                        renta {pesos(precioBastones)}
+                        {t('reservar.renta', { precio: pesos(precioBastones) })}
                       </span>
                     )}
                   </div>
@@ -567,24 +569,21 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               ))}
             </ul>
 
-            <p className="font-texto text-menudo text-arena/80">
-              La edad decide la tarifa: menor de 16 paga como infantil. El código
-              PGA lo valida recepción al llegar; no descuenta nada todavía.
-            </p>
+            <p className="font-texto text-menudo text-arena/80">{t('reservar.notaEdad')}</p>
 
-            <Campo etiqueta="¿A dónde le mandamos su pase?">
+            <Campo etiqueta={t('reservar.pase')}>
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <input
                   type="email"
                   value={contacto.correo}
                   onChange={(e) => setContacto({ ...contacto, correo: e.target.value })}
-                  placeholder="Correo del titular"
+                  placeholder={t('reservar.correo')}
                   className={`${entrada} w-full`}
                 />
                 <input
                   value={contacto.telefono}
                   onChange={(e) => setContacto({ ...contacto, telefono: e.target.value })}
-                  placeholder="Teléfono (opcional)"
+                  placeholder={t('reservar.telefono')}
                   className={`${entrada} w-full`}
                 />
               </div>
@@ -596,21 +595,24 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           <Paso>
             {!cotizacion ? (
               <p className="font-texto text-menudo text-arena/80">
-                Calculando su cuenta…
+                {t('reservar.calculando')}
               </p>
             ) : (
               <>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 font-texto text-[0.95rem]">
-                  <Renglon t="Paquete">
-                    {PAQUETES.find((p) => p.modalidad === cotizacion.modalidad)?.nombre}
+                  <Renglon termino={t('reservar.paquete')}>
+                    {t(`paquete.${cotizacion.modalidad}`)}
                     {' · '}
-                    {cotizacion.hoyos} hoyos
+                    {t('reservar.hoyosDe', { n: cotizacion.hoyos })}
                   </Renglon>
-                  <Renglon t="Salida">
-                    {diaEnPalabras(cotizacion.fecha)} a las {hhmm(cotizacion.hora)}
+                  <Renglon termino={t('reservar.salida')}>
+                    {t('reservar.aLas', {
+                      dia: diaEnPalabras(cotizacion.fecha, idioma),
+                      hora: hhmm(cotizacion.hora),
+                    })}
                     {cotizacion.twilight && ' · twilight'}
                   </Renglon>
-                  <Renglon t="Pase a">{contacto.correo.trim()}</Renglon>
+                  <Renglon termino={t('reservar.paseA')}>{contacto.correo.trim()}</Renglon>
                 </dl>
 
                 {/* La cuenta, renglón por renglón, como la calculó el servidor. */}
@@ -627,7 +629,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         {j.nombre}
                       </span>
                       <span className="shrink-0 font-texto text-cifra uppercase text-arena/75">
-                        {j.categoria === 'INFANTIL' ? 'Infantil' : 'Adulto'}
+                        {j.categoria === 'INFANTIL'
+                          ? t('reservar.infantil')
+                          : t('reservar.adulto')}
                       </span>
                       <span className="shrink-0 font-texto text-[0.95rem] tabular-nums text-arena/90">
                         {pesos(Number(j.green_fee))}
@@ -637,15 +641,20 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 </ul>
 
                 <dl className="grid grid-cols-[1fr_auto] gap-y-1 font-texto text-[0.95rem] tabular-nums">
-                  <dt className="text-arena/85">Green fees</dt>
+                  <dt className="text-arena/85">{t('reservar.greenFees')}</dt>
                   <dd className="text-right text-arena/90">
                     {pesos(Number(cotizacion.green_fees))}
                   </dd>
                   {cotizacion.sets_bastones > 0 && (
                     <>
                       <dt className="text-arena/85">
-                        Renta de bastones · {cotizacion.sets_bastones}{' '}
-                        {cotizacion.sets_bastones === 1 ? 'set' : 'sets'}
+                        {t('reservar.sets', {
+                          n: cotizacion.sets_bastones,
+                          palabra:
+                            cotizacion.sets_bastones === 1
+                              ? t('reservar.set')
+                              : t('reservar.setPlural'),
+                        })}
                       </dt>
                       <dd className="text-right text-arena/90">
                         {pesos(Number(cotizacion.subtotal_bastones))}
@@ -659,11 +668,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             {/* Fuera de la cuenta a propósito: no se compra aquí. */}
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-sm border border-copa/30 bg-copa/[0.07] px-3.5 py-2.5">
               <span className="font-texto text-[0.95rem] font-semibold text-copa">
-                Caddie · {pesos(Number(cotizacion?.caddie_por_persona ?? caddie.precio))}
+                {t('reservar.caddie', {
+                  precio: pesos(Number(cotizacion?.caddie_por_persona ?? caddie.precio)),
+                })}
               </span>
               <span className="font-texto text-menudo text-arena/85">
-                se le paga directo a él, no va en esta cuenta · hay dos y se
-                asignan por orden de salida
+                {t('reservar.caddieNota')}
               </span>
             </div>
 
@@ -679,24 +689,20 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <Candado />
                   <span className="font-texto text-[0.95rem] font-semibold text-arena">
-                    Pago seguro con Stripe
+                    {t('reservar.pagoSeguro')}
                   </span>
                   <span className="ml-auto flex items-center gap-1.5" aria-hidden="true">
                     <Tarjeta /> <Tarjeta /> <Tarjeta />
                   </span>
                 </div>
                 <p className="mt-2 font-texto text-menudo leading-relaxed text-arena/80">
-                  Al confirmar lo mandamos a la página de pago de Stripe y
-                  vuelve aquí con su folio. Su tarjeta nunca pasa por el
-                  servidor del club. Aceptamos Visa, Mastercard y American
-                  Express.
+                  {t('reservar.pagoNota')}
                 </p>
               </div>
             )}
 
             <p className="font-texto text-menudo leading-relaxed text-arena/80">
-              Incluye carrito compartido, agua, cerveza y refresco. Preséntese en
-              la casa club veinte minutos antes de su salida.
+              {t('reservar.incluye')}
             </p>
           </Paso>
         )}
@@ -724,10 +730,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           >
             {falta ||
               (cotizacion
-                ? `≈ ${enDolares(Number(cotizacion.total))} USD · ${jugadores.length} jugador${
-                    jugadores.length > 1 ? 'es' : ''
-                  }${campo?.pasarela === 'stripe' ? ' · paga en Stripe' : ''}`
-                : 'Su cuenta se calcula cuando estén los jugadores.')}
+                ? t('reservar.total.usd', {
+                    usd: enDolares(Number(cotizacion.total)),
+                    n: jugadores.length,
+                    es: jugadores.length > 1 ? t('plural.jugador') : '',
+                    stripe:
+                      campo?.pasarela === 'stripe' ? t('reservar.total.stripe') : '',
+                  })
+                : t('reservar.sinCuenta'))}
           </p>
         </div>
 
@@ -737,7 +747,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               onClick={() => setPaso(paso - 1)}
               className="rounded-sm border border-arena/25 px-4 py-3 font-texto text-[0.95rem] font-semibold text-arena transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
-              Atrás
+              {t('reservar.atras')}
             </button>
           )}
 
@@ -748,7 +758,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               title={falta || undefined}
               className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
-              {sinSistema ? 'Reservas no disponibles' : 'Siguiente'}
+              {sinSistema ? t('reservar.noDisponible') : t('reservar.siguiente')}
             </button>
           ) : (
             <button
@@ -757,10 +767,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/75 sm:px-7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
               {cargando
-                ? 'Un momento…'
+                ? t('reservar.unMomento')
                 : campo?.pasarela === 'stripe'
-                  ? 'Pagar con tarjeta'
-                  : 'Apartar esta salida'}
+                  ? t('reservar.pagar')
+                  : t('reservar.apartar')}
             </button>
           )}
         </div>
@@ -782,14 +792,14 @@ function aCuerpo(jugadores) {
 
 // ------------------------------------------------------------------- piezas
 /** Los cuatro pasos, para saber dónde va y poder volver a uno ya llenado. */
-function Rail({ paso, onIr }) {
+function Rail({ paso, onIr, t }) {
   return (
     <ol className="mt-3.5 flex items-center gap-1.5 border-b border-arena/12 pb-3">
-      {PASOS.map((nombre, i) => {
+      {PASOS.map((clave, i) => {
         const aqui = i === paso;
         const hecho = i < paso;
         return (
-          <li key={nombre} className="flex min-w-0 items-center gap-1.5">
+          <li key={clave} className="flex min-w-0 items-center gap-1.5">
             <button
               onClick={() => hecho && onIr(i)}
               disabled={!hecho && !aqui}
@@ -803,7 +813,7 @@ function Rail({ paso, onIr }) {
               }`}
             >
               <span className="tabular-nums">{i + 1}</span>
-              <span className="ml-1.5 hidden sm:inline">{nombre}</span>
+              <span className="ml-1.5 hidden sm:inline">{t(clave)}</span>
             </button>
             {i < PASOS.length - 1 && (
               <span aria-hidden="true" className="text-arena/70">
@@ -830,10 +840,10 @@ function Campo({ etiqueta, children }) {
   );
 }
 
-function Renglon({ t, children }) {
+function Renglon({ termino, children }) {
   return (
     <>
-      <dt className="font-texto text-cifra uppercase text-arena/75">{t}</dt>
+      <dt className="font-texto text-cifra uppercase text-arena/75">{termino}</dt>
       <dd className="min-w-0 truncate text-arena">{children}</dd>
     </>
   );
@@ -848,7 +858,7 @@ function Aviso({ children }) {
 }
 
 /** Menos y más, en lugar de ocho botones numerados. */
-function Contador({ valor, min, max, onCambiar }) {
+function Contador({ valor, min, max, onCambiar, t }) {
   const boton =
     'flex h-8 w-8 items-center justify-center rounded-sm border border-arena/25 font-texto ' +
     'text-[1.05rem] leading-none text-arena transition hover:border-hoja hover:text-hoja ' +
@@ -856,13 +866,23 @@ function Contador({ valor, min, max, onCambiar }) {
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote';
   return (
     <div className="flex items-center gap-2.5">
-      <button onClick={() => onCambiar(valor - 1)} disabled={valor <= min} className={boton} aria-label="Uno menos">
+      <button
+        onClick={() => onCambiar(valor - 1)}
+        disabled={valor <= min}
+        className={boton}
+        aria-label={t('reservar.unoMenos')}
+      >
         −
       </button>
       <span className="w-5 text-center font-titulo text-rotulo-md leading-none text-arena">
         {valor}
       </span>
-      <button onClick={() => onCambiar(valor + 1)} disabled={valor >= max} className={boton} aria-label="Uno más">
+      <button
+        onClick={() => onCambiar(valor + 1)}
+        disabled={valor >= max}
+        className={boton}
+        aria-label={t('reservar.unoMas')}
+      >
         +
       </button>
     </div>
@@ -919,14 +939,18 @@ function Tarjeta() {
   );
 }
 
-function Listo({ reserva, onOtra }) {
+function Listo({ reserva, onOtra, t, idioma }) {
   const pagada = reserva.estado === 'CONFIRMADA';
   const cancelada = reserva.estado === 'CANCELADA';
 
   return (
     <div>
       <p className="font-texto text-cifra uppercase text-copa">
-        {cancelada ? 'Sin reserva' : pagada ? 'Pago recibido' : 'Confirmando su pago'}
+        {cancelada
+          ? t('listo.sinReserva')
+          : pagada
+            ? t('listo.pagado')
+            : t('listo.confirmando')}
       </p>
       <h2 className="mt-2.5 font-titulo text-rotulo-xl leading-none text-arena">
         {reserva.folio}
@@ -934,14 +958,16 @@ function Listo({ reserva, onOtra }) {
 
       {cancelada ? (
         <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena">
-          No se completó el pago, así que la salida volvió a estar disponible.
-          No se le cobró nada. Puede elegir otro horario cuando quiera.
+          {t('listo.cancelado')}
         </p>
       ) : (
         <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena">
-          {reserva.fecha && diaEnPalabras(reserva.fecha)} a las {hhmm(reserva.hora)},{' '}
-          {reserva.jugadores} jugador{reserva.jugadores > 1 ? 'es' : ''}. Preséntese
-          en la casa club veinte minutos antes con este folio.
+          {t('listo.detalle', {
+            dia: reserva.fecha ? diaEnPalabras(reserva.fecha, idioma) : '',
+            hora: hhmm(reserva.hora),
+            n: reserva.jugadores,
+            es: reserva.jugadores > 1 ? t('plural.jugador') : '',
+          })}
         </p>
       )}
 
@@ -949,19 +975,13 @@ function Listo({ reserva, onOtra }) {
           aviso del banco. No es que falte pagar —ya pagó—: es que todavía no
           nos lo confirman. Decirle «le llamamos para confirmarla», como decía
           antes, lo deja creyendo que algo salió mal. */}
-      {!pagada && !cancelada && (
-        <Aviso>
-          Su pago está entrando. En cuanto nos lo confirmen —normalmente son
-          segundos— le llega su pase por correo. No hace falta que vuelva a
-          pagar.
-        </Aviso>
-      )}
+      {!pagada && !cancelada && <Aviso>{t('listo.entrando')}</Aviso>}
 
       <button
         onClick={onOtra}
         className="mt-7 rounded-sm border border-arena/25 px-6 py-3 font-texto text-[0.95rem] font-semibold text-arena transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
       >
-        {cancelada ? 'Elegir otro horario' : 'Reservar otra salida'}
+        {cancelada ? t('listo.otroHorario') : t('listo.otraSalida')}
       </button>
     </div>
   );

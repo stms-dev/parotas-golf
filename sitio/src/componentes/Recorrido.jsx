@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AGUA, CASA_CLUB, HOYOS, SILUETA, VISTA } from '../datos/campo';
+import { useIdioma } from '../datos/idioma';
 
 /** Una curva suave que pasa por todos los hoyos, en orden de juego. */
 function rutaEntreHoyos(hoyos) {
@@ -44,6 +45,7 @@ function rutaEntreHoyos(hoyos) {
 const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoyo }) {
+  const { t } = useIdioma();
   const ruta = useRef(null);
   const [enfocado, setEnfocado] = useState(null);
   const [bola, setBola] = useState(() => {
@@ -118,7 +120,7 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
       viewBox={`${VISTA.x} ${VISTA.y} ${VISTA.ancho} ${VISTA.alto}`}
       className="h-full w-full"
       role="img"
-      aria-label="Trazo del campo: dieciocho hoyos"
+      aria-label={t('mapa.alt')}
     >
       <defs>
         <radialGradient id="luzDelCampo" cx="50%" cy="38%" r="72%">
@@ -183,7 +185,7 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
             className="cursor-pointer outline-none"
             role="button"
             tabIndex={0}
-            aria-label={`Hoyo ${h.n}, par ${h.par}`}
+            aria-label={t('mapa.unHoyo', { n: h.n, par: h.par })}
             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onElegirHoyo?.(h.n))}
           >
             {/* Blanco de toque generoso: en un celular el dedo no acierta a

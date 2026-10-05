@@ -8,6 +8,12 @@
  *
  * Como en el sistema, ninguna pantalla llama a Swal directamente: así cambiar
  * el tono de un botón o el texto de "Entendido" se hace en un solo lugar.
+ *
+ * El botón recibe su texto de quien llama. Estas funciones no son componentes
+ * —se invocan desde un `catch`, desde un `finally`, desde donde haga falta— y
+ * no tienen manera de leer el idioma del contexto de React. Pasárselo cuesta
+ * un argumento y evita el único renglón que se quedaría en español con la
+ * página en inglés. Si no se pasa, «Entendido».
  */
 import Swal from 'sweetalert2';
 
@@ -31,32 +37,32 @@ const base = {
   },
 };
 
-export function aviso(titulo, texto) {
+export function aviso(titulo, texto, boton = 'Entendido') {
   return Swal.fire({
     ...base,
     icon: 'info',
     title: titulo,
     html: texto,
-    confirmButtonText: 'Entendido',
+    confirmButtonText: boton,
   });
 }
 
-export function problema(titulo, texto) {
+export function problema(titulo, texto, boton = 'Entendido') {
   return Swal.fire({
     ...base,
     icon: 'warning',
     title: titulo,
     html: texto,
-    confirmButtonText: 'Entendido',
+    confirmButtonText: boton,
   });
 }
 
-export function logrado(titulo, texto) {
+export function logrado(titulo, texto, boton = 'Entendido') {
   return Swal.fire({
     ...base,
     icon: 'success',
     title: titulo,
     html: texto,
-    confirmButtonText: 'Entendido',
+    confirmButtonText: boton,
   });
 }

@@ -6,32 +6,32 @@
  * ellos. Lo demás —par, diseñador, horario— va chico, de dato, no de pregón.
  */
 import { HORARIO, PAR_TOTAL } from '../../datos/campo';
+import { useIdioma } from '../../datos/idioma';
 
 export default function Salida({ onIr }) {
+  const { t } = useIdioma();
+
   return (
     <div>
       <p className="font-texto text-cifra uppercase text-copa">
-        Bahías de Huatulco, Oaxaca
+        {t('salida.lugar')}
       </p>
 
       <h1 className="mt-3 font-titulo text-rotulo-xl text-arena">
-        Dieciocho hoyos
+        {t('salida.titulo1')}
         <br />
-        bajo las parotas
+        {t('salida.titulo2')}
       </h1>
 
       <p className="mt-6 max-w-lectura font-texto text-parrafo text-arena">
-        Las parotas ya estaban aquí cuando se trazó el campo: árboles de copa
-        ancha que dan sombra a media hectárea cada uno. En lugar de tumbarlas,
-        Agustín Pizá acomodó el recorrido entre ellas. Por eso ningún hoyo se
-        parece al anterior, y por eso el campo se llama como se llama.
+        {t('salida.cuerpo')}
       </p>
 
       <dl className="mt-9 flex flex-wrap gap-x-10 gap-y-5">
-        <Dato termino="Par" valor={PAR_TOTAL} />
-        <Dato termino="Hoyos" valor="18" />
-        <Dato termino="Salidas" valor={`${HORARIO.primera} – ${HORARIO.ultima}`} />
-        <Dato termino="Diseño" valor="Agustín Pizá" />
+        <Dato termino={t('salida.par')} valor={PAR_TOTAL} />
+        <Dato termino={t('salida.hoyos')} valor="18" />
+        <Dato termino={t('salida.salidas')} valor={`${HORARIO.primera} – ${HORARIO.ultima}`} />
+        <Dato termino={t('salida.diseno')} valor="Agustín Pizá" />
       </dl>
 
       <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -39,13 +39,13 @@ export default function Salida({ onIr }) {
           onClick={() => onIr('reservar')}
           className="rounded-sm bg-hoja px-7 py-3.5 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
         >
-          Reservar una salida
+          {t('salida.reservar')}
         </button>
         <button
           onClick={() => onIr('tarifas')}
           className="font-texto text-[0.95rem] font-semibold text-arena underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-arena focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
         >
-          Ver tarifas
+          {t('salida.verTarifas')}
         </button>
       </div>
     </div>
