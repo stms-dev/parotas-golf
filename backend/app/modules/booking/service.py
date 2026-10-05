@@ -443,7 +443,9 @@ class ReservationService_:
         )
 
     # --------------------------------------------------------------- creación
-    def create(self, data: ReservationCreate, actor: User) -> Reservation:
+    def create(
+        self, data: ReservationCreate, actor: User, *, mandar_pase: bool = True
+    ) -> Reservation:
         # 1. Hotel: un usuario HOTEL solo puede reservar para el suyo, y
         # recepción solo para el público general.
         if actor.role == UserRole.HOTEL:
@@ -644,6 +646,23 @@ class ReservationService_:
         # guardada. Si el correo no pudiera salir en ese momento, queda en la
         # bandeja y el repartidor lo manda después: la reserva ya está hecha y
         # no se pierde por culpa de un correo.
+        #
+        # La excepción es la reserva del sitio, que nace apartada mientras el
+        # huésped paga. Esa todavía no es una reserva: mandarle su pase con el
+        # QR sería prometerle una salida que puede no tener en diez minutos.
+        # Su pase sale cuando el pago entra.
+        if mandar_pase:
+            self._mandar_pase(reservation)
+
+        # Ya está guardado: ahora sí se avisa. Antes del commit se correría el
+        # riesgo de anunciar una reserva que terminó en rollback.
+        self._avisar_reserva(reservation, EventType.RESERVA_CREADA)
+        self._avisar_disponibilidad(slot, f"Reserva {reservation.folio} creada")
+
+        return reservation
+
+    def _mandar_pase(self, reservation) -> None:
+        """Manda el pase con el QR. Si falla, la reserva no se cae con él."""
         try:
             from app.modules.mailing.service import MailingService
             from app.shared.enums import EmailKind
@@ -654,13 +673,6 @@ class ReservationService_:
         except Exception:
             self.db.rollback()
             logger.exception("No se pudo mandar el pase de %s", reservation.folio)
-
-        # Ya está guardado: ahora sí se avisa. Antes del commit se correría el
-        # riesgo de anunciar una reserva que terminó en rollback.
-        self._avisar_reserva(reservation, EventType.RESERVA_CREADA)
-        self._avisar_disponibilidad(slot, f"Reserva {reservation.folio} creada")
-
-        return reservation
 
     def _servicio_acompanante(self):
         from sqlalchemy import select

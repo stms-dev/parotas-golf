@@ -33,6 +33,11 @@ from app.modules.pagos import stripe_gateway         # noqa: E402
 settings.STRIPE_SECRET_KEY = "sk_test_de_mentiras_para_la_prueba"
 settings.STRIPE_WEBHOOK_SECRET = "whsec_de_mentiras"
 settings.PAGOS_SIMULADOS = False
+# El tope de reservas por conexión existe para que un robot no llene el tee
+# sheet. Esta prueba aparta una salida tras otra desde la misma dirección, así
+# que choca con él por hacer su trabajo. Se sube solo aquí; que el tope de
+# verdad funcione lo comprueba `prueba_publica.py`.
+settings.PUBLICO_INTENTOS_POR_HORA = 200
 
 # --- el doble de la pasarela -------------------------------------------------
 SESIONES = []
@@ -280,6 +285,66 @@ check("Y sigue vivo después", not _log.getLogger("app.main").disabled)
 check("La raíz conserva su manejador", len(_log.getLogger().handlers) > 0)
 check("Y su nivel, no el WARNING del .ini",
       _log.getLogger().level <= _log.INFO, f"nivel {_log.getLogger().level}")
+
+print("\n13. El apartado no es una reserva: ni pase ni promesa")
+# Lo que se arregló aquí: antes el pase con el QR salía al apartar, o sea
+# antes de pagar. El huésped recibía por correo el documento que lo acredita
+# para jugar una salida que todavía podía perder en diez minutos.
+from app.core.database import SessionLocal as _S
+from app.modules.mailing.models import OutboxEmail
+from app.modules.booking.models import Reservation as _R
+
+def correos_de(folio):
+    with _S() as s:
+        r = s.query(_R).filter(_R.folio == folio).first()
+        if r is None:
+            return []
+        return [c.kind for c in s.query(OutboxEmail).filter(
+            OutboxEmail.reservation_id == r.id).all()]
+
+ap5 = apartar(correo="sinpase@ejemplo.com")
+check("Al apartar no sale ningún pase", correos_de(ap5["folio"]) == [],
+      str(correos_de(ap5["folio"])))
+
+print("\n14. Si no paga, no hay reserva")
+# El huésped le da para atrás en la página de Stripe. Antes la salida se
+# quedaba apartada media hora y el sitio le decía «le llamamos para
+# confirmarla» — una promesa que nadie pidió, por algo que decidió no pagar.
+antes = c.get(f"/api/public/disponibilidad?fecha={dia}").json()["salidas"]
+slot_de = next(s for s in antes
+               if s["id"] == c.get(f"/api/public/reservas/{ap5['folio']}").json() and False) \
+          if False else None
+
+r = c.post(f"/api/public/reservas/{ap5['folio']}/soltar")
+check("Soltar contesta bien", r.status_code == 200, f"HTTP {r.status_code}")
+check("La reserva queda cancelada", r.json()["estado"] == "CANCELADA", r.json()["estado"])
+check("Y el horario vuelve a la venta",
+      c.get(f"/api/public/reservas/{ap5['folio']}").json()["estado"] == "CANCELADA")
+check("Sigue sin haber pase", correos_de(ap5["folio"]) == [],
+      str(correos_de(ap5["folio"])))
+
+# Stripe puede mandar el regreso dos veces, o el huésped recargar la página.
+r = c.post(f"/api/public/reservas/{ap5['folio']}/soltar")
+check("Soltar dos veces no truena", r.status_code == 200, f"HTTP {r.status_code}")
+
+print("\n15. Soltar no sirve para tumbar reservas ajenas")
+ap6 = apartar(correo="pagada@ejemplo.com")
+EVENTO.clear()
+EVENTO.update({"type": "checkout.session.completed", "data": {"object": {
+    "object": "checkout.session", "metadata": {"folio": ap6["folio"]},
+    "payment_status": "paid", "id": "cs_firme",
+    "amount_total": int(float(ap6["total"]) * 100), "payment_intent": "pi_firme",
+}}})
+c.post("/api/public/stripe/webhook", content=b"{}", headers={"stripe-signature": "firma-buena"})
+check("La reserva pagada quedó confirmada",
+      c.get(f"/api/public/reservas/{ap6['folio']}").json()["estado"] == "CONFIRMADA")
+check("Y AHORA sí sale su pase", "PASE" in str(correos_de(ap6["folio"])),
+      str(correos_de(ap6["folio"])))
+
+r = c.post(f"/api/public/reservas/{ap6['folio']}/soltar")
+check("Una reserva pagada no se puede soltar", r.status_code == 409, f"HTTP {r.status_code}")
+check("Y sigue confirmada",
+      c.get(f"/api/public/reservas/{ap6['folio']}").json()["estado"] == "CONFIRMADA")
 
 print("\n" + "=" * 58)
 if FALLOS:

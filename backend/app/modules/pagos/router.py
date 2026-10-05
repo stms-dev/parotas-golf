@@ -302,6 +302,23 @@ def _como_diccionario(objeto) -> dict:
     return dict(objeto)
 
 
+@router.post("/reservas/{folio}/soltar", response_model=EstadoOut)
+def soltar(folio: str, request: Request, db: Session = Depends(get_db)):
+    """Suelta un apartado que nunca se pagó.
+
+    La llama el sitio cuando el huésped vuelve de Stripe sin haber pagado. No
+    hace falta que nadie se identifique: lo único que esta ruta puede hacer es
+    cancelar un apartado en espera de pago, y adivinar un folio ajeno para
+    cancelarlo no deja nada a quien lo intente —el horario vuelve a la venta
+    para todos, incluido el dueño del folio, que puede reservarlo otra vez—.
+    El tope de intentos por conexión sigue aplicando.
+    """
+    _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA * 3)
+    servicio = ReservaPublicaService(db)
+    servicio.soltar(folio)
+    return servicio.estado(folio)
+
+
 @router.post("/stripe/webhook", include_in_schema=False)
 async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
     """Stripe avisa que un pago se completó. **Esto es lo que confirma.**

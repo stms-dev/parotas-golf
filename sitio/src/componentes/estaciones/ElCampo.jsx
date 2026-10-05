@@ -22,17 +22,40 @@ import { HOYOS, fotoDelHoyo } from '../../datos/campo';
 
 /** El desvanecido de las cuatro orillas, como una sola máscara.
  *
- * Ancho a propósito: casi un décimo de la foto por lado. Lo probé estrecho y
- * con una sombra dura por dentro para que los cielos blancos no se embarraran,
- * y el remedio salió peor que la enfermedad — la foto quedaba encajonada en un
- * marco oscuro y plana como una calcomanía. Con la orilla bien desvanecida la
- * imagen se funde con la página y gana profundidad, que es justo lo que se
- * busca; que un cielo claro se aclare más en el borde es parte del efecto, no
- * un defecto. */
-const BORDES = [
-  'linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)',
-  'linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%)',
-].join(', ');
+ * Los dos degradados —uno horizontal y otro vertical— se cruzan, y cada uno
+ * lleva varias paradas en vez de dos. Esa es toda la gracia: un degradado de
+ * transparente a opaco en línea recta deja una banda que el ojo encuentra, y
+ * entonces se sigue viendo dónde termina el rectángulo. Con las paradas
+ * repartidas en curva —despacio al principio, de golpe en medio, despacio al
+ * final— no hay ningún punto donde el cambio se note, y la foto se disuelve
+ * de verdad en lugar de apagarse.
+ *
+ * Corto y suave: se come menos de un décimo de la foto por lado. Probé con un
+ * quinto y el remedio fue peor —la imagen se deshacía y los cielos claros se
+ * derramaban—. Lo que quita el filo no es la distancia, es la curva.
+ */
+function orilla(eje, largo) {
+  // Una curva suave repartida en seis paradas. En el centro no hay nada: la
+  // foto queda intacta de `largo` a `100 - largo`.
+  const curva = [
+    [0, 0],
+    [0.18, 0.03],
+    [0.38, 0.14],
+    [0.58, 0.38],
+    [0.78, 0.7],
+    [1, 1],
+  ];
+  const paradas = [
+    ...curva.map(([d, o]) => `rgba(0,0,0,${o}) ${(d * largo).toFixed(2)}%`),
+    ...curva
+      .slice()
+      .reverse()
+      .map(([d, o]) => `rgba(0,0,0,${o}) ${(100 - d * largo).toFixed(2)}%`),
+  ];
+  return `linear-gradient(${eje}, ${paradas.join(', ')})`;
+}
+
+const BORDES = [orilla('to right', 9), orilla('to bottom', 8)].join(', ');
 
 export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
   const hoyo = HOYOS.find((h) => h.n === hoyoActivo) || HOYOS[0];
@@ -78,13 +101,12 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
       {/* --------------------------------------------------------- la foto */}
       <figure className="relative mt-2 w-full shrink-0">
         <div
-          className="aspect-[16/10] w-full bg-cover bg-center transition-opacity duration-700"
+          className="aspect-[16/9] max-h-[50svh] w-full bg-cover bg-center transition-opacity duration-700"
           style={{
             backgroundImage: `url(${puesta})`,
             opacity: lista ? 1 : 0.2,
-            // Dos degradados rectos que se cruzan: cada uno se apaga en su
-            // orilla y el centro queda intacto. Sin nada encima — la sombra
-            // interior que probé la dejaba plana.
+            // Dos degradados que se cruzan y se apagan en curva. Nada
+            // encima: la sombra interior que probé la dejaba plana.
             WebkitMaskImage: BORDES,
             maskImage: BORDES,
             WebkitMaskComposite: 'source-in',

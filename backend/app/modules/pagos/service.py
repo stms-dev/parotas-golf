@@ -461,7 +461,9 @@ class ReservaPublicaService:
             notes=f"Reserva desde el sitio del club{f' · {ip}' if ip else ''}",
         )
 
-        reserva = self.reservas.create(cuerpo, cuenta)
+        # Sin pase todavía: esto es un apartado, no una reserva. El QR sale
+        # cuando el dinero entra.
+        reserva = self.reservas.create(cuerpo, cuenta, mandar_pase=False)
 
         # El apartado. Se escribe después de crear porque hasta aquí ya se sabe
         # que la salida estaba libre y que el cupo se tomó.
@@ -504,6 +506,38 @@ class ReservaPublicaService:
                 "Se acabó el tiempo para pagar y la salida volvió a la venta. "
                 "Vuelva a elegir un horario."
             )
+
+    def soltar(self, folio: str) -> dict:
+        """Deshace un apartado que nunca se pagó.
+
+        Es lo que pasa cuando el huésped le da para atrás en la página de
+        Stripe. Antes la salida se quedaba apartada hasta que venciera el
+        plazo, y el sitio le decía «su salida quedó apartada, le llamamos» —
+        una promesa que nadie pidió y que además dejaba el horario muerto
+        media hora.
+
+        Solo suelta apartados: una reserva ya confirmada o una del mostrador
+        no se tocan desde aquí, aunque alguien teclee su folio. Y es seguro
+        llamarla dos veces, porque la segunda ya la encuentra cancelada.
+        """
+        reserva = self._reserva(folio)
+        estado = ReservationStatus(str(reserva.status))
+
+        if estado == ReservationStatus.CANCELADA:
+            return {"estado": "CANCELADA", "folio": reserva.folio}
+
+        if estado != ReservationStatus.PENDIENTE or reserva.hold_expires_at is None:
+            raise BusinessRuleError(
+                "Esa reserva ya no se puede soltar desde el sitio. "
+                "Comuníquese con el club."
+            )
+
+        self.reservas.cancel(
+            reserva.id,
+            "El huésped no completó el pago en línea",
+            self.cuenta_del_sitio(),
+        )
+        return {"estado": "CANCELADA", "folio": reserva.folio}
 
     def iniciar_cobro(self, folio: str) -> dict:
         """Abre la página de pago de Stripe para una reserva apartada.
@@ -620,6 +654,9 @@ class ReservaPublicaService:
             # del campo, que es como se entera el operador de que entró una
             # reserva mientras no había nadie en el mostrador.
             self.reservas.confirm(reserva.id, self.cuenta_del_sitio())
+            # Y aquí sale el pase con el QR: hasta ahora hay algo que prometer.
+            self.db.refresh(reserva)
+            self.reservas._mandar_pase(reserva)
 
         self.db.refresh(reserva)
         return {"estado": "confirmada", "folio": reserva.folio}

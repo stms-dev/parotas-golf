@@ -24,6 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../../datos/api';
+import { problema } from '../../datos/avisos';
 import {
   EXTRAS,
   HORARIO,
@@ -88,14 +89,47 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     PAQUETES.find((p) => p.modalidad === paquete);
 
   // --------------------------------------------------- volver de pagar
-  // Se consulta el estado en lugar de creerle a la liga: a la página de
+  //
+  // Dos regresos distintos, y durante un rato los traté igual, que era el
+  // error. Quien pagó vuelve con su reserva hecha. Quien le dio para atrás en
+  // Stripe no reservó nada: su apartado se suelta aquí mismo, el horario
+  // vuelve a la venta y se le dice con todas sus letras que no hay reserva.
+  // Antes se le mostraba su folio y un «le llamamos para confirmarla» —una
+  // promesa que nadie pidió, por una salida que él decidió no pagar.
+  //
+  // El estado se consulta en lugar de creerle a la liga: a la página de
   // "listo" se llega tecleándola.
   useEffect(() => {
     if (!llegada?.folio) return undefined;
     let vigente = true;
+
+    if (llegada.cancelado) {
+      api
+        .soltar(llegada.folio)
+        .catch(() => {})
+        .finally(() => {
+          if (!vigente) return;
+          onLimpiarLlegada?.();
+          problema(
+            'No se hizo la reserva',
+            'Se canceló el pago, así que la salida volvió a estar disponible. ' +
+              'No se le cobró nada y no hay nada que cancelar. ' +
+              'Puede elegir otro horario cuando quiera.',
+          );
+        });
+      return () => {
+        vigente = false;
+      };
+    }
+
     api
       .estado(llegada.folio)
-      .then((r) => vigente && setListo({ ...r, cancelado: llegada.cancelado }))
+      .then((r) => {
+        if (!vigente) return;
+        // Puede volver antes de que llegue el aviso de Stripe. Si está
+        // pagada se enseña; si no, se le dice que estamos confirmando.
+        setListo(r);
+      })
       .catch(() => vigente && setAviso('No encontramos esa reserva.'));
     return () => {
       vigente = false;
@@ -892,7 +926,7 @@ function Listo({ reserva, onOtra }) {
   return (
     <div>
       <p className="font-texto text-cifra uppercase text-copa">
-        {cancelada ? 'Pago cancelado' : pagada ? 'Pago recibido' : 'Salida apartada'}
+        {cancelada ? 'Sin reserva' : pagada ? 'Pago recibido' : 'Confirmando su pago'}
       </p>
       <h2 className="mt-2.5 font-titulo text-rotulo-xl leading-none text-arena">
         {reserva.folio}
@@ -900,8 +934,8 @@ function Listo({ reserva, onOtra }) {
 
       {cancelada ? (
         <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena/80">
-          No se completó el pago y la salida volvió a la venta. Puede elegir otro
-          horario cuando quiera.
+          No se completó el pago, así que la salida volvió a estar disponible.
+          No se le cobró nada. Puede elegir otro horario cuando quiera.
         </p>
       ) : (
         <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena/80">
@@ -911,10 +945,15 @@ function Listo({ reserva, onOtra }) {
         </p>
       )}
 
+      {/* El huésped puede volver de Stripe un instante antes de que llegue el
+          aviso del banco. No es que falte pagar —ya pagó—: es que todavía no
+          nos lo confirman. Decirle «le llamamos para confirmarla», como decía
+          antes, lo deja creyendo que algo salió mal. */}
       {!pagada && !cancelada && (
         <Aviso>
-          Su salida quedó apartada, pero todavía no está pagada. Le llamamos
-          para confirmarla.
+          Su pago está entrando. En cuanto nos lo confirmen —normalmente son
+          segundos— le llega su pase por correo. No hace falta que vuelva a
+          pagar.
         </Aviso>
       )}
 

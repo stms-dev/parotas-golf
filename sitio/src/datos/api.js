@@ -90,6 +90,10 @@ export const api = {
       body: JSON.stringify(tarjeta),
     }),
 
+  /** Suelta un apartado que nunca se pagó: el huésped se arrepintió. */
+  soltar: (folio) =>
+    pedir(`/public/reservas/${folio}/soltar`, { method: 'POST' }),
+
   estado: (folio) => pedir(`/public/reservas/${folio}`),
 };
 
