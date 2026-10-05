@@ -19,7 +19,7 @@ import Tarifas from './componentes/estaciones/Tarifas';
 import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
-import { CONTACTO, ESTACIONES, HOYOS } from './datos/campo';
+import { CONTACTO, ESTACIONES, HOYOS, fotoDelHoyo } from './datos/campo';
 import logo from './assets/logo-las-parotas-claro.png';
 
 const HOYOS_ESTACION = ESTACIONES.map((e) => e.hoyo);
@@ -34,7 +34,7 @@ function Paradas({ estacion, onIr }) {
         onClick={() => onIr(e.id)}
         aria-current={activa ? 'page' : undefined}
         className={`shrink-0 whitespace-nowrap rounded-sm px-3 py-2 font-texto text-menudo font-semibold transition md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote ${
-          activa ? 'bg-arena/[0.12] text-hoja' : 'text-arena/65 hover:text-arena'
+          activa ? 'bg-arena/[0.12] text-hoja' : 'text-arena/85 hover:text-arena'
         }`}
       >
         {e.nombre}
@@ -112,7 +112,12 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      <Fondo cambiarCon={estacion} />
+      {/* En El campo el fondo es el del hoyo que se está mirando; en las
+          demás paradas, uno al azar que se releva solo. */}
+      <Fondo
+        cambiarCon={estacion}
+        fija={estacion === 'campo' ? fotoDelHoyo(hoyo) : null}
+      />
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
         {/* ------------------------------------------------------ encabezado */}
@@ -139,7 +144,7 @@ export default function App() {
                   con convenio y el personal del club. */}
               <a
                 href={CONTACTO.acceso}
-                className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena/85 transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+                className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
               >
                 Acceder
               </a>
@@ -192,7 +197,7 @@ export default function App() {
             {estacion !== 'campo' && (
               // En celular el mapa va centrado y angosto, y esta leyenda
               // pegada a la izquierda quedaba huérfana en un hueco vacío.
-              <p className="pointer-events-none absolute bottom-0 left-0 right-0 hidden text-center font-texto text-menudo text-arena/40 lg:block">
+              <p className="pointer-events-none absolute bottom-0 left-0 right-0 hidden text-center font-texto text-menudo text-arena/75 lg:block">
                 Hoyo {hoyo} · par {parDelHoyo}
               </p>
             )}
@@ -222,11 +227,11 @@ export default function App() {
         {/* ---------------------------------------------------------- pie */}
         <footer className="mt-3 shrink-0 border-t border-arena/12 pt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-texto text-menudo text-arena/40">
+            <p className="font-texto text-menudo text-arena/75">
               Club de Golf Huatulco · Bahías de Huatulco, Oaxaca
             </p>
-            <span className="font-texto text-menudo text-arena/40">
-              Español · <span className="text-arena/25">English</span>
+            <span className="font-texto text-menudo text-arena/75">
+              Español · <span className="text-arena/70">English</span>
             </span>
           </div>
         </footer>

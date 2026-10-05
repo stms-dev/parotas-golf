@@ -11,7 +11,7 @@ export default function CasaClub() {
   return (
     <div>
       <h2 className="font-titulo text-rotulo-lg text-arena">Casa club</h2>
-      <p className="mt-3 max-w-lectura font-texto text-parrafo text-arena/75">
+      <p className="mt-3 max-w-lectura font-texto text-parrafo text-arena/90">
         El campo abre su primera salida a las {HORARIO.primera} y la última sale
         a las {HORARIO.ultima}. Cierra a las {HORARIO.cierre}, así que una
         salida tardía puede no alcanzar los 18 hoyos.
@@ -38,11 +38,11 @@ export default function CasaClub() {
       </dl>
 
       <div className="mt-10 border-t border-arena/15 pt-5">
-        <p className="font-texto text-menudo text-arena/50">
+        <p className="font-texto text-menudo text-arena/80">
           ¿Trabaja en el club o en un hotel con convenio? Entre por{' '}
           <a
             href={CONTACTO.acceso}
-            className="font-semibold text-arena/80 underline decoration-arena/30 underline-offset-4 transition hover:text-hoja"
+            className="font-semibold text-arena underline decoration-arena/30 underline-offset-4 transition hover:text-hoja"
           >
             el sistema de reservas
           </a>{' '}
@@ -56,7 +56,7 @@ export default function CasaClub() {
 function Renglon({ termino, children }) {
   return (
     <div>
-      <dt className="font-texto text-cifra uppercase text-arena/45">{termino}</dt>
+      <dt className="font-texto text-cifra uppercase text-arena/75">{termino}</dt>
       <dd className="mt-1 font-texto text-[1.05rem] text-arena">{children}</dd>
     </div>
   );

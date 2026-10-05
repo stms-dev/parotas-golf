@@ -19,6 +19,12 @@
  *    sea un corte seco y lo bastante poco para que no parezca que la página
  *    se quedó pensando.
  *
+ *    La excepción es El campo, que le pasa una foto `fija`: ahí el fondo es
+ *    el del hoyo que se está mirando y no se releva solo. Un paisaje ajeno
+ *    cambiando detrás del hoyo que uno está viendo es un parpadeo que
+ *    distrae, y además desperdicia la ocasión de que las dos imágenes sean
+ *    del mismo sitio.
+ *
  * Quien pidió menos movimiento (`prefers-reduced-motion`) se queda con una
  * sola foto, fija.
  */
@@ -39,7 +45,7 @@ function otraQueNoSea(actual) {
   return siguiente;
 }
 
-export default function Fondo({ cambiarCon }) {
+export default function Fondo({ cambiarCon, fija }) {
   // Dos capas que se turnan: la de abajo sostiene la imagen vieja mientras la
   // de arriba aparece. Con una sola, el cambio sería un parpadeo.
   const [capas, setCapas] = useState(() => {
@@ -65,23 +71,28 @@ export default function Fondo({ cambiarCon }) {
   // Al cambiar de parada.
   const primeraVez = useRef(true);
   useEffect(() => {
-    if (quieto) return;
+    if (quieto || fija) return;
     if (primeraVez.current) {
       primeraVez.current = false;
       return;
     }
     relevar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cambiarCon]);
+  }, [cambiarCon, fija]);
 
   // Y solo, para quien se queda leyendo.
   useEffect(() => {
-    if (quieto) return undefined;
+    if (quieto || fija) return undefined;
     const t = setInterval(relevar, RELEVO_MS);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fija]);
 
+  // Con `fija` el fondo deja de ser un paisaje cualquiera y pasa a ser el del
+  // hoyo que se está mirando, desenfocado. En El campo eso tiene sentido: el
+  // fondo acompaña a la foto en vez de competir con ella, y dejar que cambiara
+  // solo cada ocho segundos mientras alguien mira un hoyo era un parpadeo
+  // detrás de lo que estaba viendo.
   const capa = (url, visible) =>
     url ? (
       <div
@@ -101,8 +112,12 @@ export default function Fondo({ cambiarCon }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden bg-sombra">
-      {capa(capas.debajo, !encimaVisible.current)}
-      {capa(capas.encima, encimaVisible.current)}
+      {fija ? capa(fija, true) : (
+        <>
+          {capa(capas.debajo, !encimaVisible.current)}
+          {capa(capas.encima, encimaVisible.current)}
+        </>
+      )}
 
       {/* Lo que hace legible el texto de encima, en dos capas.
           La cortina pareja asienta el tono general; el degradado carga la

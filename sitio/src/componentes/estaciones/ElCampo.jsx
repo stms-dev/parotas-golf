@@ -94,14 +94,14 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
       {/* Sin título: el mapa de al lado ya trae ese número encendido, y
           repetirlo le robaba aire a la foto. Del encabezado solo sobrevive el
           par, que es el dato que no está en ninguna otra parte. */}
-      <p className="shrink-0 text-right font-texto text-cifra uppercase tracking-wider text-arena/40">
+      <p className="shrink-0 text-right font-texto text-cifra uppercase tracking-wider text-arena/75">
         Par {hoyo.par} · {hoyo.n <= 9 ? 'la ida' : 'la vuelta'}
       </p>
 
       {/* --------------------------------------------------------- la foto */}
       <figure className="relative mt-2 w-full shrink-0">
         <div
-          className="aspect-[16/9] max-h-[50svh] w-full bg-cover bg-center transition-opacity duration-700"
+          className="aspect-[3/2] max-h-[62svh] w-full bg-cover bg-center transition-opacity duration-700"
           style={{
             backgroundImage: `url(${puesta})`,
             opacity: lista ? 1 : 0.2,
@@ -124,7 +124,7 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
           cada hoyo en el campo. */}
       <div className="mt-5 flex w-full shrink-0 items-center justify-center gap-7">
         <Flecha hacia="anterior" onIr={() => onElegirHoyo(anterior)} numero={anterior} />
-        <span className="font-texto text-[0.95rem] tabular-nums tracking-widest text-arena/55">
+        <span className="font-texto text-[0.95rem] tabular-nums tracking-widest text-arena/80">
           {String(hoyo.n).padStart(2, '0')} / 18
         </span>
         <Flecha hacia="siguiente" onIr={() => onElegirHoyo(siguiente)} numero={siguiente} />
@@ -140,7 +140,7 @@ function Flecha({ hacia, onIr, numero }) {
       onClick={onIr}
       aria-label={`Hoyo ${numero}`}
       title={`Hoyo ${numero}`}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-arena/25 font-texto text-arena/70 transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-arena/25 font-texto text-arena/90 transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
     >
       <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
         <path

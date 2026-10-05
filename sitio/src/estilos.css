@@ -21,18 +21,20 @@
     @apply bg-hoja text-sombra-honda;
   }
 
-  /* Barras de desplazamiento discretas dentro del panel: la página no se
-     desplaza, solo el contenido, y una barra gruesa delataría lo contrario. */
+  /* La barra de desplazamiento del panel, invisible.
+     Cada parada está armada para caber entera, así que una barra ahí es
+     siempre señal de que algo no cupo —en una pantalla rara, con el tipo de
+     letra del sistema más grande— y no de que haya contenido que buscar. Se
+     esconde pero el desplazamiento sigue funcionando: si en alguna
+     combinación extraña sobra contenido, se puede llegar a él con la rueda o
+     con el dedo, en vez de quedarse cortado para siempre. */
   .panel {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(242, 235, 220, 0.18) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
   .panel::-webkit-scrollbar {
-    width: 6px;
-  }
-  .panel::-webkit-scrollbar-thumb {
-    background-color: rgba(242, 235, 220, 0.18);
-    border-radius: 3px;
+    width: 0;
+    height: 0;
   }
 }
 

@@ -20,7 +20,7 @@ export default function Salida({ onIr }) {
         bajo las parotas
       </h1>
 
-      <p className="mt-6 max-w-lectura font-texto text-parrafo text-arena/80">
+      <p className="mt-6 max-w-lectura font-texto text-parrafo text-arena">
         Las parotas ya estaban aquí cuando se trazó el campo: árboles de copa
         ancha que dan sombra a media hectárea cada uno. En lugar de tumbarlas,
         Agustín Pizá acomodó el recorrido entre ellas. Por eso ningún hoyo se
@@ -43,7 +43,7 @@ export default function Salida({ onIr }) {
         </button>
         <button
           onClick={() => onIr('tarifas')}
-          className="font-texto text-[0.95rem] font-semibold text-arena/80 underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-arena focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+          className="font-texto text-[0.95rem] font-semibold text-arena underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-arena focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
         >
           Ver tarifas
         </button>
@@ -55,7 +55,7 @@ export default function Salida({ onIr }) {
 function Dato({ termino, valor }) {
   return (
     <div>
-      <dt className="font-texto text-cifra uppercase text-arena/45">{termino}</dt>
+      <dt className="font-texto text-cifra uppercase text-arena/75">{termino}</dt>
       <dd className="mt-1 font-titulo text-rotulo-md text-arena">{valor}</dd>
     </div>
   );

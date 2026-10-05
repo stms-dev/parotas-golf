@@ -54,7 +54,7 @@ const PASOS = ['Paquete', 'Día y hora', 'Jugadores', 'Revisión'];
 
 const entrada =
   'rounded-sm border border-arena/25 bg-arena/[0.07] px-3 py-2 font-texto ' +
-  'text-[0.95rem] text-arena outline-none transition placeholder:text-arena/35 ' +
+  'text-[0.95rem] text-arena outline-none transition placeholder:text-arena/75 ' +
   'focus:border-hoja focus:bg-arena/10';
 
 const jugadorNuevo = () => ({
@@ -344,7 +344,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <h2 className="font-titulo text-rotulo-lg text-arena">Reservar</h2>
         {/* En celular se calla: la pantalla la necesitan los campos. */}
-        <p className="hidden font-texto text-menudo text-arena/50 sm:block">
+        <p className="hidden font-texto text-menudo text-arena/80 sm:block">
           Le apartamos la salida
           {campo?.apartado_minutos ? ` durante ${campo.apartado_minutos} minutos` : ''}{' '}
           mientras paga
@@ -393,13 +393,13 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       >
                         {p.nombre}
                       </span>
-                      <span className="shrink-0 font-texto text-cifra uppercase text-arena/45">
+                      <span className="shrink-0 font-texto text-cifra uppercase text-arena/75">
                         {limites.minimo === limites.maximo
                           ? `${limites.maximo} pax`
                           : `${limites.minimo}–${limites.maximo} pax`}
                       </span>
                     </span>
-                    <span className="mt-1.5 font-texto text-menudo leading-relaxed text-arena/65">
+                    <span className="mt-1.5 font-texto text-menudo leading-relaxed text-arena/85">
                       {p.detalle}
                     </span>
                   </button>
@@ -416,7 +416,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 valor={Number(hoyos)}
                 onElegir={setHoyos}
               />
-              <p className="mt-1.5 font-texto text-menudo text-arena/50">
+              <p className="mt-1.5 font-texto text-menudo text-arena/80">
                 {Number(hoyos) === 9
                   ? 'Media vuelta. Por internet solo con jugadores adultos.'
                   : 'La vuelta completa, par 72.'}
@@ -435,7 +435,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 onChange={(e) => setFecha(e.target.value)}
                 className={`${entrada} w-full [color-scheme:dark] sm:max-w-[16rem]`}
               />
-              <p className="mt-1.5 font-texto text-menudo text-arena/50">
+              <p className="mt-1.5 font-texto text-menudo text-arena/80">
                 {diaEnPalabras(fecha)}
                 {esFinDeSemana(fecha) && ' · fin de semana, la tarifa es más alta'}
               </p>
@@ -443,13 +443,13 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
 
             <Campo etiqueta="¿A qué hora?">
               {cargando && !dia ? (
-                <p className="font-texto text-menudo text-arena/50">Consultando las salidas…</p>
+                <p className="font-texto text-menudo text-arena/80">Consultando las salidas…</p>
               ) : sinSistema ? (
-                <p className="font-texto text-menudo text-arena/55">
+                <p className="font-texto text-menudo text-arena/80">
                   No podemos consultar las salidas en este momento.
                 </p>
               ) : dia?.dia_cerrado ? (
-                <p className="font-texto text-menudo text-arena/55">
+                <p className="font-texto text-menudo text-arena/80">
                   Las reservas para ese día ya cerraron. Elija una fecha posterior.
                 </p>
               ) : (
@@ -468,7 +468,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                           elegida
                             ? 'border-hoja bg-hoja text-sombra-honda'
                             : lleno
-                              ? 'cursor-not-allowed border-arena/10 text-arena/25 line-through'
+                              ? 'cursor-not-allowed border-arena/10 text-arena/70 line-through'
                               : s.twilight
                                 ? 'border-copa/40 bg-copa/10 text-copa hover:border-copa'
                                 : 'border-arena/20 bg-arena/[0.055] text-arena hover:border-copa/60'
@@ -480,7 +480,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   })}
                 </div>
               )}
-              <p className="mt-1.5 font-texto text-menudo text-arena/50">
+              <p className="mt-1.5 font-texto text-menudo text-arena/80">
                 Las de color turquesa son twilight, desde las{' '}
                 {hhmm(dia?.twilight_desde) || HORARIO.twilight} · el campo cierra a
                 las {hhmm(dia?.cierre_de_campo) || HORARIO.cierre}
@@ -510,7 +510,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   className="rounded-sm border border-arena/20 bg-arena/[0.04] p-3"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-5 shrink-0 font-titulo text-[0.95rem] text-arena/45">
+                    <span className="w-5 shrink-0 font-titulo text-[0.95rem] text-arena/75">
                       {i + 1}
                     </span>
                     <input
@@ -558,7 +558,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       onElegir={(v) => cambiar(i, 'bastones', v)}
                     />
                     {j.bastones && (
-                      <span className="font-texto text-menudo tabular-nums text-arena/50">
+                      <span className="font-texto text-menudo tabular-nums text-arena/80">
                         renta {pesos(precioBastones)}
                       </span>
                     )}
@@ -567,7 +567,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               ))}
             </ul>
 
-            <p className="font-texto text-menudo text-arena/50">
+            <p className="font-texto text-menudo text-arena/80">
               La edad decide la tarifa: menor de 16 paga como infantil. El código
               PGA lo valida recepción al llegar; no descuenta nada todavía.
             </p>
@@ -595,7 +595,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         {paso === 3 && (
           <Paso>
             {!cotizacion ? (
-              <p className="font-texto text-menudo text-arena/55">
+              <p className="font-texto text-menudo text-arena/80">
                 Calculando su cuenta…
               </p>
             ) : (
@@ -620,16 +620,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       key={i}
                       className="flex items-baseline gap-x-3 border-b border-arena/10 bg-arena/[0.04] px-3 py-2 last:border-b-0"
                     >
-                      <span className="w-4 shrink-0 font-titulo text-menudo text-arena/40">
+                      <span className="w-4 shrink-0 font-titulo text-menudo text-arena/75">
                         {i + 1}
                       </span>
                       <span className="min-w-0 flex-1 truncate font-texto text-[0.95rem] text-arena">
                         {j.nombre}
                       </span>
-                      <span className="shrink-0 font-texto text-cifra uppercase text-arena/45">
+                      <span className="shrink-0 font-texto text-cifra uppercase text-arena/75">
                         {j.categoria === 'INFANTIL' ? 'Infantil' : 'Adulto'}
                       </span>
-                      <span className="shrink-0 font-texto text-[0.95rem] tabular-nums text-arena/75">
+                      <span className="shrink-0 font-texto text-[0.95rem] tabular-nums text-arena/90">
                         {pesos(Number(j.green_fee))}
                       </span>
                     </li>
@@ -637,17 +637,17 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 </ul>
 
                 <dl className="grid grid-cols-[1fr_auto] gap-y-1 font-texto text-[0.95rem] tabular-nums">
-                  <dt className="text-arena/60">Green fees</dt>
-                  <dd className="text-right text-arena/75">
+                  <dt className="text-arena/85">Green fees</dt>
+                  <dd className="text-right text-arena/90">
                     {pesos(Number(cotizacion.green_fees))}
                   </dd>
                   {cotizacion.sets_bastones > 0 && (
                     <>
-                      <dt className="text-arena/60">
+                      <dt className="text-arena/85">
                         Renta de bastones · {cotizacion.sets_bastones}{' '}
                         {cotizacion.sets_bastones === 1 ? 'set' : 'sets'}
                       </dt>
-                      <dd className="text-right text-arena/75">
+                      <dd className="text-right text-arena/90">
                         {pesos(Number(cotizacion.subtotal_bastones))}
                       </dd>
                     </>
@@ -661,7 +661,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               <span className="font-texto text-[0.95rem] font-semibold text-copa">
                 Caddie · {pesos(Number(cotizacion?.caddie_por_persona ?? caddie.precio))}
               </span>
-              <span className="font-texto text-menudo text-arena/60">
+              <span className="font-texto text-menudo text-arena/85">
                 se le paga directo a él, no va en esta cuenta · hay dos y se
                 asignan por orden de salida
               </span>
@@ -685,7 +685,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                     <Tarjeta /> <Tarjeta /> <Tarjeta />
                   </span>
                 </div>
-                <p className="mt-2 font-texto text-menudo leading-relaxed text-arena/55">
+                <p className="mt-2 font-texto text-menudo leading-relaxed text-arena/80">
                   Al confirmar lo mandamos a la página de pago de Stripe y
                   vuelve aquí con su folio. Su tarjeta nunca pasa por el
                   servidor del club. Aceptamos Visa, Mastercard y American
@@ -694,7 +694,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               </div>
             )}
 
-            <p className="font-texto text-menudo leading-relaxed text-arena/50">
+            <p className="font-texto text-menudo leading-relaxed text-arena/80">
               Incluye carrito compartido, agua, cerveza y refresco. Preséntese en
               la casa club veinte minutos antes de su salida.
             </p>
@@ -719,7 +719,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               picándole a "Siguiente" sin saber que le faltaba el correo. */}
           <p
             className={`${cotizacion ? 'mt-1' : ''} font-texto text-menudo ${
-              falta ? 'text-estado-aviso' : 'text-arena/50'
+              falta ? 'text-estado-aviso' : 'text-arena/80'
             }`}
           >
             {falta ||
@@ -735,7 +735,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           {paso > 0 && (
             <button
               onClick={() => setPaso(paso - 1)}
-              className="rounded-sm border border-arena/25 px-4 py-3 font-texto text-[0.95rem] font-semibold text-arena/80 transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+              className="rounded-sm border border-arena/25 px-4 py-3 font-texto text-[0.95rem] font-semibold text-arena transition hover:border-hoja hover:text-hoja focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
               Atrás
             </button>
@@ -746,7 +746,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               disabled={Boolean(falta) || sinSistema}
               onClick={() => (falta ? setAviso(falta) : setPaso(paso + 1))}
               title={falta || undefined}
-              className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+              className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
               {sinSistema ? 'Reservas no disponibles' : 'Siguiente'}
             </button>
@@ -754,7 +754,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             <button
               disabled={Boolean(falta) || cargando || sinSistema}
               onClick={apartarYPagar}
-              className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/40 sm:px-7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+              className="rounded-sm bg-hoja px-6 py-3 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote disabled:cursor-not-allowed disabled:bg-arena/15 disabled:text-arena/75 sm:px-7 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
             >
               {cargando
                 ? 'Un momento…'
@@ -798,15 +798,15 @@ function Rail({ paso, onIr }) {
                 aqui
                   ? 'bg-arena/[0.12] text-hoja'
                   : hecho
-                    ? 'text-arena/60 hover:text-arena'
-                    : 'cursor-default text-arena/25'
+                    ? 'text-arena/85 hover:text-arena'
+                    : 'cursor-default text-arena/70'
               }`}
             >
               <span className="tabular-nums">{i + 1}</span>
               <span className="ml-1.5 hidden sm:inline">{nombre}</span>
             </button>
             {i < PASOS.length - 1 && (
-              <span aria-hidden="true" className="text-arena/20">
+              <span aria-hidden="true" className="text-arena/70">
                 ·
               </span>
             )}
@@ -833,8 +833,8 @@ function Campo({ etiqueta, children }) {
 function Renglon({ t, children }) {
   return (
     <>
-      <dt className="font-texto text-cifra uppercase text-arena/40">{t}</dt>
-      <dd className="min-w-0 truncate text-arena/80">{children}</dd>
+      <dt className="font-texto text-cifra uppercase text-arena/75">{t}</dt>
+      <dd className="min-w-0 truncate text-arena">{children}</dd>
     </>
   );
 }
@@ -852,7 +852,7 @@ function Contador({ valor, min, max, onCambiar }) {
   const boton =
     'flex h-8 w-8 items-center justify-center rounded-sm border border-arena/25 font-texto ' +
     'text-[1.05rem] leading-none text-arena transition hover:border-hoja hover:text-hoja ' +
-    'disabled:cursor-not-allowed disabled:border-arena/10 disabled:text-arena/25 ' +
+    'disabled:cursor-not-allowed disabled:border-arena/10 disabled:text-arena/70 ' +
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote';
   return (
     <div className="flex items-center gap-2.5">
@@ -881,7 +881,7 @@ function Alternador({ opciones, valor, onElegir }) {
             onClick={() => !puesta && onElegir(o.valor)}
             aria-pressed={puesta}
             className={`whitespace-nowrap px-2.5 py-1.5 font-texto text-menudo font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brote ${
-              puesta ? 'bg-arena/15 text-arena' : 'text-arena/40 hover:text-arena/70'
+              puesta ? 'bg-arena/15 text-arena' : 'text-arena/75 hover:text-arena/90'
             }`}
           >
             {o.texto}
@@ -912,7 +912,7 @@ function Candado() {
  *  Visa o Mastercard sin su permiso es usar algo que no es nuestro. */
 function Tarjeta() {
   return (
-    <svg viewBox="0 0 22 14" className="h-3.5 w-[1.4rem] text-arena/35" aria-hidden="true">
+    <svg viewBox="0 0 22 14" className="h-3.5 w-[1.4rem] text-arena/75" aria-hidden="true">
       <rect x="0.7" y="0.7" width="20.6" height="12.6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
       <rect x="0.7" y="3.6" width="20.6" height="2.4" fill="currentColor" opacity="0.6" />
     </svg>
@@ -933,12 +933,12 @@ function Listo({ reserva, onOtra }) {
       </h2>
 
       {cancelada ? (
-        <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena/80">
+        <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena">
           No se completó el pago, así que la salida volvió a estar disponible.
           No se le cobró nada. Puede elegir otro horario cuando quiera.
         </p>
       ) : (
-        <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena/80">
+        <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena">
           {reserva.fecha && diaEnPalabras(reserva.fecha)} a las {hhmm(reserva.hora)},{' '}
           {reserva.jugadores} jugador{reserva.jugadores > 1 ? 'es' : ''}. Preséntese
           en la casa club veinte minutos antes con este folio.

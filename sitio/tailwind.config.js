@@ -14,6 +14,17 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // Una medida por ALTO, no por ancho.
+      //
+      // El sitio entero cabe en una pantalla, así que lo que decide si algo
+      // se desborda no es qué tan ancho es el monitor sino qué tan alto. Una
+      // laptop de 1366×768 tiene ancho de sobra y doscientos pixeles menos de
+      // alto que un monitor de escritorio: ahí es donde se apretujan las
+      // tarifas. Con esto se les puede bajar el aire solo en esas pantallas,
+      // en vez de dejar todo apretado para todos.
+      screens: {
+        corta: { raw: '(max-height: 820px)' },
+      },
       colors: {
         // Debajo de la copa: la base de toda la pantalla.
         sombra: '#0A2A21',
