@@ -39,14 +39,14 @@ export default function CasaClub() {
 
       <div className="mt-10 border-t border-arena/15 pt-5">
         <p className="font-texto text-menudo text-arena/50">
-          ¿Es socio, trabaja en el club o en un hotel con convenio? Entre por{' '}
+          ¿Trabaja en el club o en un hotel con convenio? Entre por{' '}
           <a
             href={CONTACTO.acceso}
             className="font-semibold text-arena/80 underline decoration-arena/30 underline-offset-4 transition hover:text-hoja"
           >
             el sistema de reservas
-          </a>
-           — el botón «Acceder» de arriba.
+          </a>{' '}
+          — el botón «Acceder» de arriba.
         </p>
       </div>
     </div>

@@ -20,10 +20,18 @@ import { useEffect, useState } from 'react';
 
 import { HOYOS, fotoDelHoyo } from '../../datos/campo';
 
-/** El desvanecido de las cuatro orillas, como una sola máscara. */
+/** El desvanecido de las cuatro orillas, como una sola máscara.
+ *
+ * Ancho a propósito: casi un décimo de la foto por lado. Lo probé estrecho y
+ * con una sombra dura por dentro para que los cielos blancos no se embarraran,
+ * y el remedio salió peor que la enfermedad — la foto quedaba encajonada en un
+ * marco oscuro y plana como una calcomanía. Con la orilla bien desvanecida la
+ * imagen se funde con la página y gana profundidad, que es justo lo que se
+ * busca; que un cielo claro se aclare más en el borde es parte del efecto, no
+ * un defecto. */
 const BORDES = [
-  'linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%)',
-  'linear-gradient(to bottom, transparent 0, #000 6%, #000 94%, transparent 100%)',
+  'linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)',
+  'linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%)',
 ].join(', ');
 
 export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
@@ -59,30 +67,24 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
   const siguiente = HOYOS[hoyo.n % 18].n;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1">
-        <h2 className="font-titulo text-rotulo-lg text-arena">
-          Hoyo {hoyo.n}
-        </h2>
-        <p className="font-texto text-menudo uppercase tracking-wider text-arena/45">
-          Par {hoyo.par} · {hoyo.n <= 9 ? 'la ida' : 'la vuelta'}
-        </p>
-      </div>
+    <div className="flex h-full min-h-0 flex-col [justify-content:safe_center] py-2">
+      {/* Sin título: el mapa de al lado ya trae ese número encendido, y
+          repetirlo le robaba aire a la foto. Del encabezado solo sobrevive el
+          par, que es el dato que no está en ninguna otra parte. */}
+      <p className="shrink-0 text-right font-texto text-cifra uppercase tracking-wider text-arena/40">
+        Par {hoyo.par} · {hoyo.n <= 9 ? 'la ida' : 'la vuelta'}
+      </p>
 
       {/* --------------------------------------------------------- la foto */}
-      <figure className="relative mt-4 min-h-[13rem] flex-1">
+      <figure className="relative mt-2 w-full shrink-0">
         <div
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+          className="aspect-[16/10] w-full bg-cover bg-center transition-opacity duration-700"
           style={{
             backgroundImage: `url(${puesta})`,
-            opacity: lista ? 1 : 0.25,
-            // Las orillas se apagan hacia el fondo en vez de cortarse a filo.
-            //
-            // Son dos degradados rectos —uno horizontal y otro vertical— que
-            // se cruzan: cada uno se apaga en su último dieciseisavo y el
-            // centro queda intacto. Con un degradado radial el resultado era
-            // un ojo de buey que se comía media foto; aquí solo se desvanece
-            // el borde, que es de lo que se trataba.
+            opacity: lista ? 1 : 0.2,
+            // Dos degradados rectos que se cruzan: cada uno se apaga en su
+            // orilla y el centro queda intacto. Sin nada encima — la sombra
+            // interior que probé la dejaba plana.
             WebkitMaskImage: BORDES,
             maskImage: BORDES,
             WebkitMaskComposite: 'source-in',
@@ -93,38 +95,18 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
         />
       </figure>
 
-      {/* ------------------------------------------------------ el paso a paso */}
-      <div className="mt-4 flex shrink-0 items-center justify-between gap-4">
+      {/* ------------------------------------------------- de un hoyo a otro */}
+      {/* Dos flechas y la cuenta. La regla de dieciocho barras que hubo aquí
+          dejaba saltar a cualquier hoyo, pero era un renglón de ruido debajo
+          de la foto; para saltar está el mapa, que además dice dónde queda
+          cada hoyo en el campo. */}
+      <div className="mt-5 flex w-full shrink-0 items-center justify-center gap-7">
         <Flecha hacia="anterior" onIr={() => onElegirHoyo(anterior)} numero={anterior} />
-
-        {/* Los dieciocho, como una regla: dice dónde va uno sin ocupar sitio. */}
-        <ol className="flex min-w-0 flex-1 items-end justify-center gap-[3px]">
-          {HOYOS.map((h) => {
-            const aqui = h.n === hoyo.n;
-            return (
-              <li key={h.n} className="flex-1">
-                <button
-                  onClick={() => onElegirHoyo(h.n)}
-                  aria-label={`Hoyo ${h.n}, par ${h.par}`}
-                  aria-current={aqui ? 'true' : undefined}
-                  title={`Hoyo ${h.n} · par ${h.par}`}
-                  className={`block w-full rounded-[1px] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote ${
-                    aqui ? 'h-6 bg-hoja' : 'h-3 bg-arena/25 hover:h-5 hover:bg-arena/50'
-                  }`}
-                />
-              </li>
-            );
-          })}
-        </ol>
-
+        <span className="font-texto text-[0.95rem] tabular-nums tracking-widest text-arena/55">
+          {String(hoyo.n).padStart(2, '0')} / 18
+        </span>
         <Flecha hacia="siguiente" onIr={() => onElegirHoyo(siguiente)} numero={siguiente} />
       </div>
-
-      <p className="mt-3 shrink-0 font-texto text-menudo text-arena/45">
-        Toque cualquier hoyo para verlo. Par 72 en total; la vuelta completa
-        se juega en unas cuatro horas y media, con carrito compartido
-        incluido.
-      </p>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
 import { CONTACTO, ESTACIONES, HOYOS } from './datos/campo';
-import logo from './assets/logo-las-parotas.png';
+import logo from './assets/logo-las-parotas-claro.png';
 
 const HOYOS_ESTACION = ESTACIONES.map((e) => e.hoyo);
 
@@ -112,48 +112,63 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      {/* El campo pone su propia foto, grande y nítida; otro paisaje detrás
-          sería una foto encima de otra. En las demás paradas el fondo es lo
-          único que hay, y es lo que le da aire al sitio. */}
-      {estacion !== 'campo' && <Fondo cambiarCon={estacion} />}
+      <Fondo cambiarCon={estacion} />
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
         {/* ------------------------------------------------------ encabezado */}
-        <header className="flex shrink-0 items-center justify-between gap-5">
-          <button onClick={() => irA('salida')} className="shrink-0" aria-label="Ir al inicio">
-            <img
-              src={logo}
-              alt="Las Parotas, Club de Golf Huatulco"
-              className="h-10 w-auto brightness-0 invert sm:h-12"
-            />
-          </button>
+        <header className="shrink-0">
+          <div className="flex items-center justify-between gap-5">
+            <button onClick={() => irA('salida')} className="shrink-0" aria-label="Ir al inicio">
+              <img
+                src={logo}
+                alt="Las Parotas, Club de Golf Huatulco"
+                className="h-11 w-auto sm:h-14"
+              />
+            </button>
 
-          {/* En pantalla ancha las paradas van arriba; en celular bajan al pie,
-              al alcance del pulgar, porque arriba no caben sin cortarse. */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <nav className="hidden items-center gap-1.5 md:flex">
-              <Paradas estacion={estacion} onIr={irA} />
-            </nav>
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* En pantalla ancha las paradas caben junto al logo. */}
+              <nav className="hidden items-center gap-1.5 md:flex">
+                <Paradas estacion={estacion} onIr={irA} />
+              </nav>
 
-            {/* Va aparte de las paradas, con su contorno, porque no es una
-                parada: es la puerta de salida del sitio. Mezclarlo con las
-                otras prometería que la bola viaja hasta allá, y lo que hace es
-                mandar al sistema de reservas, donde entran los hoteles con
-                convenio y el personal del club. */}
-            <a
-              href={CONTACTO.acceso}
-              className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena/85 transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
-            >
-              Acceder
-            </a>
+              {/* Va aparte de las paradas, con su contorno, porque no es una
+                  parada: es la puerta de salida del sitio. Mezclarlo con las
+                  otras prometería que la bola viaja hasta allá, y lo que hace
+                  es mandar al sistema de reservas, donde entran los hoteles
+                  con convenio y el personal del club. */}
+              <a
+                href={CONTACTO.acceso}
+                className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena/85 transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+              >
+                Acceder
+              </a>
+            </div>
           </div>
+
+          {/* En celular no caben en el mismo renglón, así que bajan uno —pero
+              siguen arriba, junto al logo, que es donde uno busca el menú. Un
+              rato estuvieron al pie, al alcance del pulgar; el problema es que
+              ahí competían con el pie del sitio y quedaban enterradas bajo el
+              contenido. */}
+          <nav className="-mx-1 mt-3 flex items-center gap-1 overflow-x-auto md:hidden">
+            <Paradas estacion={estacion} onIr={irA} />
+          </nav>
         </header>
 
         {/* ----------------------------------------------- mapa y contenido */}
-        <main className="mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:flex-row lg:items-stretch lg:gap-10">
+        <main
+          className={`mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:w-full lg:flex-row lg:items-stretch lg:self-center ${
+            estacion === 'campo'
+              ? 'lg:max-w-none lg:gap-6'
+              : 'lg:max-w-[57rem] lg:gap-[10rem]'
+          }`}
+        >
           {/* El mapa. En celular se queda con una franja; en escritorio, con
               la mitad, que es cuando de verdad se puede leer el trazo. */}
-          <div className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:w-[15rem] xl:w-[17rem] ${
+          <div className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:py-[2%] ${
+              estacion === 'campo' ? 'lg:w-[23rem]' : 'lg:w-[13rem]'
+            } ${
               // Llenar un formulario en un celular necesita pantalla. El mapa
               // es contexto; la reserva es la tarea. En una pantalla ancha
               // caben los dos, pero en un celular el mapa se quita de en
@@ -177,7 +192,7 @@ export default function App() {
             {estacion !== 'campo' && (
               // En celular el mapa va centrado y angosto, y esta leyenda
               // pegada a la izquierda quedaba huérfana en un hueco vacío.
-              <p className="pointer-events-none absolute bottom-0 left-0 hidden font-texto text-menudo text-arena/40 lg:block">
+              <p className="pointer-events-none absolute bottom-0 left-0 right-0 hidden text-center font-texto text-menudo text-arena/40 lg:block">
                 Hoyo {hoyo} · par {parDelHoyo}
               </p>
             )}
@@ -196,8 +211,8 @@ export default function App() {
               // se topan para que la línea quede del largo de una lectura
               // cómoda, y se centra su contenido cuando cabe.
               estacion === 'campo'
-                ? ''
-                : '[justify-content:safe_center] lg:max-w-[54rem]'
+                ? 'lg:max-w-[56rem]'
+                : '[justify-content:safe_center]'
             }`}
           >
             {paneles[estacion]}
@@ -206,11 +221,6 @@ export default function App() {
 
         {/* ---------------------------------------------------------- pie */}
         <footer className="mt-3 shrink-0 border-t border-arena/12 pt-3">
-          {/* Las paradas, en celular. */}
-          <nav className="-mx-1 mb-3 flex items-center gap-1 overflow-x-auto md:hidden">
-            <Paradas estacion={estacion} onIr={irA} />
-          </nav>
-
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="font-texto text-menudo text-arena/40">
               Club de Golf Huatulco · Bahías de Huatulco, Oaxaca

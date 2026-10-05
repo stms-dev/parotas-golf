@@ -143,8 +143,20 @@ export const EXTRAS = [
   },
 ];
 
-/** Carrito, aguas, cerveza y refresco van incluidos en el green fee. */
+/** Carrito, agua, cerveza y refresco van incluidos en el green fee. */
 export const INCLUIDO = ['Carrito compartido', 'Agua', 'Cerveza', 'Refresco'];
+
+/**
+ * Una lista en español de verdad: comas y una «y» antes del último.
+ *
+ * Unir con comas a secas daba «carrito compartido, agua, cerveza, refresco»,
+ * que en una enumeración escrita se lee a medio terminar.
+ */
+export const enLista = (cosas) => {
+  const partes = cosas.map((c) => c.toLowerCase());
+  if (partes.length < 2) return partes.join('');
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+};
 
 export const esFinDeSemana = (iso) => {
   const dia = new Date(`${iso}T12:00:00`).getDay(); // 0 domingo … 6 sábado
@@ -193,7 +205,7 @@ export const PAQUETES = [
   {
     modalidad: 'PARTIDA_ABIERTA',
     nombre: 'Partida Abierta',
-    detalle: 'Sale con los que se junten, hasta llegar a cuatro. Van menos de cuatro.',
+    detalle: 'Sale con los que se junten, hasta llegar a cuatro. Para cuando van menos.',
     minimo: 1,
     maximo: 4,
   },

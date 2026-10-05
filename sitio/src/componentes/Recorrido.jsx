@@ -28,8 +28,14 @@ function rutaEntreHoyos(hoyos) {
     const posterior = p[i + 2] || siguiente;
     // Catmull-Rom convertido a Bézier: pasa exactamente por cada hoyo en vez
     // de quedarse cerca, que es lo que haría una curva cuadrática suelta.
-    const c1 = [actual[0] + (siguiente[0] - anterior[0]) / 6, actual[1] + (siguiente[1] - anterior[1]) / 6];
-    const c2 = [siguiente[0] - (posterior[0] - actual[0]) / 6, siguiente[1] - (posterior[1] - actual[1]) / 6];
+    //
+    // El divisor es la tensión. Con 6 —el valor de libro— la curva se pasa de
+    // vuelta en los giros cerrados del sur y la línea se salía del terreno,
+    // que en un mapa de un campo de golf es decir una mentira. Con 11 se
+    // ciñe: sigue siendo curva, pero por dentro.
+    const T = 11;
+    const c1 = [actual[0] + (siguiente[0] - anterior[0]) / T, actual[1] + (siguiente[1] - anterior[1]) / T];
+    const c2 = [siguiente[0] - (posterior[0] - actual[0]) / T, siguiente[1] - (posterior[1] - actual[1]) / T];
     d += `C${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${siguiente[0]} ${siguiente[1]}`;
   }
   return d;
@@ -136,13 +142,17 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
         <path key={i} d={d_} fill="#2E6E79" opacity="0.92" />
       ))}
 
-      {/* La vuelta completa, del 1 al 18. */}
+      {/* La vuelta completa, del 1 al 18, como un rastro de puntos.
+          Probé la cinta ancha de calles y pesaba demasiado: se comía el
+          terreno y los hoyos quedaban nadando encima. El punteado fino dice
+          lo mismo —este es el orden de la vuelta— y deja que el protagonista
+          siga siendo la forma del campo. */}
       <path
         ref={ruta}
         d={d}
         fill="none"
         stroke="#DCE86B"
-        strokeOpacity="0.28"
+        strokeOpacity="0.3"
         strokeWidth="5"
         strokeLinecap="round"
         strokeDasharray="1 14"
@@ -155,8 +165,7 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
       </g>
 
       {/* La bola, por debajo de los hoyos: puesta encima tapaba justo el
-          número del hoyo al que acababa de llegar. Lo que se ve de ella al
-          llegar es el resplandor asomando alrededor del marcador. */}
+          número del hoyo al que acababa de llegar. */}
       <circle cx={bola.x} cy={bola.y} r="20" fill="#DCE86B" opacity="0.55" filter="url(#brilloBola)" />
       <circle cx={bola.x} cy={bola.y} r="8" fill="#FFFFFF" />
 
@@ -196,10 +205,10 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
               cy={h.y}
               r={activo ? 23 : 17}
               fill={activo ? '#DCE86B' : '#0A2A21'}
-              fillOpacity={activo ? 1 : 0.55}
+              fillOpacity={activo ? 1 : 0.5}
               stroke={activo ? '#DCE86B' : '#F2EBDC'}
-              strokeOpacity={activo ? 1 : parada ? 0.75 : 0.35}
-              strokeWidth="3.5"
+              strokeOpacity={activo ? 1 : parada ? 0.75 : 0.4}
+              strokeWidth="3"
               className="transition-all duration-300"
             />
             <text
@@ -208,9 +217,9 @@ export default function Recorrido({ hoyoActivo, hoyoEstaciones = [], onElegirHoy
               textAnchor="middle"
               className="pointer-events-none select-none font-texto"
               fontSize="20"
-              fontWeight="700"
+              fontWeight="600"
               fill={activo ? '#0A2A21' : '#F2EBDC'}
-              fillOpacity={activo ? 1 : parada ? 0.9 : 0.5}
+              fillOpacity={activo ? 1 : parada ? 0.95 : 0.7}
             >
               {h.n}
             </text>

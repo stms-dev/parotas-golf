@@ -7,15 +7,17 @@
  *
  * Tres reglas, y las tres son por legibilidad:
  *
- * 1. **Desenfoque fuerte.** Una foto nítida detrás de un párrafo pelea con él:
- *    el ojo persigue las ramas en vez de leer. Desenfocada deja color y luz,
- *    que es lo único que se le pide.
+ * 1. **Desenfoque, pero el justo.** Una foto nítida detrás de un párrafo pelea
+ *    con él: el ojo persigue las ramas en vez de leer. Pasado de desenfoque,
+ *    en cambio, deja de ser el campo y se vuelve una mancha de color. El punto
+ *    está en que se reconozca el lugar sin poder leerlo.
  * 2. **Oscurecida de verdad.** El sitio escribe en claro sobre oscuro. Sin una
  *    capa encima, un cielo blanco en la foto se come un renglón entero.
- * 3. **Cambia despacio y con calma.** Una foto nueva cada vez que se cambia de
- *    parada, y si alguien se queda quieto, un relevo lento. Nunca de golpe:
- *    dos capas que se cruzan, porque un corte seco en el fondo distrae tanto
- *    como un movimiento brusco.
+ * 3. **Cambia seguido, pero sin brincos.** Una foto nueva cada vez que se
+ *    cambia de parada, y un relevo cada ocho segundos para quien se queda
+ *    leyendo. El cruce dura algo más de un segundo: lo bastante para que no
+ *    sea un corte seco y lo bastante poco para que no parezca que la página
+ *    se quedó pensando.
  *
  * Quien pidió menos movimiento (`prefers-reduced-motion`) se queda con una
  * sola foto, fija.
@@ -25,7 +27,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FONDOS } from '../datos/campo';
 
 /** Cada cuánto se releva la foto si nadie toca nada. */
-const RELEVO_MS = 14000;
+const RELEVO_MS = 8000;
 
 /** Una al azar, pero nunca la que ya está puesta. */
 function otraQueNoSea(actual) {
@@ -84,15 +86,15 @@ export default function Fondo({ cambiarCon }) {
     url ? (
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center transition-opacity duration-[2200ms] ease-rodada"
+        className="absolute inset-0 bg-cover bg-center transition-opacity duration-[1100ms] ease-rodada"
         style={{
           backgroundImage: `url(${url})`,
           opacity: visible ? 1 : 0,
           // El desenfoque va aquí y no en un filtro de CSS sobre el padre para
           // que no arrastre al contenido. `scale` tapa el borde transparente
           // que el desenfoque deja en las orillas.
-          filter: 'blur(26px) saturate(0.85)',
-          transform: 'scale(1.12)',
+          filter: 'blur(6px) saturate(0.95)',
+          transform: 'scale(1.05)',
         }}
       />
     ) : null;
@@ -108,8 +110,8 @@ export default function Fondo({ cambiarCon }) {
           Entre las dos dejan ver que hay una foto —que es el punto— sin que
           un cielo blanco se coma un renglón. Bajar más la cortina se ve
           bonito en una foto oscura y arruina la siguiente. */}
-      <div className="absolute inset-0 bg-sombra/[0.58]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-sombra/75 via-sombra/25 to-sombra/80" />
+      <div className="absolute inset-0 bg-sombra/[0.42]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-sombra/70 via-sombra/15 to-sombra/75" />
     </div>
   );
 }

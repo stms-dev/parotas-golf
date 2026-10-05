@@ -312,7 +312,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         {/* En celular se calla: la pantalla la necesitan los campos. */}
         <p className="hidden font-texto text-menudo text-arena/50 sm:block">
           Le apartamos la salida
-          {campo?.apartado_minutos ? ` ${campo.apartado_minutos} minutos` : ''} mientras paga
+          {campo?.apartado_minutos ? ` durante ${campo.apartado_minutos} minutos` : ''}{' '}
+          mientras paga
         </p>
       </div>
 
@@ -632,6 +633,33 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               </span>
             </div>
 
+            {/* ------------------------------------------------- el cobro */}
+            {/* Qué va a pasar al darle a pagar.
+                El brinco a otro dominio es el precio de no guardar tarjetas
+                aquí, y es justo donde la gente abandona: aparece de pronto una
+                página que no es la del club y se duda. Avisarlo antes cuesta
+                tres renglones y quita esa duda. Las tarjetas van dibujadas en
+                genérico a propósito —rectángulos, no logotipos de nadie. */}
+            {campo?.pasarela === 'stripe' && (
+              <div className="rounded-sm border border-arena/15 bg-arena/[0.045] px-3.5 py-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <Candado />
+                  <span className="font-texto text-[0.95rem] font-semibold text-arena">
+                    Pago seguro con Stripe
+                  </span>
+                  <span className="ml-auto flex items-center gap-1.5" aria-hidden="true">
+                    <Tarjeta /> <Tarjeta /> <Tarjeta />
+                  </span>
+                </div>
+                <p className="mt-2 font-texto text-menudo leading-relaxed text-arena/55">
+                  Al confirmar lo mandamos a la página de pago de Stripe y
+                  vuelve aquí con su folio. Su tarjeta nunca pasa por el
+                  servidor del club. Aceptamos Visa, Mastercard y American
+                  Express.
+                </p>
+              </div>
+            )}
+
             <p className="font-texto text-menudo leading-relaxed text-arena/50">
               Incluye carrito compartido, agua, cerveza y refresco. Preséntese en
               la casa club veinte minutos antes de su salida.
@@ -827,6 +855,33 @@ function Alternador({ opciones, valor, onElegir }) {
         );
       })}
     </div>
+  );
+}
+
+/** Un candado, dibujado aquí: es un icono de concepto, no una marca. */
+function Candado() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-hoja" aria-hidden="true">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" />
+      <path
+        d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Una tarjeta genérica. No lleva marca de nadie: enseñar los logotipos de
+ *  Visa o Mastercard sin su permiso es usar algo que no es nuestro. */
+function Tarjeta() {
+  return (
+    <svg viewBox="0 0 22 14" className="h-3.5 w-[1.4rem] text-arena/35" aria-hidden="true">
+      <rect x="0.7" y="0.7" width="20.6" height="12.6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="0.7" y="3.6" width="20.6" height="2.4" fill="currentColor" opacity="0.6" />
+    </svg>
   );
 }
 

@@ -8,7 +8,7 @@
  * cobra: el huésped le paga directo. Decirlo aquí evita el momento incómodo en
  * la caseta.
  */
-import { EXTRAS, INCLUIDO, TARIFAS, enDolares, pesos } from '../../datos/campo';
+import { EXTRAS, INCLUIDO, TARIFAS, enDolares, enLista, pesos } from '../../datos/campo';
 
 const FILAS = [
   { etiqueta: '18 hoyos', detalle: 'Adulto', precios: TARIFAS.adulto18 },
@@ -21,7 +21,7 @@ export default function Tarifas({ onIr }) {
     <div>
       <h2 className="font-titulo text-rotulo-lg text-arena">Tarifas</h2>
       <p className="mt-3 max-w-lectura font-texto text-parrafo text-arena/75">
-        El green fee incluye {INCLUIDO.join(', ').toLowerCase()}. Precios por
+        El green fee incluye {enLista(INCLUIDO)}. Precios por
         jugador, en pesos.
       </p>
 
