@@ -558,13 +558,10 @@ class ReservationService_:
         #    El descuento PGA NO se aplica aquí: se valida en recepción.
         subtotal_green_fees = ZERO
         for entry in data.players:
-            category = entry.category
-            if entry.age is not None and entry.age < 16:
-                category = PlayerCategory.INFANTIL
-
-            plan = self.pricing.resolve_rate(
+            plan, category = self.pricing.resolve_player_rate(
                 modality=data.modality.value, holes=data.holes,
-                category=category, on_date=slot.slot_date,
+                age=entry.age, category=entry.category, is_local=entry.is_local,
+                on_date=slot.slot_date,
                 # La hora manda: las últimas salidas del día van a tarifa de
                 # twilight si el club la tiene dada de alta.
                 at_time=slot.slot_time,
@@ -596,7 +593,7 @@ class ReservationService_:
                 )
             )
 
-        subtotal_services = self._add_services(reservation, data.services)
+        subtotal_services = self._add_services(reservation, data.services, slot.slot_date)
         subtotal_services += self._cargo_acompanantes(reservation, len(data.companions))
         reservation.carts_used = carritos
 
@@ -706,7 +703,9 @@ class ReservationService_:
         )
         return line_total
 
-    def _add_services(self, reservation: Reservation, entries: List[ServiceIn]) -> Decimal:
+    def _add_services(
+        self, reservation: Reservation, entries: List[ServiceIn], on_date: Optional[date] = None,
+    ) -> Decimal:
         total = ZERO
         for entry in entries:
             service = self.services.get(entry.service_id)
@@ -720,14 +719,16 @@ class ReservationService_:
                 continue
             if not service.is_active:
                 raise ValidationError(f"El servicio {service.name} está inactivo")
-            line_total = money(money(service.price) * entry.quantity)
+            # La zona de práctica cuesta más de viernes a domingo.
+            unit_price = money(service.price_on(on_date))
+            line_total = money(unit_price * entry.quantity)
             self.db.add(
                 ReservationService(
                     reservation_id=reservation.id,
                     player_id=entry.player_id,
                     service_id=service.id,
                     quantity=entry.quantity,
-                    unit_price_applied=service.price,
+                    unit_price_applied=unit_price,
                     total=line_total,
                     notes=entry.notes,
                 )
@@ -1297,12 +1298,10 @@ class ReservationService_:
         detail: List[str] = []
         subtotal_green_fees = ZERO
         for entry in data.players:
-            category = entry.category
-            if entry.age is not None and entry.age < 16:
-                category = PlayerCategory.INFANTIL
-            plan = self.pricing.resolve_rate(
+            plan, category = self.pricing.resolve_player_rate(
                 modality=data.modality.value, holes=data.holes,
-                category=category, on_date=on_date, at_time=on_time,
+                age=entry.age, category=entry.category, is_local=entry.is_local,
+                on_date=on_date, at_time=on_time,
             )
             subtotal_green_fees += money(plan.price)
             detail.append(f"{entry.full_name}: {category} · ${plan.price} MXN")
@@ -1312,7 +1311,7 @@ class ReservationService_:
             service = self.services.get(entry.service_id)
             if service.code == "ACOMPANANTE":
                 continue
-            line = money(money(service.price) * entry.quantity)
+            line = money(money(service.price_on(on_date)) * entry.quantity)
             subtotal_services += line
             detail.append(f"{service.name} x{entry.quantity}: ${line} MXN")
 

@@ -14,7 +14,7 @@ import Logo from './Logo';
 import { useEffect, useState } from 'react';
 
 import { correosApi } from '../api/client';
-import { fecha, fechaHora, hora, mxn, TASA_IVA, desgloseIva } from '../utils/format';
+import { categoria, fecha, fechaHora, hora, mxn, TASA_IVA, desgloseIva } from '../utils/format';
 
 /** Marco común: encabezado del club, cuerpo y botones que no se imprimen. */
 function Marco({ titulo, subtitulo, onCerrar, ancho = 'max-w-3xl', children }) {
@@ -119,7 +119,7 @@ export function Responsiva({ reservation, onCerrar }) {
                 <td className="py-3 font-mono">{i + 1}</td>
                 <td className="py-3 text-primary">{p.full_name}</td>
                 <td className="py-3 text-on-surface-variant">
-                  {p.category === 'INFANTIL' ? 'Infantil' : 'Adulto'}
+                  {categoria(p.category)}
                 </td>
                 <td className="py-3 text-on-surface-variant">
                   {p.club_hand === 'ZURDO'
@@ -232,7 +232,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
               <td className="py-2">
                 <span className="block text-on-surface">{p.full_name}</span>
                 <span className="block text-label-sm text-outline">
-                  Green fee {p.category === 'INFANTIL' ? 'infantil' : 'adulto'} ·{' '}
+                  Green fee {categoria(p.category).toLowerCase()} ·{' '}
                   {reservation.holes} hoyos
                 </span>
               </td>

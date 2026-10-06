@@ -76,21 +76,27 @@ export const TEXTOS = {
     'tarifas.fin': 'Vie a dom',
     'tarifas.hoyos': '{n} hoyos',
     'tarifas.adulto': 'Adulto',
-    'tarifas.menores': 'Menores de 16',
+    'tarifas.menores': 'Junior · 16 años o menos',
+    'tarifas.local': 'Local · vive en Huatulco, con credencial',
+    'tarifas.soloEntreSemana': 'paga adulto',
+    'tarifas.twilight': 'Twilight · salidas de 2:00 a 3:00 pm',
+    'tarifas.noIncluye': 'No incluye caddie, propinas, bebidas ni pelotas de juego.',
     'tarifas.aparte': 'Aparte del green fee',
     'tarifas.pagoDirecto': 'se le paga directo',
     'tarifas.reservar': 'Reservar una salida',
     'tarifas.carrito': 'carrito compartido',
-    'tarifas.agua': 'agua',
-    'tarifas.cerveza': 'cerveza',
-    'tarifas.refresco': 'refresco',
+    'tarifas.scorecard': 'tarjeta de score',
+    'tarifas.tees': '10 tees',
+    'tarifas.pelotas': '50 pelotas de práctica (no se usan en el campo)',
     'extra.CADDIE': 'Caddie',
     'extra.CADDIE.nota':
-      'Se le paga directo al caddie. Hay dos por día y se asignan por orden de salida.',
+      'Se le paga directo al caddie; no incluye propina. Hay dos por día y se asignan por orden de salida.',
     'extra.BASTONES': 'Renta de bastones',
-    'extra.BASTONES.nota': 'Set básico: putter, madera, driver y hierros. Uno por jugador.',
+    'extra.BASTONES.nota': 'Set básico de 10 bastones: putter, madera, driver y hierros. Uno por jugador.',
     'extra.ACOMPANANTE': 'Acompañante',
-    'extra.ACOMPANANTE.nota': 'Para quien va en el carrito sin jugar.',
+    'extra.ACOMPANANTE.nota': 'Para quien va en el carrito sin jugar. No incluye equipo.',
+    'extra.PRACTICA': 'Zona de práctica',
+    'extra.PRACTICA.nota': '180 pelotas de práctica. No incluye bastones ni tees. Vie a dom: {fin}.',
 
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Evento privado',
@@ -147,7 +153,7 @@ export const TEXTOS = {
     'reservar.zurdo': 'Zurdo',
     'reservar.renta': 'renta {precio}',
     'reservar.notaEdad':
-      'La edad decide la tarifa: menor de 16 paga como infantil. El código PGA lo ' +
+      'La edad decide la tarifa: con 16 años o menos paga junior. El código PGA lo ' +
       'valida recepción al llegar; no descuenta nada todavía.',
     'reservar.pase': '¿A dónde le mandamos su pase?',
     'reservar.correo': 'Correo del titular',
@@ -158,8 +164,17 @@ export const TEXTOS = {
     'reservar.paseA': 'Pase a',
     'reservar.aLas': '{dia} a las {hora}',
     'reservar.hoyosDe': '{n} hoyos',
-    'reservar.infantil': 'Infantil',
+    'reservar.infantil': 'Junior',
     'reservar.adulto': 'Adulto',
+    'reservar.local': 'Local',
+    'reservar.noLocal': 'No soy local',
+    'reservar.siLocal': 'Vivo en Huatulco',
+    'reservar.notaLocal':
+      'Tarifa local en 18 hoyos de lunes a jueves; otros días se cobra como adulto. ' +
+      'Presente su credencial en la casa club.',
+    'reservar.sinPractica': 'Sin zona de práctica',
+    'reservar.conPractica': 'Zona de práctica {precio}',
+    'reservar.practicaRenglon': 'Zona de práctica × {n}',
     'reservar.greenFees': 'Green fees',
     'reservar.sets': 'Renta de bastones · {n} {palabra}',
     'reservar.set': 'set',
@@ -168,7 +183,7 @@ export const TEXTOS = {
     'reservar.caddieNota':
       'se le paga directo a él, no va en esta cuenta · hay dos y se asignan por orden de salida',
     'reservar.incluye':
-      'Incluye carrito compartido, agua, cerveza y refresco. Preséntese en la casa ' +
+      'Incluye carrito compartido, tarjeta de score, 10 tees y 50 pelotas de práctica. Preséntese en la casa ' +
       'club veinte minutos antes de su salida.',
     'reservar.pagoSeguro': 'Pago seguro con Stripe',
     'reservar.pagoNota':
@@ -285,21 +300,27 @@ export const TEXTOS = {
     'tarifas.fin': 'Fri–Sun',
     'tarifas.hoyos': '{n} holes',
     'tarifas.adulto': 'Adult',
-    'tarifas.menores': 'Under 16',
+    'tarifas.menores': 'Junior · 16 and under',
+    'tarifas.local': 'Local · Huatulco residents, with ID',
+    'tarifas.soloEntreSemana': 'adult rate',
+    'tarifas.twilight': 'Twilight · tee times 2:00–3:00 pm',
+    'tarifas.noIncluye': 'Caddie, tips, drinks and playing balls are not included.',
     'tarifas.aparte': 'Not included in the green fee',
     'tarifas.pagoDirecto': 'paid directly',
     'tarifas.reservar': 'Book a tee time',
     'tarifas.carrito': 'a shared cart',
-    'tarifas.agua': 'water',
-    'tarifas.cerveza': 'beer',
-    'tarifas.refresco': 'soft drinks',
+    'tarifas.scorecard': 'a scorecard',
+    'tarifas.tees': '10 tees',
+    'tarifas.pelotas': '50 practice balls (not for use on the course)',
     'extra.CADDIE': 'Caddie',
     'extra.CADDIE.nota':
-      'Paid directly to the caddie. Two are available each day, assigned by tee time.',
+      'Paid directly to the caddie; tip not included. Two are available each day, assigned by tee time.',
     'extra.BASTONES': 'Club rental',
-    'extra.BASTONES.nota': 'Basic set: putter, wood, driver and irons. One per player.',
+    'extra.BASTONES.nota': 'Basic 10-club set: putter, wood, driver and irons. One per player.',
     'extra.ACOMPANANTE': 'Non-playing guest',
-    'extra.ACOMPANANTE.nota': 'For anyone riding along without playing.',
+    'extra.ACOMPANANTE.nota': 'For anyone riding along without playing. No equipment included.',
+    'extra.PRACTICA': 'Practice area',
+    'extra.PRACTICA.nota': '180 practice balls. Clubs and tees not included. Fri–Sun: {fin}.',
 
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Private events',
@@ -356,7 +377,7 @@ export const TEXTOS = {
     'reservar.zurdo': 'Left-handed',
     'reservar.renta': 'rental {precio}',
     'reservar.notaEdad':
-      'Age sets the rate: under 16 pays the junior rate. The PGA number is checked ' +
+      'Age sets the rate: 16 and under pays the junior rate. The PGA number is checked ' +
       'at the clubhouse on arrival; it does not discount anything yet.',
     'reservar.pase': 'Where should we send your pass?',
     'reservar.correo': 'Lead player email',
@@ -369,6 +390,15 @@ export const TEXTOS = {
     'reservar.hoyosDe': '{n} holes',
     'reservar.infantil': 'Junior',
     'reservar.adulto': 'Adult',
+    'reservar.local': 'Local',
+    'reservar.noLocal': 'Not a local',
+    'reservar.siLocal': 'I live in Huatulco',
+    'reservar.notaLocal':
+      'Local rate applies to 18 holes Monday to Thursday; other days are charged ' +
+      'the adult rate. Please show your ID at the clubhouse.',
+    'reservar.sinPractica': 'No practice area',
+    'reservar.conPractica': 'Practice area {precio}',
+    'reservar.practicaRenglon': 'Practice area × {n}',
     'reservar.greenFees': 'Green fees',
     'reservar.sets': 'Club rental · {n} {palabra}',
     'reservar.set': 'set',
@@ -377,7 +407,7 @@ export const TEXTOS = {
     'reservar.caddieNota':
       'paid directly to the caddie, not part of this total · two available, assigned by tee time',
     'reservar.incluye':
-      'Includes a shared cart, water, beer and soft drinks. Please come to the ' +
+      'Includes a shared cart, a scorecard, 10 tees and 50 practice balls. Please come to the ' +
       'clubhouse twenty minutes before your tee time.',
     'reservar.pagoSeguro': 'Secure payment with Stripe',
     'reservar.pagoNota':

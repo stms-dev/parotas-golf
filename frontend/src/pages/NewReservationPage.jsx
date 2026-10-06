@@ -94,7 +94,12 @@ const LIMITE_MESES = 6;
 
 const jugadorVacio = () => ({
   full_name: '', age: '', pga_code: '', club_hand: '', handicap: '',
+  is_local: false, practica: false,
 });
+
+/** 16 años o menos paga junior. La misma regla que el servidor. */
+const EDAD_JR_MAX = 16;
+const esJunior = (p) => Boolean(p.age) && Number(p.age) <= EDAD_JR_MAX;
 
 export default function NewReservationPage() {
   const navigate = useNavigate();
@@ -135,6 +140,8 @@ export default function NewReservationPage() {
     holder_pga: '',
     holder_club_hand: '',
     holder_handicap: '',
+    holder_local: false,
+    holder_practica: false,
   });
 
   /** Campos de los que ya salió el cursor: solo esos muestran su aviso. */
@@ -254,9 +261,18 @@ export default function NewReservationPage() {
     );
   }, [jornada.admiteAbiertas, date]);
 
+  // Las últimas salidas del día cobran twilight. Se sabe hasta elegir hora.
+  const salidaTwilight = (() => {
+    const s = slots.find((x) => x.id === form.tee_slot_id);
+    if (!s || !jornada.twilight) return false;
+    return String(s.slot_time).slice(0, 5) >= String(jornada.twilight).slice(0, 5);
+  })();
+
   // El precio depende del día de la salida: de viernes a domingo es más caro.
   function precioDe(modalidad, categoria = 'ADULTO', hoyos = form.holes) {
-    const t = tarifaDelDia(tarifas, { modalidad, hoyos, categoria, fecha: date });
+    const t = tarifaDelDia(tarifas, {
+      modalidad, hoyos, categoria, fecha: date, twilight: salidaTwilight,
+    });
     return t ? Number(t.price) : null;
   }
 
@@ -264,9 +280,15 @@ export default function NewReservationPage() {
   const caddie = servicio('CADDIE');
   const bastones = servicio('BASTONES');
   const acompanante = servicio('ACOMPANANTE');
+  const practica = servicio('PRACTICA');
 
   const precioAdulto = precioDe(form.modality);
   const precioInfantil = precioDe(form.modality, 'INFANTIL');
+  // Si ese día/recorrido no tiene tarifa de local, sale igual que adulto.
+  const precioLocal = precioDe(form.modality, 'LOCAL');
+  const localAplica = precioLocal != null && precioLocal !== precioAdulto;
+  const precioJugador = (p) =>
+    esJunior(p) ? precioInfantil : p.is_local ? precioLocal : precioAdulto;
 
   /**
    * El titular como jugador, seguido de los adicionales. Esta lista es la
@@ -281,6 +303,8 @@ export default function NewReservationPage() {
         pga_code: form.holder_pga,
         club_hand: form.holder_club_hand,
         handicap: form.holder_handicap,
+        is_local: form.holder_local,
+        practica: form.holder_practica,
         is_holder: true,
       });
     }
@@ -294,14 +318,17 @@ export default function NewReservationPage() {
     form.holder_pga,
     form.holder_club_hand,
     form.holder_handicap,
+    form.holder_local,
+    form.holder_practica,
     extras,
   ]);
 
-  const esMenor = (p) => p.age && Number(p.age) < 16;
+  const esMenor = esJunior;
   const adultos = jugadores.filter((p) => !esMenor(p));
   const menores = jugadores.filter(esMenor);
+  const locales = adultos.filter((p) => p.is_local && localAplica);
 
-  const subtotalAdultos = (precioAdulto || 0) * adultos.length;
+  const subtotalAdultos = adultos.reduce((suma, p) => suma + (precioJugador(p) || 0), 0);
   const subtotalMenores = (precioInfantil || 0) * menores.length;
 
   // Bastones: uno por jugador que pidió set, con su orientación.
@@ -323,8 +350,14 @@ export default function NewReservationPage() {
   const precioCaddie = caddie ? Number(caddie.price) : 0;
   const precioSet = bastones ? Number(bastones.price) : 0;
   const subtotalSets = precioSet * sets;
+  // Zona de práctica: un pase por jugador que la pida. Más cara vie a dom.
+  const precioPractica = practica
+    ? Number(esFinDeSemana(date) && practica.weekend_price ? practica.weekend_price : practica.price)
+    : 0;
+  const pasesPractica = practica ? jugadores.filter((p) => p.practica).length : 0;
+  const subtotalPractica = precioPractica * pasesPractica;
   // El caddie no entra: lo paga el huésped directo al caddie, no el club.
-  const subtotalServicios = subtotalSets;
+  const subtotalServicios = subtotalSets + subtotalPractica;
 
   // Quien acompaña no juega, pero sí paga su lugar. Se cobra desde aquí,
   // junto con los jugadores; no es un servicio ni una cortesía.
@@ -378,6 +411,9 @@ export default function NewReservationPage() {
       if (bastones && sets > 0) {
         serviciosPedidos.push({ service_id: bastones.id, quantity: sets });
       }
+      if (practica && pasesPractica > 0) {
+        serviciosPedidos.push({ service_id: practica.id, quantity: pasesPractica });
+      }
 
       try {
         // Se recuerda en este equipo para que el siguiente turno solo confirme
@@ -403,6 +439,7 @@ export default function NewReservationPage() {
           pga_code: p.pga_code ? p.pga_code.trim() : null,
           club_hand: p.club_hand || null,
           handicap: p.handicap ? String(p.handicap).trim() : null,
+          is_local: Boolean(p.is_local) && !esJunior(p),
         })),
         companions: companions
           .filter((c) => c.full_name.trim().length >= 3)
@@ -980,7 +1017,7 @@ export default function NewReservationPage() {
               </div>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <Field label="Edad" hint="Menor de 16 toma tarifa infantil">
+                <Field label="Edad" hint="16 años o menos toma tarifa junior">
                   <Input
                     type="number"
                     min="1"
@@ -1017,6 +1054,20 @@ export default function NewReservationPage() {
                     onCambio={(v) => setForm({ ...form, holder_club_hand: v })}
                   />
                 </Field>
+                <Field label="¿Es local?" hint={AYUDA_LOCAL}>
+                  <SiNo
+                    valor={form.holder_local}
+                    onCambio={(v) => setForm({ ...form, holder_local: v })}
+                  />
+                </Field>
+                {practica && (
+                  <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 180 pelotas`}>
+                    <SiNo
+                      valor={form.holder_practica}
+                      onCambio={(v) => setForm({ ...form, holder_practica: v })}
+                    />
+                  </Field>
+                )}
               </div>
             </div>
 
@@ -1055,7 +1106,8 @@ export default function NewReservationPage() {
                       key={index}
                       numero={index + 2}
                       player={player}
-                      precio={esMenor(player) ? precioInfantil : precioAdulto}
+                      precio={precioJugador(player)}
+                      conPractica={Boolean(practica)}
                       puedeQuitar={extras.length > minExtras}
                       onQuitar={() => setExtras(extras.filter((_, i) => i !== index))}
                       onChange={(campo, valor) => {
@@ -1115,14 +1167,18 @@ export default function NewReservationPage() {
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <TarifaCard
-                titulo="Tarifa adulto"
-                detalle={`${adultos.length} ${adultos.length === 1 ? 'jugador' : 'jugadores'} × ${mxn(precioAdulto || 0)} c/u`}
+                titulo={salidaTwilight ? 'Tarifa adulto · twilight' : 'Tarifa adulto'}
+                detalle={
+                  locales.length
+                    ? `${adultos.length - locales.length} × ${mxn(precioAdulto || 0)} · ${locales.length} local${locales.length === 1 ? '' : 'es'} × ${mxn(precioLocal || 0)}`
+                    : `${adultos.length} ${adultos.length === 1 ? 'jugador' : 'jugadores'} × ${mxn(precioAdulto || 0)} c/u`
+                }
                 monto={subtotalAdultos}
                 pie="Subtotal adultos"
               />
               <TarifaCard
-                titulo="Tarifa infantil"
-                detalle={`${menores.length} ${menores.length === 1 ? 'menor' : 'menores'} de 16 × ${mxn(precioInfantil || 0)} c/u`}
+                titulo="Tarifa junior"
+                detalle={`${menores.length} ${menores.length === 1 ? 'jugador' : 'jugadores'} de 16 años o menos × ${mxn(precioInfantil || 0)} c/u`}
                 monto={subtotalMenores}
                 pie="Subtotal infantil"
               />
@@ -1197,7 +1253,7 @@ export default function NewReservationPage() {
                   key={`j-${i}`}
                   numero={i + 1}
                   nombre={p.full_name}
-                  rol={p.is_holder ? 'Titular · jugador' : esMenor(p) ? 'Jugador · infantil' : 'Jugador · adulto'}
+                  rol={`${p.is_holder ? 'Titular' : 'Jugador'} · ${esMenor(p) ? 'junior' : p.is_local && localAplica ? 'local' : 'adulto'}`}
                   tonoRol={esMenor(p) ? 'infantil' : 'adulto'}
                   detalle={[
                     p.age ? `${p.age} años` : null,
@@ -1206,10 +1262,16 @@ export default function NewReservationPage() {
                     p.club_hand
                       ? `Renta de bastones: ${p.club_hand === 'ZURDO' ? 'zurdo' : 'diestro'}`
                       : 'Trae sus bastones',
+                    p.is_local && !esMenor(p)
+                      ? localAplica
+                        ? 'Local · presenta credencial'
+                        : 'Local · sin tarifa local este día'
+                      : null,
+                    p.practica && practica ? 'Zona de práctica' : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
-                  monto={mxn(esMenor(p) ? precioInfantil || 0 : precioAdulto || 0)}
+                  monto={mxn(precioJugador(p) || 0)}
                 />
               ))}
 
@@ -1351,7 +1413,7 @@ export default function NewReservationPage() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-on-surface-variant">
-                    Tarifa infantil ({menores.length})
+                    Tarifa junior ({menores.length})
                   </span>
                   <span className="font-mono text-on-surface">{mxn(subtotalMenores)}</span>
                 </div>
@@ -1366,7 +1428,14 @@ export default function NewReservationPage() {
                 {subtotalServicios > 0 && (
                   <div className="flex justify-between gap-3">
                     <span className="min-w-0 text-on-surface-variant">
-                      Servicios ({sets} set{sets === 1 ? '' : 's'} de bastones)
+                      Servicios (
+                      {[
+                        sets ? `${sets} set${sets === 1 ? '' : 's'} de bastones` : null,
+                        pasesPractica ? `${pasesPractica} zona de práctica` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(', ')}
+                      )
                     </span>
                     <span className="font-mono text-secondary">{mxn(subtotalServicios)}</span>
                   </div>
@@ -1493,6 +1562,22 @@ function Bastones({ valor, onCambio }) {
           </Pastilla>
         </div>
       )}
+    </div>
+  );
+}
+
+const AYUDA_LOCAL = 'Vive en Huatulco · presenta credencial en el mostrador';
+
+/** Un sí o no, con las mismas pastillas que los bastones. */
+function SiNo({ valor, onCambio }) {
+  return (
+    <div className="flex rounded border border-outline-variant p-0.5">
+      <Pastilla activa={!valor} onClick={() => onCambio(false)}>
+        No
+      </Pastilla>
+      <Pastilla activa={Boolean(valor)} onClick={() => onCambio(true)}>
+        Sí
+      </Pastilla>
     </div>
   );
 }
@@ -1626,8 +1711,8 @@ function FilaResumen({ numero, nombre, rol, tonoRol, detalle, monto }) {
   );
 }
 
-function JugadorFila({ numero, player, precio, puedeQuitar, onQuitar, onChange }) {
-  const menor = player.age && Number(player.age) < 16;
+function JugadorFila({ numero, player, precio, conPractica, puedeQuitar, onQuitar, onChange }) {
+  const menor = esJunior(player);
   return (
     <div className="rounded border border-outline-variant/50 bg-surface-container-lowest px-3 py-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -1656,7 +1741,7 @@ function JugadorFila({ numero, player, precio, puedeQuitar, onQuitar, onChange }
               : 'bg-surface-container-high text-on-surface-variant'
           }`}
         >
-          {menor ? 'Infantil' : 'Adulto'}
+          {menor ? 'Junior' : player.is_local ? 'Local' : 'Adulto'}
         </span>
         <span className="whitespace-nowrap rounded bg-estado-ok-bg px-2 py-0.5 font-mono text-label-md text-estado-ok-text">
           {mxn(precio || 0)}
@@ -1692,6 +1777,22 @@ function JugadorFila({ numero, player, precio, puedeQuitar, onQuitar, onChange }
           </span>
           <Bastones valor={player.club_hand} onCambio={(v) => onChange('club_hand', v)} />
         </div>
+        {!menor && (
+          <div className="flex items-center gap-2" title={AYUDA_LOCAL}>
+            <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
+              Local
+            </span>
+            <SiNo valor={player.is_local} onCambio={(v) => onChange('is_local', v)} />
+          </div>
+        )}
+        {conPractica && (
+          <div className="flex items-center gap-2">
+            <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
+              Práctica
+            </span>
+            <SiNo valor={player.practica} onCambio={(v) => onChange('practica', v)} />
+          </div>
+        )}
       </div>
     </div>
   );

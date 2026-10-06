@@ -94,11 +94,21 @@ class AdditionalService(Base):
     name: Mapped[str] = mapped_column(String(180), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     price: Mapped[Decimal] = mapped_column(DecimalMoney, nullable=False)
+    # Si el servicio cuesta distinto de viernes a domingo (la zona de
+    # práctica, por ejemplo). Vacío: vale `price` cualquier día.
+    weekend_price: Mapped[Optional[Decimal]] = mapped_column(DecimalMoney, nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="MXN", nullable=False)
     unit: Mapped[ServiceUnit] = mapped_column(String(24), default=ServiceUnit.POR_RONDA, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    def price_on(self, dia: Optional[date]) -> Decimal:
+        """El precio que vale ese día: el de fin de semana si lo tiene."""
+        if dia is not None and self.weekend_price is not None:
+            if DayType.del_dia(dia) == DayType.FIN_DE_SEMANA:
+                return self.weekend_price
+        return self.price
 
 
 class DiscountCode(Base):

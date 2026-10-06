@@ -35,6 +35,8 @@ class ExtraOut(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
     precio: Decimal
+    # De viernes a domingo, si cuesta distinto (la zona de práctica).
+    precio_fin: Optional[Decimal] = None
     pago_directo: bool = False
 
 
@@ -110,6 +112,10 @@ class JugadorIn(BaseModel):
     handicap: Optional[str] = Field(default=None, max_length=24)
     # Vacío si trae sus bastones; DIESTRO o ZURDO si los renta.
     bastones: Optional[str] = Field(default=None, pattern="^(DIESTRO|ZURDO)$")
+    # Vive en Huatulco: tarifa local donde aplica. Enseña credencial al llegar.
+    local: bool = False
+    # Quiere pase a la zona de práctica.
+    practica: bool = False
 
 
 class CotizarIn(BaseModel):
@@ -136,6 +142,9 @@ class CotizacionOut(BaseModel):
     sets_bastones: int = 0
     precio_bastones: Decimal
     subtotal_bastones: Decimal
+    pases_practica: int = 0
+    precio_practica: Optional[Decimal] = None
+    subtotal_practica: Decimal = Decimal("0")
     total: Decimal
     caddie_por_persona: Optional[Decimal] = None
 

@@ -23,7 +23,8 @@ import { Alert, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
 import { Recibo, ReciboReplay, Responsiva } from '../components/Documentos';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
-import { METODO_PAGO, TASA_IVA, desgloseIva, hora, hoy, mxn, usd } from '../utils/format';
+import { esFinDeSemana } from '../utils/tarifas';
+import { METODO_PAGO, categoria, TASA_IVA, desgloseIva, hora, hoy, mxn, usd } from '../utils/format';
 
 /**
  * Los cuatro momentos de una partida en el mostrador:
@@ -36,6 +37,10 @@ const PASOS = ['Reserva del hotel', 'En mostrador', 'En juego', 'Salida del camp
 
 /** Lo que no se agrega en el mostrador como servicio adicional. */
 const NO_SON_SERVICIOS = ['REPLAY', 'ACOMPANANTE'];
+
+/** El precio de hoy: la zona de práctica cuesta más de viernes a domingo. */
+const precioDeHoy = (servicio) =>
+  Number(esFinDeSemana(hoy()) && servicio.weekend_price ? servicio.weekend_price : servicio.price);
 
 /** Los tres métodos, en el orden en que se usan en el mostrador. */
 const METODOS = [
@@ -486,7 +491,7 @@ export default function CheckInPage() {
 
   const serviciosExtra = addedServices.reduce((suma, item) => {
     const servicio = services.find((s) => s.id === item.service_id);
-    return suma + (servicio ? Number(servicio.price) * item.quantity : 0);
+    return suma + (servicio ? precioDeHoy(servicio) * item.quantity : 0);
   }, 0);
 
   /**
@@ -1049,8 +1054,8 @@ export default function CheckInPage() {
                             <span className="min-w-0">
                               <span className="block text-title-md text-primary">{servicio.name}</span>
                               <span className="block font-mono text-label-sm text-outline">
-                                {mxn(servicio.price)}
-                                {tasa ? ` (${usd(Number(servicio.price) / tasa)})` : ''}
+                                {mxn(precioDeHoy(servicio))}
+                                {tasa ? ` (${usd(precioDeHoy(servicio) / tasa)})` : ''}
                               </span>
                             </span>
                           </label>
@@ -1751,7 +1756,11 @@ function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada }) {
       </div>
       <p className="mt-1.5 flex items-center justify-between gap-3 text-body-md text-outline">
         <span>
-          {player.category === 'INFANTIL' ? 'Infantil' : 'Adulto'}
+          {player.category === 'LOCAL' ? (
+            <strong className="text-secondary">Local · pedir credencial</strong>
+          ) : (
+            categoria(player.category)
+          )}
           {player.club_hand
             ? ` · palos ${
                 player.club_hand === 'ZURDO'

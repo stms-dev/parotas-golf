@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.shared.enums import BookingModality, InvoiceStatus, PlayerCategory, ReservationStatus, SlotStatus
+from app.shared.enums import BookingModality, InvoiceStatus, PlayerCategory, ReservationStatus, SlotStatus, es_junior
 
 
 # ----------------------------------------------------------------- disponibilidad
@@ -68,13 +68,15 @@ class PlayerIn(BaseModel):
     is_holder: bool = False
     pga_code: Optional[str] = None
     credential_number: Optional[str] = None
+    # Vive en Huatulco. Se acredita con credencial en el mostrador.
+    is_local: bool = False
 
     @field_validator("category", mode="before")
     @classmethod
     def _infer_category(cls, v, info):
-        """Menor de 16 se marca como INFANTIL aunque el hotel mande ADULTO."""
+        """16 años o menos se marca INFANTIL aunque el hotel mande ADULTO."""
         age = info.data.get("age") if info.data else None
-        if age is not None and age < 16:
+        if es_junior(age):
             return PlayerCategory.INFANTIL
         return v
 

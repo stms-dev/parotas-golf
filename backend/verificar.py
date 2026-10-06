@@ -101,8 +101,8 @@ manana = (date.today() + timedelta(days=1)).isoformat()
 # que lo esperado se calcula para el día en que corre la prueba: fijar un solo
 # monto la haría pasar entre semana y fallar en fin de semana.
 FIN_DE_SEMANA = date.fromisoformat(manana).weekday() >= 4   # viernes en adelante
-ADULTO_18 = Decimal("4000.00") if FIN_DE_SEMANA else Decimal("2800.00")
-MENOR_18 = Decimal("1500.00") if FIN_DE_SEMANA else Decimal("1200.00")
+ADULTO_18 = Decimal("4000.00") if FIN_DE_SEMANA else Decimal("3600.00")
+MENOR_18 = Decimal("2000.00") if FIN_DE_SEMANA else Decimal("1800.00")
 # El caddie cuesta 600, pero el club NO lo cobra: el huésped le paga directo al
 # caddie. El precio se publica para que el hotel pueda decirlo, y por eso no
 # entra en ningún total.
@@ -1342,7 +1342,7 @@ check("El día trae salidas antes y después del twilight",
       f"{len(_normal)} normales · {len(_twilight)} de twilight")
 
 FIN26 = date.fromisoformat(_dia26).weekday() >= 4
-ADULTO26 = Decimal("4000.00") if FIN26 else Decimal("2800.00")
+ADULTO26 = Decimal("4000.00") if FIN26 else Decimal("3600.00")
 
 
 def _cotiza26(slot_id):
@@ -1356,19 +1356,18 @@ def _cotiza26(slot_id):
     ).json()
 
 
-check("Sin tarifa de twilight dada de alta, la última salida cobra la normal",
-      Decimal(_cotiza26(_twilight[0]["id"])["total"]) == ADULTO26,
-      f"${_cotiza26(_twilight[0]['id'])['total']}")
+# El tarifario 2026 ya trae twilight: $2,700 lun a jue, $3,000 vie a dom.
+TWILIGHT26 = Decimal("3000.00") if FIN26 else Decimal("2700.00")
 
-# El club da de alta su tarifa de twilight desde Control del sistema.
-TWILIGHT26 = Decimal("1800.00")
+# Y la Administración puede dar de alta más desde Control del sistema. Esta es
+# de 9 hoyos para no pisar la del tarifario.
 r = client.post(
     "/api/catalog/rates", headers=admin,
     json={
-        "name": "Partida abierta · twilight · 18 hoyos",
-        "modality": "PARTIDA_ABIERTA", "holes": 18, "category": "ADULTO",
+        "name": "Partida abierta · twilight · 9 hoyos",
+        "modality": "PARTIDA_ABIERTA", "holes": 9, "category": "ADULTO",
         "day_type": "TODOS", "time_band": "TWILIGHT",
-        "price": str(TWILIGHT26), "valid_from": date.today().isoformat(),
+        "price": "1500.00", "valid_from": date.today().isoformat(),
     },
 )
 check("La Administración da de alta la tarifa de twilight", r.status_code == 201, r.text[:140])
@@ -1733,6 +1732,100 @@ check("La bitácora guarda quién cerró la partida y quién movió a quién",
       and any("movida de partida abierta" in (x.get("description") or "") for x in _bitacora29))
 check("Y la decisión de cerrar el día",
       any("Partidas abiertas del" in (x.get("description") or "") for x in _bitacora29))
+
+# ---------------------------------------------------------------------------
+print("\n30. Tarifas 2026: junior a los 16, local y zona de práctica")
+
+
+def _proximo(desde_dias, dia_semana):
+    d = date.today() + timedelta(days=desde_dias)
+    while d.weekday() != dia_semana:
+        d += timedelta(days=1)
+    return d.isoformat()
+
+
+# Esta sección cotiza mucho seguido: va con su propia IP para no toparse con el
+# tope de peticiones por minuto que ya consumieron las secciones anteriores.
+H30 = {**hotel, "X-Forwarded-For": "10.0.30.1"}
+_martes30 = _proximo(40, 1)
+_sabado30 = _proximo(40, 5)
+
+
+_salidas30 = {}
+
+
+def _salida30(dia):
+    if dia not in _salidas30:
+        slots = client.get(f"/api/booking/availability?slot_date={dia}", headers=H30).json()["slots"]
+        _salidas30[dia] = [x for x in slots if x["slot_time"][:5] < "14:00"][2]["id"]
+    return _salidas30[dia]
+
+
+_servicios30 = client.get("/api/catalog/services", headers=H30).json()
+_practica30 = next((x for x in _servicios30 if x["code"] == "PRACTICA"), None)
+check("La zona de práctica está en el catálogo con precio de fin de semana",
+      _practica30 is not None and Decimal(str(_practica30["weekend_price"])) == Decimal("400.00"),
+      str(_practica30)[:120])
+
+
+def _cotiza30(dia, jugador, servicios=()):
+    return client.post(
+        "/api/booking/reservations/quote", headers=H30,
+        json={
+            "tee_slot_id": _salida30(dia), "modality": "PARTIDA_ABIERTA", "holes": 18,
+            "holder_name": "Huésped 2026", "holder_email": "t2026@ejemplo.com",
+            "players": [{"full_name": "Huésped 2026", "is_holder": True, **jugador}],
+            "services": list(servicios),
+        },
+    ).json()
+
+
+check("Con 16 años paga junior entre semana",
+      Decimal(_cotiza30(_martes30, {"age": 16})["total"]) == Decimal("1800.00"))
+check("Con 17 ya paga adulto",
+      Decimal(_cotiza30(_martes30, {"age": 17})["total"]) == Decimal("3600.00"))
+check("El local paga $2,500 entre semana",
+      Decimal(_cotiza30(_martes30, {"age": 40, "is_local": True})["total"]) == Decimal("2500.00"))
+check("En fin de semana el local paga como adulto",
+      Decimal(_cotiza30(_sabado30, {"age": 40, "is_local": True})["total"]) == Decimal("4000.00"))
+check("Un junior local sigue pagando junior",
+      Decimal(_cotiza30(_martes30, {"age": 12, "is_local": True})["total"]) == Decimal("1800.00"))
+if _practica30:
+    _pr = [{"service_id": _practica30["id"], "quantity": 1}]
+    check("Zona de práctica entre semana suma $250",
+          Decimal(_cotiza30(_martes30, {"age": 40}, _pr)["total"]) == Decimal("3850.00"))
+    check("Zona de práctica en fin de semana suma $400",
+          Decimal(_cotiza30(_sabado30, {"age": 40}, _pr)["total"]) == Decimal("4400.00"))
+
+r = client.post(
+    "/api/booking/reservations", headers=H30,
+    json={
+        "tee_slot_id": _salida30(_martes30), "modality": "PARTIDA_ABIERTA", "holes": 18,
+        "holder_name": "Vecino de Huatulco", "holder_email": "vecino@ejemplo.com",
+        "booked_by_name": "Concierge 2026",
+        "players": [{"full_name": "Vecino de Huatulco", "age": 50, "is_holder": True, "is_local": True}],
+        "services": [{"service_id": _practica30["id"], "quantity": 1}] if _practica30 else [],
+    },
+)
+check("La reserva del local guarda su categoría y su tarifa",
+      r.status_code == 201
+      and r.json()["players"][0]["category"] == "LOCAL"
+      and Decimal(r.json()["players"][0]["rate_applied"]) == Decimal("2500.00")
+      and Decimal(r.json()["total"]) == Decimal("2750.00"),
+      r.text[:160])
+
+_sitio30 = client.post(
+    "/api/public/cotizacion", headers={"X-Forwarded-For": "10.0.30.2"},
+    json={
+        "tee_slot_id": _salida30(_sabado30), "modalidad": "PARTIDA_ABIERTA", "hoyos": 18,
+        "jugadores": [{"nombre": "Turista Local", "edad": 40, "local": True, "practica": True}],
+    },
+)
+check("El sitio cotiza local y práctica en fin de semana",
+      _sitio30.status_code == 200
+      and Decimal(_sitio30.json()["total"]) == Decimal("4400.00")
+      and _sitio30.json()["pases_practica"] == 1,
+      _sitio30.text[:160])
 
 reponer_hora_de_corte(CORTE_ORIGINAL)
 

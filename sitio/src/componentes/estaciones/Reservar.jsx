@@ -77,7 +77,12 @@ const jugadorNuevo = () => ({
   handicap: '',
   pga: '',
   bastones: '', // '' = trae los suyos · DIESTRO · ZURDO
+  local: false, // vive en Huatulco: tarifa local, con credencial
+  practica: false, // pase a la zona de práctica
 });
+
+/** 16 años o menos paga junior: la misma regla que el servidor. */
+const esJunior = (edad) => Boolean(edad) && Number(edad) <= 16;
 
 const CORREO = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
@@ -202,7 +207,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     slot,
     paquete,
     hoyos,
-    jugadores.map((j) => [j.nombre.trim(), j.edad, j.bastones]),
+    jugadores.map((j) => [j.nombre.trim(), j.edad, j.bastones, j.local, j.practica]),
   ]);
   const ultimaFirma = useRef(null);
 
@@ -249,6 +254,17 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     cotizacion?.precio_bastones ??
       campo?.extras?.find((e) => e.code === 'BASTONES')?.precio ??
       EXTRAS.find((e) => e.code === 'BASTONES').precio,
+  );
+
+  // La zona de práctica solo se ofrece si el sistema la tiene a la venta.
+  const practica = campo?.extras?.find((e) => e.code === 'PRACTICA') ?? null;
+  const precioPractica = Number(
+    cotizacion?.precio_practica ??
+      (practica
+        ? esFinDeSemana(fecha) && practica.precio_fin != null
+          ? practica.precio_fin
+          : practica.precio
+        : 0),
   );
 
   const sinSistema = dia === null && !cargando && !listo;
@@ -564,7 +580,35 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         {t('reservar.renta', { precio: pesos(precioBastones) })}
                       </span>
                     )}
+                    {!esJunior(j.edad) && (
+                      <Alternador
+                        opciones={[
+                          { valor: false, texto: t('reservar.noLocal') },
+                          { valor: true, texto: t('reservar.siLocal') },
+                        ]}
+                        valor={Boolean(j.local)}
+                        onElegir={(v) => cambiar(i, 'local', v)}
+                      />
+                    )}
+                    {practica && (
+                      <Alternador
+                        opciones={[
+                          { valor: false, texto: t('reservar.sinPractica') },
+                          {
+                            valor: true,
+                            texto: t('reservar.conPractica', { precio: pesos(precioPractica) }),
+                          },
+                        ]}
+                        valor={Boolean(j.practica)}
+                        onElegir={(v) => cambiar(i, 'practica', v)}
+                      />
+                    )}
                   </div>
+                  {j.local && !esJunior(j.edad) && (
+                    <p className="mt-1.5 pl-0 font-texto text-menudo text-arena/80 sm:pl-[1.9rem]">
+                      {t('reservar.notaLocal')}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -631,7 +675,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       <span className="shrink-0 font-texto text-cifra uppercase text-arena/75">
                         {j.categoria === 'INFANTIL'
                           ? t('reservar.infantil')
-                          : t('reservar.adulto')}
+                          : j.categoria === 'LOCAL'
+                            ? t('reservar.local')
+                            : t('reservar.adulto')}
                       </span>
                       <span className="shrink-0 font-texto text-[0.95rem] tabular-nums text-arena/90">
                         {pesos(Number(j.green_fee))}
@@ -658,6 +704,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       </dt>
                       <dd className="text-right text-arena/90">
                         {pesos(Number(cotizacion.subtotal_bastones))}
+                      </dd>
+                    </>
+                  )}
+                  {cotizacion.pases_practica > 0 && (
+                    <>
+                      <dt className="text-arena/85">
+                        {t('reservar.practicaRenglon', { n: cotizacion.pases_practica })}
+                      </dt>
+                      <dd className="text-right text-arena/90">
+                        {pesos(Number(cotizacion.subtotal_practica))}
                       </dd>
                     </>
                   )}
@@ -787,6 +843,9 @@ function aCuerpo(jugadores) {
     handicap: j.handicap.trim() || null,
     pga: j.pga.trim() || null,
     bastones: j.bastones || null,
+    // Un junior paga junior aunque sea local: no se manda.
+    local: Boolean(j.local) && !esJunior(j.edad),
+    practica: Boolean(j.practica),
   }));
 }
 

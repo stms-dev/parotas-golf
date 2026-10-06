@@ -33,7 +33,7 @@ from app.modules.catalog.schemas import (
 from app.modules.identity.models import User
 from app.realtime.events import EventType, RealtimeEvent
 from app.realtime.manager import publish
-from app.shared.enums import AuditAction, DayType, DiscountType, PlayerCategory, TimeBand
+from app.shared.enums import AuditAction, DayType, DiscountType, PlayerCategory, TimeBand, es_junior
 from app.shared.money import apply_percentage, money, rate as as_rate
 
 
@@ -164,11 +164,57 @@ class PricingService:
             "Dela de alta en Control del sistema › Tarifas."
         )
 
+    def resolve_player_rate(
+        self, *, modality: str, holes: int, age: Optional[int] = None,
+        category: PlayerCategory = PlayerCategory.ADULTO, is_local: bool = False,
+        on_date: Optional[date] = None, at_time: Optional[time] = None,
+    ):
+        """La tarifa de un jugador y la categoría con la que se cobra.
+
+        Es la única regla de quién paga qué, y la usan el hotel, el mostrador
+        y el sitio:
+        · 16 años o menos paga junior, aunque sea local.
+        · Un local paga su tarifa donde el club la tiene (hoy, 18 hoyos de
+          lunes a jueves). Donde no hay tarifa de local, paga como adulto: es
+          un precio especial, no un candado.
+        """
+        if es_junior(age):
+            category = PlayerCategory.INFANTIL
+        elif str(category).endswith("LOCAL"):
+            category = PlayerCategory.ADULTO
+            is_local = True
+
+        if is_local and category == PlayerCategory.ADULTO:
+            try:
+                plan = self.resolve_rate(
+                    modality=modality, holes=holes, category=PlayerCategory.LOCAL,
+                    on_date=on_date, at_time=at_time,
+                )
+                return plan, PlayerCategory.LOCAL
+            except NotFoundError:
+                pass
+
+        plan = self.resolve_rate(
+            modality=modality, holes=holes, category=category,
+            on_date=on_date, at_time=at_time,
+        )
+        return plan, category
+
     def list_rates(self, *, active_only: bool = True) -> List[RatePlan]:
         stmt = select(RatePlan)
         if active_only:
-            stmt = stmt.where(RatePlan.is_active.is_(True))
-        stmt = stmt.order_by(RatePlan.modality, RatePlan.holes, RatePlan.category)
+            # Vigentes hoy: activas, ya empezadas y sin vencer. Una tarifa que
+            # se cerró al subir precios no debe llegar a ninguna pantalla —
+            # el panel del hotel calcula su estimado con esta lista.
+            hoy = date.today()
+            stmt = stmt.where(
+                RatePlan.is_active.is_(True),
+                RatePlan.valid_from <= hoy,
+                (RatePlan.valid_to.is_(None)) | (RatePlan.valid_to >= hoy),
+            )
+        stmt = stmt.order_by(
+            RatePlan.modality, RatePlan.holes, RatePlan.category, RatePlan.valid_from.desc()
+        )
         return list(self.db.execute(stmt).scalars().all())
 
     def create_rate(self, data: RatePlanCreate, actor: User) -> RatePlan:

@@ -78,6 +78,8 @@ class ServiceBase(BaseModel):
     name: str
     description: Optional[str] = None
     price: Decimal = Field(ge=0)
+    # Precio de viernes a domingo, si es distinto. Vacío: vale `price`.
+    weekend_price: Optional[Decimal] = Field(default=None, ge=0)
     currency: str = "MXN"
     unit: ServiceUnit = ServiceUnit.POR_RONDA
 
@@ -90,6 +92,7 @@ class ServiceUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     price: Optional[Decimal] = Field(default=None, ge=0)
+    weekend_price: Optional[Decimal] = Field(default=None, ge=0)
     is_active: Optional[bool] = None
 
 

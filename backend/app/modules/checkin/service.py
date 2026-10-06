@@ -366,14 +366,16 @@ class CheckInService:
                 )
             if not service.is_active:
                 raise ValidationError(f"El servicio {service.name} está inactivo")
-            line_total = money(money(service.price) * entry.quantity)
+            dia = reservation.tee_slot.slot_date if reservation.tee_slot else None
+            unit_price = money(service.price_on(dia))
+            line_total = money(unit_price * entry.quantity)
             self.db.add(
                 ReservationService(
                     reservation_id=reservation.id,
                     player_id=entry.player_id,
                     service_id=service.id,
                     quantity=entry.quantity,
-                    unit_price_applied=service.price,
+                    unit_price_applied=unit_price,
                     total=line_total,
                     notes=entry.notes,
                     # Venta del campo: el hotel no la ve ni la cobra.

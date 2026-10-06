@@ -50,6 +50,17 @@ class HolesOption(int, Enum):
 class PlayerCategory(str, Enum):
     ADULTO = "ADULTO"
     INFANTIL = "INFANTIL"
+    # Vive en Huatulco: lo acredita enseñando su credencial en el mostrador.
+    # Solo tiene precio en 18 hoyos entre semana; fuera de eso paga adulto.
+    LOCAL = "LOCAL"
+
+
+# Hasta qué edad un jugador paga tarifa junior (incluida esa edad).
+EDAD_JR_MAX = 16
+
+
+def es_junior(edad) -> bool:
+    return edad is not None and edad <= EDAD_JR_MAX
 
 
 class DayType(str, Enum):

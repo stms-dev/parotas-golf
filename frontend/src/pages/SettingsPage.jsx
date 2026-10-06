@@ -22,7 +22,7 @@ import HistorialTipoCambio from '../components/HistorialTipoCambio';
 import Icono from '../components/Icono';
 import { MODALIDAD, fecha, fechaHora, hora, mxn, usd, fechaLocal } from '../utils/format';
 
-const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Infantil (<16 años)' };
+const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Junior (16 años o menos)', LOCAL: 'Local (credencial)' };
 
 export default function SettingsPage() {
   const { can } = useAuth();
@@ -621,7 +621,9 @@ function Servicios({ servicios, tasa }) {
             <div className="min-w-0">
               <p className="truncate text-title-md text-primary">{s.name}</p>
               <p className="font-mono text-label-sm text-outline">
-                {mxn(s.price)} {tasa ? `(${usd(Number(s.price) / tasa)})` : ''}
+                {s.weekend_price
+                  ? `${mxn(s.price)} lun a jue · ${mxn(s.weekend_price)} vie a dom`
+                  : `${mxn(s.price)} ${tasa ? `(${usd(Number(s.price) / tasa)})` : ''}`}
               </p>
             </div>
             <span

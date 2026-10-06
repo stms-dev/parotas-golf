@@ -116,6 +116,13 @@ export const ESTADO_RESERVA = {
 };
 
 /**
+ * Con qué tarifa paga cada jugador. Junior es de 16 años o menos; local vive
+ * en Huatulco y presenta credencial en el mostrador.
+ */
+export const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Junior', LOCAL: 'Local' };
+export const categoria = (c) => CATEGORIA[c] || 'Adulto';
+
+/**
  * Los paquetes del club. Individual ya no se vende, pero se queda en el mapa
  * porque hay reservas viejas que lo usaron y sus pantallas tienen que poder
  * ponerle nombre.

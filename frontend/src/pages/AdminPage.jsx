@@ -33,7 +33,7 @@ const PERIODOS = [
   { key: 'anio', label: 'Año' },
 ];
 
-const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Infantil' };
+const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Junior (16 o menos)', LOCAL: 'Local' };
 
 /** Qué días cobra cada tarifa. */
 const DIAS = {
@@ -1190,7 +1190,8 @@ function AltaDeTarifa({ onListo }) {
           className={CAMPO}
         >
           <option value="ADULTO">Adulto</option>
-          <option value="INFANTIL">Infantil</option>
+          <option value="INFANTIL">Junior (16 o menos)</option>
+          <option value="LOCAL">Local (con credencial)</option>
         </select>
       </label>
       <label>

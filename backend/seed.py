@@ -38,6 +38,7 @@ from app.shared.enums import (
     DiscountType,
     PlayerCategory,
     ServiceUnit,
+    TimeBand,
     UserRole,
 )
 
@@ -96,19 +97,25 @@ def sembrar(produccion: bool = False):
         # a jueves contra viernes a domingo, y es el mismo en los tres
         # paquetes: lo que cambia entre ellos es cómo se ocupa la salida.
         #
-        # Todas las rondas incluyen carrito compartido, aguas, cerveza y
-        # refresco; por eso el carrito ya no es un servicio aparte.
+        # Precios 2026. Todas las rondas incluyen carrito compartido, tarjeta
+        # de score, 10 tees y 50 pelotas de práctica; las bebidas ya no.
         #
         # La hoja no trae precio de menor a 9 hoyos: no se inventa. Si un
         # hotel lo intenta, el sistema avisa que falta darlo de alta.
         precios = [
-            # hoyos, categoría,            día,                    precio
-            (9,  PlayerCategory.ADULTO,   DayType.ENTRE_SEMANA,   "1700.00"),
-            (9,  PlayerCategory.ADULTO,   DayType.FIN_DE_SEMANA,  "2200.00"),
-            (18, PlayerCategory.ADULTO,   DayType.ENTRE_SEMANA,   "2800.00"),
-            (18, PlayerCategory.ADULTO,   DayType.FIN_DE_SEMANA,  "4000.00"),
-            (18, PlayerCategory.INFANTIL, DayType.ENTRE_SEMANA,   "1200.00"),
-            (18, PlayerCategory.INFANTIL, DayType.FIN_DE_SEMANA,  "1500.00"),
+            # hoyos, categoría,            día,                    precio,    franja
+            (9,  PlayerCategory.ADULTO,   DayType.ENTRE_SEMANA,   "2200.00", TimeBand.TODAS),
+            (9,  PlayerCategory.ADULTO,   DayType.FIN_DE_SEMANA,  "2500.00", TimeBand.TODAS),
+            (18, PlayerCategory.ADULTO,   DayType.ENTRE_SEMANA,   "3600.00", TimeBand.TODAS),
+            (18, PlayerCategory.ADULTO,   DayType.FIN_DE_SEMANA,  "4000.00", TimeBand.TODAS),
+            (18, PlayerCategory.INFANTIL, DayType.ENTRE_SEMANA,   "1800.00", TimeBand.TODAS),
+            (18, PlayerCategory.INFANTIL, DayType.FIN_DE_SEMANA,  "2000.00", TimeBand.TODAS),
+            # Twilight: salidas de 2:00 a 3:00 pm.
+            (18, PlayerCategory.ADULTO,   DayType.ENTRE_SEMANA,   "2700.00", TimeBand.TWILIGHT),
+            (18, PlayerCategory.ADULTO,   DayType.FIN_DE_SEMANA,  "3000.00", TimeBand.TWILIGHT),
+            # Local: vive en Huatulco, enseña credencial. Solo entre semana;
+            # en fin de semana paga como adulto.
+            (18, PlayerCategory.LOCAL,    DayType.ENTRE_SEMANA,   "2500.00", TimeBand.TODAS),
         ]
         DIA = {DayType.ENTRE_SEMANA: "lun a jue", DayType.FIN_DE_SEMANA: "vie a dom"}
         tarifas = []
@@ -119,17 +126,19 @@ def sembrar(produccion: bool = False):
             (BookingModality.GRUPO, "Grupo"),
             (BookingModality.PARTIDA_ABIERTA, "Partida abierta"),
         ):
-            for hoyos, categoria, dia, precio in precios:
-                quien = " (menor)" if categoria == PlayerCategory.INFANTIL else ""
+            for hoyos, categoria, dia, precio, franja in precios:
+                quien = {PlayerCategory.INFANTIL: " (JR)", PlayerCategory.LOCAL: " (local)"}.get(categoria, "")
+                tw = " · twilight" if franja == TimeBand.TWILIGHT else ""
                 tarifas.append((
-                    f"{etiqueta} · {hoyos} hoyos{quien} · {DIA[dia]}",
-                    modalidad, hoyos, categoria, dia, precio,
+                    f"{etiqueta} · {hoyos} hoyos{quien}{tw} · {DIA[dia]}",
+                    modalidad, hoyos, categoria, dia, precio, franja,
                 ))
-        for name, modality, holes, category, day_type, price in tarifas:
+        for name, modality, holes, category, day_type, price, franja in tarifas:
             db.add(
                 RatePlan(
                     name=name, modality=modality.value, holes=holes, category=category,
-                    day_type=day_type.value, price=Decimal(price), currency="MXN",
+                    day_type=day_type.value, time_band=franja.value,
+                    price=Decimal(price), currency="MXN",
                     valid_from=date(HOY.year, 1, 1),
                 )
             )
@@ -148,11 +157,16 @@ def sembrar(produccion: bool = False):
             # Quien acompaña sin jugar paga su lugar. Se carga solo desde la
             # reserva del hotel, uno por cada acompañante anotado.
             ("ACOMPANANTE", "Acompañante (no juega)", "800.00", ServiceUnit.POR_PERSONA),
+            # 180 pelotas. Cuesta más de viernes a domingo.
+            ("PRACTICA", "Zona de práctica", "250.00", ServiceUnit.POR_PERSONA),
         ]
+        FIN_DE_SEMANA = {"PRACTICA": "400.00"}
         for code, name, price, unit in servicios:
+            fin = FIN_DE_SEMANA.get(code)
             db.add(
                 AdditionalService(
-                    code=code, name=name, price=Decimal(price), currency="MXN", unit=unit
+                    code=code, name=name, price=Decimal(price), currency="MXN", unit=unit,
+                    weekend_price=Decimal(fin) if fin else None,
                 )
             )
         print(f"✓ {len(servicios)} servicios adicionales")

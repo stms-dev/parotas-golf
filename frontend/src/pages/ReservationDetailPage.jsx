@@ -7,7 +7,7 @@ import { Alert, Badge, Button, Card, Modal, Spinner, Stat, Table, Textarea } fro
 import Icono from '../components/Icono';
 import { error as avisoError, exito, pedirCorreo } from '../utils/avisos';
 import {
-  ESTADO_RESERVA, MODALIDAD, fecha, fechaHora, fechaLocal, hora, mxn,
+  ESTADO_RESERVA, MODALIDAD, categoria, fecha, fechaHora, fechaLocal, hora, mxn,
 } from '../utils/format';
 
 export default function ReservationDetailPage() {
@@ -334,7 +334,7 @@ export default function ReservationDetailPage() {
                 {player.full_name} {player.is_holder && <Badge className="ml-1">Titular</Badge>}
               </td>
               <td className="px-3 py-2 text-on-surface-variant">
-                {player.category === 'INFANTIL' ? 'Infantil' : 'Adulto'}
+                {categoria(player.category)}
                 {player.age ? ` · ${player.age} años` : ''}
               </td>
               {/* Una sola columna. `ghin` sigue en la base y se muestra si

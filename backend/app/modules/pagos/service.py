@@ -169,6 +169,7 @@ class ReservaPublicaService:
                 "nombre": s.name,
                 "descripcion": s.description,
                 "precio": money(s.price),
+                "precio_fin": money(s.weekend_price) if s.weekend_price is not None else None,
                 # El caddie no lo cobra el club: se le paga directo a él. El
                 # precio se publica para que nadie llegue sin saber cuánto traer.
                 "pago_directo": s.code == "CADDIE",
@@ -315,11 +316,11 @@ class ReservaPublicaService:
         renglones = []
         green_fees = ZERO
         for i, j in enumerate(datos.jugadores):
-            categoria = self._categoria(j.edad)
-            plan = self._tarifa(
+            plan, categoria = self._tarifa(
                 modalidad=modalidad,
                 hoyos=datos.hoyos,
-                categoria=categoria,
+                edad=j.edad,
+                local=j.local,
                 slot=slot,
             )
             renglones.append({
@@ -335,6 +336,12 @@ class ReservaPublicaService:
 
         caddie = self._servicio("CADDIE")
 
+        # Zona de práctica: un pase por jugador que la marque.
+        practica = self._servicio("PRACTICA")
+        pases = sum(1 for j in datos.jugadores if j.practica) if practica else 0
+        precio_practica = money(practica.price_on(slot.slot_date)) if practica else ZERO
+        subtotal_practica = precio_practica * pases
+
         return {
             "modalidad": modalidad.value,
             "hoyos": datos.hoyos,
@@ -349,14 +356,17 @@ class ReservaPublicaService:
             "sets_bastones": sets,
             "precio_bastones": money(bastones.price) if bastones else ZERO,
             "subtotal_bastones": precio_sets,
-            "total": green_fees + precio_sets,
+            "pases_practica": pases,
+            "precio_practica": precio_practica if practica else None,
+            "subtotal_practica": subtotal_practica,
+            "total": green_fees + precio_sets + subtotal_practica,
             # Aparte del total a propósito: el club no cobra el caddie, se le
             # paga directo a él. Va en la respuesta solo para que el sitio
             # pueda decir cuánto traer.
             "caddie_por_persona": money(caddie.price) if caddie else None,
         }
 
-    def _tarifa(self, *, modalidad: BookingModality, hoyos: int, categoria, slot):
+    def _tarifa(self, *, modalidad: BookingModality, hoyos: int, edad, local: bool, slot):
         """La tarifa que aplica, con un aviso que un huésped pueda leer.
 
         Si falta la combinación en el tarifario, `PricingService` contesta
@@ -365,30 +375,30 @@ class ReservaPublicaService:
         que solo quiere jugar. Pasa de verdad: hoy no hay precio de menor a 9
         hoyos. Así que aquí se traduce.
         """
+        categoria = self._categoria(edad)
         try:
-            return self.precios.resolve_rate(
+            # Devuelve (tarifa, categoría con la que se cobra): la de local si
+            # aplica ese día, si no la de adulto.
+            return self.precios.resolve_player_rate(
                 modality=modalidad.value,
                 holes=hoyos,
-                category=categoria,
+                age=edad,
+                is_local=local,
                 on_date=slot.slot_date,
                 at_time=slot.slot_time,
             )
         except NotFoundError:
-            quien = "los menores" if str(categoria).endswith("INFANTIL") else "esa categoría"
+            quien = "los junior" if str(categoria).endswith("INFANTIL") else "esa categoría"
             raise BusinessRuleError(
                 f"Todavía no vendemos {hoyos} hoyos para {quien} por internet. "
                 f"Elija el recorrido completo o llámenos y lo acomodamos."
             )
 
     def _categoria(self, edad: Optional[int]):
-        """La misma regla que usa el mostrador: menor de 16 es infantil."""
-        from app.shared.enums import PlayerCategory
+        """La misma regla que usa el mostrador: 16 años o menos es junior."""
+        from app.shared.enums import PlayerCategory, es_junior
 
-        return (
-            PlayerCategory.INFANTIL
-            if edad is not None and edad < 16
-            else PlayerCategory.ADULTO
-        )
+        return PlayerCategory.INFANTIL if es_junior(edad) else PlayerCategory.ADULTO
 
     def _servicio(self, code: str):
         return next(
@@ -419,7 +429,8 @@ class ReservaPublicaService:
             self._tarifa(
                 modalidad=modalidad,
                 hoyos=datos.hoyos,
-                categoria=self._categoria(j.edad),
+                edad=j.edad,
+                local=j.local,
                 slot=slot,
             )
 
@@ -437,6 +448,7 @@ class ReservaPublicaService:
                     # que el club necesita es tenerlo anotado.
                     handicap=(j.handicap or None),
                     club_hand=(j.bastones or None),
+                    is_local=j.local,
                 )
             )
 
@@ -446,6 +458,11 @@ class ReservaPublicaService:
             bastones = self._servicio("BASTONES")
             if bastones:
                 servicios.append({"service_id": bastones.id, "quantity": sets})
+        pases = sum(1 for j in datos.jugadores if j.practica)
+        if pases:
+            practica = self._servicio("PRACTICA")
+            if practica:
+                servicios.append({"service_id": practica.id, "quantity": pases})
 
         titular = datos.jugadores[0]
         cuerpo = ReservationCreate(

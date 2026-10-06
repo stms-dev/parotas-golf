@@ -620,7 +620,7 @@ function TarifasDeHoy({ tarifas }) {
               <span className="font-mono text-title-md text-primary">{mxn(adulto)}</span>
               {infantil !== null && (
                 <span className="font-mono text-label-sm text-outline">
-                  · menor {mxn(infantil)}
+                  · junior {mxn(infantil)}
                 </span>
               )}
             </span>

@@ -113,15 +113,17 @@ export const esTwilight = (hora) => hora >= HORARIO.twilight;
 // ----------------------------------------------------------------- las tarifas
 /**
  * Las de la hoja de costeo del club. Entre semana es de lunes a jueves; de
- * viernes a domingo sube. El menor es hasta 15 años.
+ * viernes a domingo sube. Junior es menor de 16. Precios 2026.
  */
 export const TARIFAS = {
-  adulto18: { semana: 2800, fin: 4000 },
-  adulto9: { semana: 1700, fin: 2200 },
-  menor18: { semana: 1200, fin: 1500 },
-  // El twilight todavía no tiene precio: el club lo está decidiendo. Mientras
-  // no exista, esas salidas cobran la tarifa normal.
-  twilight18: null,
+  adulto18: { semana: 3600, fin: 4000 },
+  adulto9: { semana: 2200, fin: 2500 },
+  menor18: { semana: 1800, fin: 2000 },
+  // Salidas de 2:00 a 3:00 pm, 18 hoyos.
+  twilight18: { semana: 2700, fin: 3000 },
+  // Vive en Huatulco y lo acredita con credencial. Solo entre semana: de
+  // viernes a domingo paga como adulto.
+  local18: { semana: 2500, fin: null },
 };
 
 export const EXTRAS = [
@@ -138,7 +140,7 @@ export const EXTRAS = [
     code: 'BASTONES',
     nombre: 'Renta de bastones',
     precio: 850,
-    nota: 'Set básico: putter, madera, driver y hierros. Uno por jugador.',
+    nota: 'Set básico de 10 bastones: putter, madera, driver y hierros. Uno por jugador.',
   },
   {
     code: 'ACOMPANANTE',
@@ -146,10 +148,17 @@ export const EXTRAS = [
     precio: 800,
     nota: 'Para quien va en el carrito sin jugar.',
   },
+  {
+    code: 'PRACTICA',
+    nombre: 'Zona de práctica',
+    precio: 250,
+    precioFin: 400,
+    nota: '180 pelotas de práctica.',
+  },
 ];
 
-/** Carrito, agua, cerveza y refresco van incluidos en el green fee. */
-export const INCLUIDO = ['Carrito compartido', 'Agua', 'Cerveza', 'Refresco'];
+/** Lo que incluye el green fee. Las bebidas ya no van incluidas. */
+export const INCLUIDO = ['Carrito compartido', 'Tarjeta de score', '10 tees', '50 pelotas de práctica'];
 
 /**
  * Una lista escrita de verdad: comas y una conjunción antes del último.
