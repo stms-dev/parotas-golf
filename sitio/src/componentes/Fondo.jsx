@@ -25,31 +25,37 @@
  *    distrae, y además desperdicia la ocasión de que las dos imágenes sean
  *    del mismo sitio.
  *
+ * `hero` es el modo de la portada: las fotos elegidas para el landing se
+ * muestran nítidas, sin desenfoque, porque son la atracción — lo que se ve al
+ * llegar. El overlay oscuro sigue, pero sin el blur de CSS.
+ *
  * Quien pidió menos movimiento (`prefers-reduced-motion`) se queda con una
  * sola foto, fija.
  */
 import { useEffect, useRef, useState } from 'react';
 
-import { FONDOS } from '../datos/campo';
+import { FONDOS, FOTOS_HERO } from '../datos/campo';
 
 /** Cada cuánto se releva la foto si nadie toca nada. */
 const RELEVO_MS = 8000;
 
-/** Una al azar, pero nunca la que ya está puesta. */
-function otraQueNoSea(actual) {
-  if (FONDOS.length < 2) return FONDOS[0];
+/** Una al azar del conjunto dado, pero nunca la que ya está puesta. */
+function otraQueNoSea(actual, conjunto) {
+  if (conjunto.length < 2) return conjunto[0];
   let siguiente = actual;
   while (siguiente === actual) {
-    siguiente = FONDOS[Math.floor(Math.random() * FONDOS.length)];
+    siguiente = conjunto[Math.floor(Math.random() * conjunto.length)];
   }
   return siguiente;
 }
 
-export default function Fondo({ cambiarCon, fija }) {
+export default function Fondo({ cambiarCon, fija, hero }) {
+  const conjunto = hero ? FOTOS_HERO : FONDOS;
+
   // Dos capas que se turnan: la de abajo sostiene la imagen vieja mientras la
   // de arriba aparece. Con una sola, el cambio sería un parpadeo.
   const [capas, setCapas] = useState(() => {
-    const primera = FONDOS[Math.floor(Math.random() * FONDOS.length)];
+    const primera = conjunto[Math.floor(Math.random() * conjunto.length)];
     return { debajo: primera, encima: null };
   });
   const encimaVisible = useRef(false);
@@ -60,7 +66,7 @@ export default function Fondo({ cambiarCon, fija }) {
   function relevar() {
     setCapas((c) => {
       const actual = encimaVisible.current ? c.encima : c.debajo;
-      const nueva = otraQueNoSea(actual);
+      const nueva = otraQueNoSea(actual, conjunto);
       encimaVisible.current = !encimaVisible.current;
       return encimaVisible.current
         ? { debajo: c.debajo, encima: nueva }
@@ -101,11 +107,15 @@ export default function Fondo({ cambiarCon, fija }) {
         style={{
           backgroundImage: `url(${url})`,
           opacity: visible ? 1 : 0,
-          // El desenfoque va aquí y no en un filtro de CSS sobre el padre para
-          // que no arrastre al contenido. `scale` tapa el borde transparente
-          // que el desenfoque deja en las orillas.
-          filter: 'blur(6px) saturate(0.95)',
-          transform: 'scale(1.05)',
+          // En modo hero las fotos van nítidas: son la atracción, no el
+          // telón. En las demás paradas el desenfoque sigue porque el texto
+          // manda y la foto acompaña.
+          ...(hero
+            ? { transform: 'scale(1.02)' }
+            : {
+                filter: 'blur(6px) saturate(0.95)',
+                transform: 'scale(1.05)',
+              }),
         }}
       />
     ) : null;
@@ -119,14 +129,19 @@ export default function Fondo({ cambiarCon, fija }) {
         </>
       )}
 
-      {/* Lo que hace legible el texto de encima, en dos capas.
-          La cortina pareja asienta el tono general; el degradado carga la
-          tinta arriba y abajo, que es donde viven el encabezado y el pie.
-          Entre las dos dejan ver que hay una foto —que es el punto— sin que
-          un cielo blanco se coma un renglón. Bajar más la cortina se ve
-          bonito en una foto oscura y arruina la siguiente. */}
-      <div className="absolute inset-0 bg-sombra/[0.42]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-sombra/70 via-sombra/15 to-sombra/75" />
+      {/* Lo que hace legible el texto de encima.
+          En modo hero: solo un velo oscuro parejo, sin el degradado pesado
+          de arriba y abajo. La foto se ve más, el título se lee de sobra
+          porque es grande y con sombra. En las demás paradas: cortina +
+          degradado como siempre. */}
+      {hero ? (
+        <div className="absolute inset-0 bg-sombra/[0.48]" />
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-sombra/[0.42]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-sombra/70 via-sombra/15 to-sombra/75" />
+        </>
+      )}
     </div>
   );
 }

@@ -45,6 +45,7 @@ export const TEXTOS = {
     'salida.lugar': 'Bahías de Huatulco, Oaxaca',
     'salida.titulo1': 'Campo de Golf',
     'salida.titulo2': 'Las Parotas',
+    'salida.subtitulo': 'Campo de Golf',
     'salida.cuerpo':
       'La exuberante vegetación de Huatulco se conjugó con un campo de golf ' +
       'y dio como resultado uno de los mejores diseños del arquitecto Agustín ' +
@@ -269,6 +270,7 @@ export const TEXTOS = {
     'salida.lugar': 'Bahías de Huatulco, Oaxaca',
     'salida.titulo1': 'Golf Course',
     'salida.titulo2': 'Las Parotas',
+    'salida.subtitulo': 'Golf Course',
     'salida.cuerpo':
       'The lush vegetation of Huatulco came together with a golf course to ' +
       'produce one of architect Agustín Pizá’s finest designs. He considered ' +

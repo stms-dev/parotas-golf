@@ -120,11 +120,13 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      {/* En El campo el fondo es el del hoyo que se está mirando; en las
-          demás paradas, uno al azar que se releva solo. */}
+      {/* En El campo el fondo es el del hoyo que se está mirando; en la
+          portada, las fotos elegidas sin desenfoque; en las demás paradas,
+          uno al azar que se releva solo. */}
       <Fondo
         cambiarCon={estacion}
         fija={estacion === 'campo' ? fotoDelHoyo(hoyo) : null}
+        hero={estacion === 'salida'}
       />
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
@@ -179,7 +181,15 @@ export default function App() {
           foto como marca de agua: sigue estando —y sigue pudiéndose tocar
           hoyo por hoyo— pero ya no le quita la mitad del espacio.
         */}
-        {estacion === 'campo' ? (
+        {estacion === 'salida' ? (
+          /* La portada: todo el espacio para el nombre y el hero. Sin mapa,
+             sin columnas — solo el contenido centrado sobre la foto. */
+          <main className="flex min-h-0 flex-1">
+            <section key="salida" className="panel flex min-h-0 flex-1">
+              {paneles.salida}
+            </section>
+          </main>
+        ) : estacion === 'campo' ? (
           <main className="mt-4 flex min-h-0 flex-1 lg:mt-6">
             <ElCampo hoyoActivo={hoyo} onElegirHoyo={setHoyo} />
           </main>

@@ -273,3 +273,47 @@ export const POR_HOYO = Array.from(
 
 /** La foto que le toca a un hoyo. Siempre la misma para el mismo hoyo. */
 export const fotoDelHoyo = (n) => POR_HOYO[(n - 1) % POR_HOYO.length];
+
+/**
+ * Las fotos que se enseñan de cada hoyo en la vista de El Campo.
+ *
+ * Cada hoyo tenía de dos a cuatro fotos en el paquete original; la primera fue
+ * a `hoyo/` y las demás a `fondo/`. Este mapeo las reúne para que El Campo
+ * pueda enseñar tres a la vez. El orden dentro de cada arreglo es el del
+ * fotógrafo: la primera es la principal y las otras dos son los ángulos.
+ *
+ * Los hoyos 14 y 18 solo tienen dos fotos; ahí se repite la principal.
+ */
+const f = (n) => `/fotos/fondo/${String(n).padStart(2, '0')}.webp`;
+const h = (n) => `/fotos/hoyo/${String(n).padStart(2, '0')}.webp`;
+
+export const GALERIA_HOYO = {
+  1:  [h(1),  f(1),  f(2)],
+  2:  [h(2),  f(4),  f(5)],
+  3:  [h(3),  f(7),  f(8)],
+  4:  [h(4),  f(10), f(11)],
+  5:  [h(5),  f(13), f(14)],
+  6:  [h(6),  f(16), f(17)],
+  7:  [h(7),  f(19), f(20)],
+  8:  [h(8),  f(22), f(23)],
+  9:  [h(9),  f(25), f(26)],
+  10: [h(10), f(28), f(29)],
+  11: [h(11), f(31), f(32)],
+  12: [h(12), f(34), f(35)],
+  13: [h(13), f(37), f(38)],
+  14: [h(14), f(40), h(14)],  // solo dos fotos
+  15: [h(15), f(41), f(42)],
+  16: [h(16), f(44), f(45)],
+  17: [h(17), f(46), f(47)],
+  18: [h(18), f(49), h(18)],  // solo dos fotos
+};
+
+/**
+ * Las cuatro fotos de portada.
+ *
+ * Ivan las eligió: hoyo 8 foto 2, hoyo 9 foto 3, hoyo 15 fotos 3 y 4. Son las
+ * que más campo enseñan sin gente ni equipo en cuadro. Se muestran nítidas —sin
+ * el desenfoque que llevan las demás— con un velo oscuro encima para que el
+ * título se lea.
+ */
+export const FOTOS_HERO = [f(22), f(26), f(42), f(43)];
