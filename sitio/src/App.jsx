@@ -12,18 +12,16 @@
 import { useEffect, useState } from 'react';
 
 import Fondo from './componentes/Fondo';
-import Recorrido from './componentes/Recorrido';
 import Salida from './componentes/estaciones/Salida';
 import ElCampo from './componentes/estaciones/ElCampo';
 import Tarifas from './componentes/estaciones/Tarifas';
 import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
-import { CONTACTO, ESTACIONES, HOYOS, fotoDelHoyo } from './datos/campo';
+import { CONTACTO, ESTACIONES, fotoDelHoyo } from './datos/campo';
 import { useIdioma } from './datos/idioma';
 import logo from './assets/logo-las-parotas-claro.png';
 
-const HOYOS_ESTACION = ESTACIONES.map((e) => e.hoyo);
 
 /** Las cinco paradas. Se dibujan arriba o abajo según quepan. */
 function Paradas({ estacion, onIr, t }) {
@@ -47,6 +45,11 @@ function Paradas({ estacion, onIr, t }) {
 export default function App() {
   const { idioma, cambiar, t } = useIdioma();
   const [estacion, setEstacion] = useState('salida');
+  // El modo de fondo del sitio: `true` = HD (todas las fotos nítidas),
+  // `false` = Suave (el difuminado de siempre). Afecta TODA la página, portada
+  // incluida. Abre en HD —la portada nítida es lo primero que se ve y es la
+  // que más luce—; el botón del encabezado lo cambia de un golpe.
+  const [nitido, setNitido] = useState(true);
   // Horario, tarifas y reglas, leídos del sistema. Si no contesta se queda en
   // null y las pantallas usan los datos de campo.js: la presentación no se
   // cae porque el backend esté dormido, solo se apaga el formulario.
@@ -116,7 +119,6 @@ export default function App() {
     casa: <CasaClub />,
   };
 
-  const parDelHoyo = HOYOS.find((h) => h.n === hoyo)?.par;
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
@@ -127,6 +129,7 @@ export default function App() {
         cambiarCon={estacion}
         fija={estacion === 'campo' ? fotoDelHoyo(hoyo) : null}
         hero={estacion === 'salida'}
+        nitido={nitido}
       />
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
@@ -146,6 +149,34 @@ export default function App() {
               <nav className="hidden items-center gap-1.5 md:flex">
                 <Paradas estacion={estacion} onIr={irA} t={t} />
               </nav>
+
+              {/* El modo de fondo: HD (todo nítido) o Suave (difuminado). Es
+                  un interruptor de dos estados, como claro/oscuro, pero para
+                  el enfoque de las fotos. Cambia toda la página de una vez. */}
+              <div
+                className="flex shrink-0 items-center overflow-hidden rounded-sm border border-arena/30 font-texto text-menudo"
+                role="group"
+                aria-label={t('nitidez.aria')}
+              >
+                <button
+                  onClick={() => setNitido(true)}
+                  aria-pressed={nitido}
+                  className={`px-2.5 py-2 font-semibold transition ${
+                    nitido ? 'bg-hoja text-sombra-honda' : 'text-arena/70 hover:text-hoja'
+                  }`}
+                >
+                  {t('nitidez.hd')}
+                </button>
+                <button
+                  onClick={() => setNitido(false)}
+                  aria-pressed={!nitido}
+                  className={`px-2.5 py-2 font-semibold transition ${
+                    !nitido ? 'bg-hoja text-sombra-honda' : 'text-arena/70 hover:text-hoja'
+                  }`}
+                >
+                  {t('nitidez.suave')}
+                </button>
+              </div>
 
               {/* Va aparte de las paradas, con su contorno, porque no es una
                   parada: es la puerta de salida del sitio. Mezclarlo con las
@@ -194,26 +225,10 @@ export default function App() {
             <ElCampo hoyoActivo={hoyo} onElegirHoyo={setHoyo} />
           </main>
         ) : (
-          <main className="mt-4 flex min-h-0 flex-1 flex-col gap-4 lg:mt-7 lg:w-full lg:max-w-[57rem] lg:flex-row lg:items-stretch lg:gap-[10rem] lg:self-center">
-            {/* El mapa, en su columna. En celular se queda con una franja; en
-                Reservar desaparece, porque un formulario a ancho de pulgar
-                necesita toda la pantalla. */}
-            <div
-              className={`relative shrink-0 transition-[height] duration-500 ease-rodada lg:h-auto lg:w-[13rem] lg:py-[2%] ${
-                estacion === 'reservar' ? 'hidden lg:block' : 'h-[29svh]'
-              }`}
-            >
-              <Recorrido
-                hoyoActivo={hoyo}
-                hoyoEstaciones={HOYOS_ESTACION}
-                onElegirHoyo={setHoyo}
-              />
-              <p className="pointer-events-none absolute bottom-0 left-0 right-0 hidden text-center font-texto text-menudo text-arena/75 lg:block">
-                {t('mapa.hoyo', { n: hoyo, par: parDelHoyo })}
-              </p>
-
-            </div>
-
+          /* Las demás paradas (green fees, evento, reservar) ya no llevan el
+             mapa: el trazo del campo se queda solo en El campo, que es donde
+             se recorre hoyo por hoyo. Aquí el contenido se lleva el centro. */
+          <main className="mt-4 flex min-h-0 flex-1 lg:mt-7 lg:w-full lg:max-w-[46rem] lg:self-center">
             {/* El panel. Tiene su propio desplazamiento para que la página
                 nunca crezca: lo que se mueve es el contenido, no el sitio.
                 `safe center` centra cuando el contenido cabe y lo pega arriba

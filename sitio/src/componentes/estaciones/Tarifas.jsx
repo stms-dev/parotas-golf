@@ -21,7 +21,8 @@ const FILAS = [
   { hoyos: 9, quien: 'tarifas.adulto', precios: TARIFAS.adulto9 },
   { hoyos: 18, quien: 'tarifas.twilight', precios: TARIFAS.twilight18 },
   { hoyos: 18, quien: 'tarifas.menores', precios: TARIFAS.menor18 },
-  { hoyos: 18, quien: 'tarifas.local', precios: TARIFAS.local18 },
+  // La tarifa local (18 hoyos) ya no sale con precio en la tabla: se trata por
+  // evento/residentes. Arriba hay un aviso que lleva a pedir información.
 ].filter((fila) => fila.precios);
 
 export default function Tarifas({ onIr }) {
@@ -36,6 +37,26 @@ export default function Tarifas({ onIr }) {
 
   return (
     <div>
+      {/* Hasta arriba de todo: la tarifa local. No lleva precio a propósito —se
+          trata directo—, así que en vez de cifra hay un botón que manda a
+          Evento privado, donde se pide la información. */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-hoja/40 bg-hoja/10 px-4 py-3.5 corta:mb-4 corta:py-3">
+        <div className="min-w-0">
+          <p className="font-texto text-[0.95rem] font-semibold text-arena">
+            {t('tarifas.localTitulo')}
+          </p>
+          <p className="mt-0.5 font-texto text-menudo text-arena/80">
+            {t('tarifas.localTexto')}
+          </p>
+        </div>
+        <button
+          onClick={() => onIr('casa')}
+          className="shrink-0 rounded-sm bg-hoja px-4 py-2.5 font-texto text-menudo font-bold text-sombra-honda transition hover:bg-brote focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+        >
+          {t('tarifas.localBoton')}
+        </button>
+      </div>
+
       <h2 className="font-titulo text-rotulo-lg text-arena corta:text-rotulo-md">
         {t('tarifas.titulo')}
       </h2>

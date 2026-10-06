@@ -49,7 +49,7 @@ function otraQueNoSea(actual, conjunto) {
   return siguiente;
 }
 
-export default function Fondo({ cambiarCon, fija, hero }) {
+export default function Fondo({ cambiarCon, fija, hero, nitido }) {
   const conjunto = hero ? FOTOS_HERO : FONDOS;
 
   // Dos capas que se turnan: la de abajo sostiene la imagen vieja mientras la
@@ -107,10 +107,11 @@ export default function Fondo({ cambiarCon, fija, hero }) {
         style={{
           backgroundImage: `url(${url})`,
           opacity: visible ? 1 : 0,
-          // En modo hero las fotos van nítidas: son la atracción, no el
-          // telón. En las demás paradas el desenfoque sigue porque el texto
-          // manda y la foto acompaña.
-          ...(hero
+          // El modo `nitido` decide el enfoque, no el `hero`: así el botón de
+          // HD / Suave del encabezado puede poner nítida (o difuminada) toda
+          // la página. Nítido = sin blur; suave = el desenfoque de siempre,
+          // que deja leer el texto encima.
+          ...(nitido
             ? { transform: 'scale(1.02)' }
             : {
                 filter: 'blur(6px) saturate(0.95)',

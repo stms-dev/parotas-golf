@@ -19,11 +19,14 @@ export const TEXTOS = {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Inicio',
     'nav.campo': 'El campo',
-    'nav.tarifas': 'Tarifas',
-    'nav.reservar': 'Reservar',
+    'nav.tarifas': 'Green fees',
+    'nav.reservar': 'Tee times',
     'nav.evento': 'Evento privado',
     'nav.acceder': 'Acceder',
     'nav.irAlInicio': 'Ir al inicio',
+    'nitidez.hd': 'HD',
+    'nitidez.suave': 'Suave',
+    'nitidez.aria': 'Cambiar el fondo entre HD y difuminado',
     'pie.nombre': 'Las Parotas',
     'pie.lugar': 'Bahías de Huatulco, Oaxaca',
     // La conjunción con la que se cierra una enumeración escrita.
@@ -54,10 +57,10 @@ export const TEXTOS = {
       'montañas y estos árboles magníficos por los que nos llamamos, Las Parotas.',
     'salida.par': 'Par',
     'salida.hoyos': 'Hoyos',
-    'salida.salidas': 'Salidas',
+    'salida.salidas': 'Tee times',
     'salida.diseno': 'Diseño',
-    'salida.reservar': 'Reservar una salida',
-    'salida.verTarifas': 'Ver tarifas',
+    'salida.reservar': 'Reservar tee time',
+    'salida.verTarifas': 'Ver green fees',
 
     // ---------------------------------------------------------- el campo
     'campo.par': 'Par {par} · {mitad}',
@@ -69,7 +72,11 @@ export const TEXTOS = {
     'campo.cuenta': '{n} de 18',
 
     // ------------------------------------------------------------ tarifas
-    'tarifas.titulo': 'Tarifas',
+    'tarifas.titulo': 'Green fees',
+    'tarifas.localTitulo': 'Tarifa local · 18 hoyos',
+    'tarifas.localTexto':
+      '¿Vives en Huatulco? Tenemos una tarifa especial para residentes con credencial.',
+    'tarifas.localBoton': 'Pulsa aquí para información',
     'tarifas.incluye':
       'El green fee incluye {incluido}. Precios por jugador en MXN, impuestos incluidos.',
     'tarifas.ronda': 'Ronda',
@@ -84,7 +91,7 @@ export const TEXTOS = {
     'tarifas.noIncluye': 'No incluye caddie, propinas, bebidas ni pelotas de juego.',
     'tarifas.aparte': 'Aparte del green fee',
     'tarifas.pagoDirecto': 'se le paga directo',
-    'tarifas.reservar': 'Reservar una salida',
+    'tarifas.reservar': 'Reservar tee time',
     'tarifas.carrito': 'carrito compartido',
     'tarifas.scorecard': 'tarjeta de score',
     'tarifas.tees': '10 tees',
@@ -115,7 +122,7 @@ export const TEXTOS = {
     'evento.acceso.enlace': 'el sistema de reservas',
 
     // ----------------------------------------------------------- reservar
-    'reservar.titulo': 'Reservar',
+    'reservar.titulo': 'Reservar tee time',
     'reservar.apartado': 'Le apartamos la salida durante {minutos} minutos mientras paga',
     'reservar.apartadoSinMinutos': 'Le apartamos la salida mientras paga',
     'reservar.paso1': 'Paquete',
@@ -253,11 +260,14 @@ export const TEXTOS = {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Home',
     'nav.campo': 'The course',
-    'nav.tarifas': 'Rates',
-    'nav.reservar': 'Book',
+    'nav.tarifas': 'Green fees',
+    'nav.reservar': 'Tee times',
     'nav.evento': 'Private events',
     'nav.acceder': 'Sign in',
     'nav.irAlInicio': 'Back to home',
+    'nitidez.hd': 'HD',
+    'nitidez.suave': 'Soft',
+    'nitidez.aria': 'Switch background between HD and blurred',
     'pie.nombre': 'Las Parotas',
     'pie.lugar': 'Bahías de Huatulco, Oaxaca',
     'lista.union': 'and',
@@ -294,7 +304,11 @@ export const TEXTOS = {
     'campo.cuenta': '{n} of 18',
 
     // ------------------------------------------------------------ tarifas
-    'tarifas.titulo': 'Rates',
+    'tarifas.titulo': 'Green fees',
+    'tarifas.localTitulo': 'Local rate · 18 holes',
+    'tarifas.localTexto':
+      'Live in Huatulco? We offer a special rate for residents with ID.',
+    'tarifas.localBoton': 'Tap here for info',
     'tarifas.incluye':
       'The green fee includes {incluido}. Per player in MXN, taxes included.',
     'tarifas.ronda': 'Round',
@@ -340,7 +354,7 @@ export const TEXTOS = {
     'evento.acceso.enlace': 'the booking system',
 
     // ----------------------------------------------------------- reservar
-    'reservar.titulo': 'Book',
+    'reservar.titulo': 'Book a tee time',
     'reservar.apartado': 'We hold your tee time for {minutos} minutes while you pay',
     'reservar.apartadoSinMinutos': 'We hold your tee time while you pay',
     'reservar.paso1': 'Package',

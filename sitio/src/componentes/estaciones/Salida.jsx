@@ -51,8 +51,10 @@ export default function Salida() {
       {/* La línea que separa el nombre del resto. */}
       <div className="mx-auto mt-8 h-px w-16 bg-hoja/50 corta:mt-5" />
 
-      {/* El párrafo de enganche, centrado y acotado. */}
-      <p className="mt-6 max-w-[48ch] font-texto text-parrafo text-arena/90 corta:mt-4 corta:text-[0.95rem]">
+      {/* El párrafo de enganche, centrado. Va ancho a propósito: con la caja
+          angosta el texto se apilaba en muchos renglones; abriéndolo a los
+          lados cabe en tres o cuatro líneas largas sin cambiar una palabra. */}
+      <p className="mt-6 max-w-[58rem] px-2 font-texto text-parrafo text-arena/90 corta:mt-4 corta:text-[0.95rem]">
         {t('salida.cuerpo')}
       </p>
 
