@@ -150,33 +150,17 @@ export default function App() {
                 <Paradas estacion={estacion} onIr={irA} t={t} />
               </nav>
 
-              {/* El modo de fondo: HD (todo nítido) o Suave (difuminado). Es
-                  un interruptor de dos estados, como claro/oscuro, pero para
-                  el enfoque de las fotos. Cambia toda la página de una vez. */}
-              <div
-                className="flex shrink-0 items-center overflow-hidden rounded-sm border border-arena/30 font-texto text-menudo"
-                role="group"
+              {/* El modo de fondo, en un solo botón: al pulsarlo alterna entre
+                  HD (todas las fotos nítidas) y Suave (difuminado), para toda
+                  la página. */}
+              <button
+                onClick={() => setNitido((v) => !v)}
+                aria-pressed={nitido}
                 aria-label={t('nitidez.aria')}
+                className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
               >
-                <button
-                  onClick={() => setNitido(true)}
-                  aria-pressed={nitido}
-                  className={`px-2.5 py-2 font-semibold transition ${
-                    nitido ? 'bg-hoja text-sombra-honda' : 'text-arena/70 hover:text-hoja'
-                  }`}
-                >
-                  {t('nitidez.hd')}
-                </button>
-                <button
-                  onClick={() => setNitido(false)}
-                  aria-pressed={!nitido}
-                  className={`px-2.5 py-2 font-semibold transition ${
-                    !nitido ? 'bg-hoja text-sombra-honda' : 'text-arena/70 hover:text-hoja'
-                  }`}
-                >
-                  {t('nitidez.suave')}
-                </button>
-              </div>
+                {t('nitidez.boton')}
+              </button>
 
               {/* Va aparte de las paradas, con su contorno, porque no es una
                   parada: es la puerta de salida del sitio. Mezclarlo con las

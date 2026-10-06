@@ -18,14 +18,13 @@ export const TEXTOS = {
   es: {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Inicio',
-    'nav.campo': 'El campo',
+    'nav.campo': 'Campo',
     'nav.tarifas': 'Green fees',
     'nav.reservar': 'Tee times',
     'nav.evento': 'Evento privado',
     'nav.acceder': 'Acceder',
     'nav.irAlInicio': 'Ir al inicio',
-    'nitidez.hd': 'HD',
-    'nitidez.suave': 'Suave',
+    'nitidez.boton': 'Fondo',
     'nitidez.aria': 'Cambiar el fondo entre HD y difuminado',
     'pie.nombre': 'Las Parotas',
     'pie.lugar': 'Bahías de Huatulco, Oaxaca',
@@ -63,6 +62,8 @@ export const TEXTOS = {
     'salida.verTarifas': 'Ver green fees',
 
     // ---------------------------------------------------------- el campo
+    'campo.rotHoyo': 'Hoyo {n}',
+    'campo.rotPar': 'Par {par}',
     'campo.par': 'Par {par} · {mitad}',
     'campo.ida': 'la ida',
     'campo.vuelta': 'la vuelta',
@@ -259,14 +260,13 @@ export const TEXTOS = {
   en: {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Home',
-    'nav.campo': 'The course',
+    'nav.campo': 'Course',
     'nav.tarifas': 'Green fees',
     'nav.reservar': 'Tee times',
     'nav.evento': 'Private events',
     'nav.acceder': 'Sign in',
     'nav.irAlInicio': 'Back to home',
-    'nitidez.hd': 'HD',
-    'nitidez.suave': 'Soft',
+    'nitidez.boton': 'Background',
     'nitidez.aria': 'Switch background between HD and blurred',
     'pie.nombre': 'Las Parotas',
     'pie.lugar': 'Bahías de Huatulco, Oaxaca',
@@ -295,6 +295,8 @@ export const TEXTOS = {
     'salida.verTarifas': 'See rates',
 
     // ---------------------------------------------------------- el campo
+    'campo.rotHoyo': 'Hole {n}',
+    'campo.rotPar': 'Par {par}',
     'campo.par': 'Par {par} · {mitad}',
     'campo.ida': 'front nine',
     'campo.vuelta': 'back nine',
