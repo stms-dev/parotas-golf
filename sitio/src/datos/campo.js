@@ -45,23 +45,23 @@ export const AGUA = [
  * nada más se mueve.
  */
 export const HOYOS = [
-  { n: 1, par: 4, x: 720, y: 802 },
-  { n: 2, par: 4, x: 712, y: 542 },
-  { n: 3, par: 3, x: 556, y: 290 },
-  { n: 4, par: 4, x: 610, y: 200 },
+  { n: 1, par: 5, x: 720, y: 802 },
+  { n: 2, par: 5, x: 712, y: 542 },
+  { n: 3, par: 4, x: 556, y: 290 },
+  { n: 4, par: 3, x: 610, y: 200 },
   { n: 5, par: 4, x: 622, y: 320 },
-  { n: 6, par: 5, x: 562, y: 456 },
-  { n: 7, par: 3, x: 624, y: 570 },
-  { n: 8, par: 4, x: 604, y: 688 },
+  { n: 6, par: 3, x: 562, y: 456 },
+  { n: 7, par: 4, x: 624, y: 570 },
+  { n: 8, par: 3, x: 604, y: 688 },
   { n: 9, par: 5, x: 626, y: 836 },
-  { n: 10, par: 4, x: 614, y: 1076 },
+  { n: 10, par: 5, x: 614, y: 1076 },
   { n: 11, par: 4, x: 516, y: 1236 },
   { n: 12, par: 3, x: 488, y: 1394 },
-  { n: 13, par: 5, x: 570, y: 1320 },
+  { n: 13, par: 4, x: 570, y: 1320 },
   { n: 14, par: 4, x: 654, y: 1156 },
-  { n: 15, par: 4, x: 718, y: 1164 },
-  { n: 16, par: 5, x: 716, y: 1292 },
-  { n: 17, par: 3, x: 790, y: 1266 },
+  { n: 15, par: 3, x: 718, y: 1164 },
+  { n: 16, par: 4, x: 716, y: 1292 },
+  { n: 17, par: 5, x: 790, y: 1266 },
   { n: 18, par: 4, x: 750, y: 1064 },
 ];
 
@@ -249,7 +249,7 @@ export const pesos = (n) =>
  * vinieron. Cuando el club las entregue identificadas, se reacomodan aquí y
  * ninguna pantalla se entera.
  */
-const FONDOS_N = 19;
+const FONDOS_N = 49;
 const HOYOS_N = 18;
 
 export const FONDOS = Array.from(

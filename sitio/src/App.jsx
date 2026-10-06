@@ -221,7 +221,19 @@ export default function App() {
         {/* ---------------------------------------------------------- pie */}
         <footer className="mt-3 shrink-0 border-t border-arena/12 pt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-texto text-menudo text-arena/75">{t('pie.lugar')}</p>
+            <p className="font-texto text-menudo text-arena/75">
+              <span className="font-semibold text-arena/90">{t('pie.nombre')}</span>
+              {' · '}
+              {t('pie.lugar')}
+              {' · '}
+              <a href={`mailto:${CONTACTO.correo}`} className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
+                {CONTACTO.correo}
+              </a>
+              {' · '}
+              <a href={`https://wa.me/${CONTACTO.telefono.replace(/[\s+]/g, '')}`} className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
+                {CONTACTO.telefono}
+              </a>
+            </p>
 
             {/* El cambio de idioma. Estuvo un buen rato aquí como adorno —dos
                 palabras que no hacían nada—; ahora son botones. Se quedan al

@@ -24,7 +24,8 @@ export const TEXTOS = {
     'nav.evento': 'Evento privado',
     'nav.acceder': 'Acceder',
     'nav.irAlInicio': 'Ir al inicio',
-    'pie.lugar': 'Club de Golf Huatulco · Bahías de Huatulco, Oaxaca',
+    'pie.nombre': 'Las Parotas',
+    'pie.lugar': 'Bahías de Huatulco, Oaxaca',
     // La conjunción con la que se cierra una enumeración escrita.
     'lista.union': 'y',
     /*
@@ -42,13 +43,14 @@ export const TEXTOS = {
 
     // ------------------------------------------------------------- inicio
     'salida.lugar': 'Bahías de Huatulco, Oaxaca',
-    'salida.titulo1': 'Dieciocho hoyos',
-    'salida.titulo2': 'bajo las parotas',
+    'salida.titulo1': 'Campo de Golf',
+    'salida.titulo2': 'Las Parotas',
     'salida.cuerpo':
-      'Las parotas ya estaban aquí cuando se trazó el campo: árboles de copa ' +
-      'ancha que dan sombra a media hectárea cada uno. En lugar de tumbarlas, ' +
-      'Agustín Pizá acomodó el recorrido entre ellas. Por eso ningún hoyo se ' +
-      'parece al anterior, y por eso el campo se llama como se llama.',
+      'La exuberante vegetación de Huatulco se conjugó con un campo de golf ' +
+      'y dio como resultado uno de los mejores diseños del arquitecto Agustín ' +
+      'Pizá, quien consideró cada aspecto del medio para que tu ronda sea ' +
+      'inigualable y puedas disfrutar de la belleza del golf, del mar, las ' +
+      'montañas y estos árboles magníficos por los que nos llamamos, Las Parotas.',
     'salida.par': 'Par',
     'salida.hoyos': 'Hoyos',
     'salida.salidas': 'Salidas',
@@ -68,7 +70,7 @@ export const TEXTOS = {
     // ------------------------------------------------------------ tarifas
     'tarifas.titulo': 'Tarifas',
     'tarifas.incluye':
-      'El green fee incluye {incluido}. Precios por jugador, en pesos.',
+      'El green fee incluye {incluido}. Precios por jugador en MXN, impuestos incluidos.',
     'tarifas.ronda': 'Ronda',
     'tarifas.semana': 'Lun a jue',
     'tarifas.fin': 'Vie a dom',
@@ -93,9 +95,8 @@ export const TEXTOS = {
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Evento privado',
     'evento.cuerpo':
-      'El campo abre su primera salida a las {primera} y la última sale a las ' +
-      '{ultima}. Cierra a las {cierre}, así que una salida tardía puede no ' +
-      'alcanzar los 18 hoyos.',
+      'Ofrecemos tarifas especiales para grupos y acompañamiento personalizado ' +
+      'para que la experiencia de su evento sea exactamente como la imagina.',
     'evento.invitacion':
       '¿Un torneo, una despedida, un día de empresa? Llámenos o escríbanos y lo ' +
       'armamos con usted.',
@@ -205,8 +206,9 @@ export const TEXTOS = {
       'No se completó el pago, así que la salida volvió a estar disponible. No se ' +
       'le cobró nada. Puede elegir otro horario cuando quiera.',
     'listo.detalle':
-      '{dia} a las {hora}, {n} jugador{es}. Preséntese en la casa club veinte ' +
-      'minutos antes con este folio.',
+      '{dia} a las {hora}, {n} jugador{es}. Le enviamos su pase por correo ' +
+      'electrónico — también puede descargar este folio como comprobante. ' +
+      'Preséntese en la casa club veinte minutos antes.',
     'listo.entrando':
       'Su pago está entrando. En cuanto nos lo confirmen —normalmente son segundos— ' +
       'le llega su pase por correo. No hace falta que vuelva a pagar.',
@@ -224,10 +226,10 @@ export const TEXTOS = {
     // paquetes
     'paquete.GRUPO': 'En Grupo',
     'paquete.GRUPO.detalle':
-      'La salida es suya: arma su propio grupo y nadie más se les junta.',
+      'El titular organiza su propio grupo en una salida exclusiva.',
     'paquete.PARTIDA_ABIERTA': 'Partida Abierta',
     'paquete.PARTIDA_ABIERTA.detalle':
-      'Sale con los que se junten, hasta llegar a cuatro. Para cuando van menos.',
+      'Sale con los que se junten, hasta llegar a 4, aunque vengan de hoteles distintos.',
     'paquete.noAbiertas': 'Ese día el campo no está armando partidas abiertas.',
   },
 
@@ -240,7 +242,8 @@ export const TEXTOS = {
     'nav.evento': 'Private events',
     'nav.acceder': 'Sign in',
     'nav.irAlInicio': 'Back to home',
-    'pie.lugar': 'Club de Golf Huatulco · Bahías de Huatulco, Oaxaca',
+    'pie.nombre': 'Las Parotas',
+    'pie.lugar': 'Bahías de Huatulco, Oaxaca',
     'lista.union': 'and',
     'plural.jugador': 's',
     'mapa.hoyo': 'Hole {n} · par {par}',
@@ -249,13 +252,14 @@ export const TEXTOS = {
 
     // ------------------------------------------------------------- inicio
     'salida.lugar': 'Bahías de Huatulco, Oaxaca',
-    'salida.titulo1': 'Eighteen holes',
-    'salida.titulo2': 'under the parotas',
+    'salida.titulo1': 'Golf Course',
+    'salida.titulo2': 'Las Parotas',
     'salida.cuerpo':
-      'The parota trees were here before the course was: broad-crowned giants, ' +
-      'each one shading half an acre. Rather than cut them down, Agustín Pizá ' +
-      'routed the holes around them. That is why no two holes play alike, and ' +
-      'why the course is named after the trees.',
+      'The lush vegetation of Huatulco came together with a golf course to ' +
+      'produce one of architect Agustín Pizá’s finest designs. He considered ' +
+      'every aspect of the landscape so your round is one of a kind — the ' +
+      'beauty of golf, the ocean, the mountains, and the magnificent trees ' +
+      'that give us our name, Las Parotas.',
     'salida.par': 'Par',
     'salida.hoyos': 'Holes',
     'salida.salidas': 'Tee times',
@@ -275,7 +279,7 @@ export const TEXTOS = {
     // ------------------------------------------------------------ tarifas
     'tarifas.titulo': 'Rates',
     'tarifas.incluye':
-      'The green fee includes {incluido}. Per player, in Mexican pesos.',
+      'The green fee includes {incluido}. Per player in MXN, taxes included.',
     'tarifas.ronda': 'Round',
     'tarifas.semana': 'Mon–Thu',
     'tarifas.fin': 'Fri–Sun',
@@ -300,8 +304,8 @@ export const TEXTOS = {
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Private events',
     'evento.cuerpo':
-      'First tee time is {primera} and the last one goes out at {ultima}. The ' +
-      'course closes at {cierre}, so a late start may not reach all 18 holes.',
+      'We offer special group rates and personalized support to make your event ' +
+      'exactly the experience you have in mind.',
     'evento.invitacion':
       'A tournament, a bachelor party, a company day? Call or write and we will ' +
       'put it together with you.',
@@ -409,8 +413,9 @@ export const TEXTOS = {
       'The payment was not completed, so the tee time is available again. You were ' +
       'not charged. Pick another time whenever you like.',
     'listo.detalle':
-      '{dia} at {hora}, {n} player{es}. Please come to the clubhouse twenty minutes ' +
-      'before, with this number.',
+      '{dia} at {hora}, {n} player{es}. We are sending your pass by email — you ' +
+      'can also download this booking number as a receipt. Please come to the ' +
+      'clubhouse twenty minutes before.',
     'listo.entrando':
       'Your payment is coming through. As soon as it clears — usually seconds — your ' +
       'pass arrives by email. No need to pay again.',
@@ -426,10 +431,10 @@ export const TEXTOS = {
 
     'paquete.GRUPO': 'Group',
     'paquete.GRUPO.detalle':
-      'The tee time is yours: bring your own group and nobody joins you.',
+      'The holder organizes their own group on an exclusive tee time.',
     'paquete.PARTIDA_ABIERTA': 'Open group',
     'paquete.PARTIDA_ABIERTA.detalle':
-      'You go out with whoever makes up the four. For parties of fewer than four.',
+      'You go out with whoever makes up the four, even from different hotels.',
     'paquete.noAbiertas': 'The course is not making up open groups that day.',
   },
 };

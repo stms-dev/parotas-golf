@@ -12,7 +12,7 @@
  * el concierge lo tiene en favoritos desde el primer día y no necesita un
  * botón en la portada.
  */
-import { CONTACTO, HORARIO } from '../../datos/campo';
+import { CONTACTO } from '../../datos/campo';
 import { useIdioma } from '../../datos/idioma';
 
 export default function CasaClub() {
@@ -27,11 +27,7 @@ export default function CasaClub() {
       </p>
 
       <p className="mt-4 max-w-lectura font-texto text-parrafo text-arena/90">
-        {t('evento.cuerpo', {
-          primera: HORARIO.primera,
-          ultima: HORARIO.ultima,
-          cierre: HORARIO.cierre,
-        })}
+        {t('evento.cuerpo')}
       </p>
 
       <dl className="mt-8 space-y-5">
