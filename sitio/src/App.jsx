@@ -104,7 +104,7 @@ export default function App() {
   }, [estacion]);
 
   const paneles = {
-    salida: <Salida onIr={irA} />,
+    salida: <Salida />,
     tarifas: <Tarifas onIr={irA} />,
     reservar: (
       <Reservar

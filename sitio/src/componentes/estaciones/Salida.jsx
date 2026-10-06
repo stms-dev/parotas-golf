@@ -16,7 +16,7 @@
 import { HORARIO, PAR_TOTAL } from '../../datos/campo';
 import { useIdioma } from '../../datos/idioma';
 
-export default function Salida({ onIr }) {
+export default function Salida() {
   const { t } = useIdioma();
 
   return (
@@ -63,22 +63,6 @@ export default function Salida({ onIr }) {
         <Dato termino={t('salida.salidas')} valor={`${HORARIO.primera} – ${HORARIO.ultima}`} />
         <Dato termino={t('salida.diseno')} valor="Agustín Pizá" />
       </dl>
-
-      {/* Los botones. */}
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-4 corta:mt-6">
-        <button
-          onClick={() => onIr('reservar')}
-          className="rounded-sm bg-hoja px-8 py-3.5 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
-        >
-          {t('salida.reservar')}
-        </button>
-        <button
-          onClick={() => onIr('tarifas')}
-          className="font-texto text-[0.95rem] font-semibold text-arena underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-arena focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
-        >
-          {t('salida.verTarifas')}
-        </button>
-      </div>
     </div>
   );
 }
