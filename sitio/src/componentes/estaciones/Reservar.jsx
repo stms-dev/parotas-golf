@@ -29,6 +29,7 @@ import {
   EXTRAS,
   HORARIO,
   PAQUETES,
+  PAR_NUEVE,
   enDolares,
   esFinDeSemana,
   pesos,
@@ -424,11 +425,11 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 valor={Number(hoyos)}
                 onElegir={setHoyos}
               />
-              {Number(hoyos) === 18 && (
-                <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                  {t('reservar.completa')}
-                </p>
-              )}
+              <p className="mt-1.5 font-texto text-menudo text-arena/80">
+                {Number(hoyos) === 9
+                  ? t('reservar.par9', { par: PAR_NUEVE })
+                  : t('reservar.completa')}
+              </p>
             </Campo>
           </Paso>
         )}

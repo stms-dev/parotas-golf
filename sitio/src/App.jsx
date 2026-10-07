@@ -18,7 +18,7 @@ import Tarifas from './componentes/estaciones/Tarifas';
 import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
-import { CONTACTO, ESTACIONES } from './datos/campo';
+import { CONTACTO, ESTACIONES, fotoDelHoyo } from './datos/campo';
 import { useIdioma } from './datos/idioma';
 import logo from './assets/logo-las-parotas-claro.png';
 
@@ -117,11 +117,15 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      {/* La foto de fondo solo vive en la portada, nítida: es su hero. En las
-          demás paradas el fondo es liso (oscuro), para que el contenido —tablas,
-          formulario, la cuadrícula de El campo— se lea sin competir con una foto
-          detrás. */}
-      {estacion === 'salida' && <Fondo cambiarCon={estacion} hero nitido />}
+      {/* La foto de fondo, nítida (HD), en todas las ventanas: en la portada
+          las fotos hero; en El campo, la del hoyo que se mira; en las demás,
+          una al azar que se releva sola. Siempre en alta definición. */}
+      <Fondo
+        cambiarCon={estacion}
+        fija={estacion === 'campo' ? fotoDelHoyo(hoyo) : null}
+        hero={estacion === 'salida'}
+        nitido
+      />
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
         {/* ------------------------------------------------------ encabezado */}

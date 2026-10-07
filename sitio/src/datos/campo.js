@@ -69,6 +69,8 @@ export const HOYOS = [
 export const CASA_CLUB = [575, 980];
 
 export const PAR_TOTAL = HOYOS.reduce((suma, h) => suma + h.par, 0); // 72
+// El par de media vuelta (los primeros nueve), para la opción de 9 hoyos.
+export const PAR_NUEVE = HOYOS.slice(0, 9).reduce((suma, h) => suma + h.par, 0);
 
 // ------------------------------------------------------------- las estaciones
 /**
