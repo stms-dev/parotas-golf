@@ -1,20 +1,20 @@
 /**
- * El campo: el mapa verde del recorrido, grande y al centro, con las fotos del
- * hoyo montadas encima de sus orillas.
+ * El campo: el mapa y las fotos del hoyo, en cuadrícula.
  *
- *            ┌───────────────┐
- *            │    foto 1     │        (principal, arriba al centro)
- *   ‹  ┌─────┴───────────────┴─────┐  ›
- *      │        M A P A  verde     │   (centro, horizontal)
- *      │ ┌──────┐         ┌──────┐ │
- *      └─┤foto 2├─────────┤foto 3├─┘
- *        └──────┘         └──────┘
+ * En escritorio, tal como el mockup del club:
  *
- * El mapa es el protagonista y se navega tocando un hoyo; a los costados hay
- * flechas ‹ › para saltar de hoyo. Arriba se lee siempre "Hoyo N / Par X". El
- * cambio de hoyo entra con un desvanecido suave, que toca solo a las fotos; el
- * mapa se queda quieto porque ya anima su bola. Al pasar el cursor por el mapa
- * sube al frente para poder tocar los hoyos que tapan las fotos.
+ *   ‹  ┌───────────────┬───────────────┐  ›
+ *      │     MAPA       │    foto 1     │
+ *      │  Hoyo N/Par X  │               │
+ *      ├───────────────┼───────────────┤
+ *      │     foto 2     │    foto 3     │
+ *      └───────────────┴───────────────┘
+ *
+ * El mapa va arriba a la izquierda —completo, sin fotos encima, así que todos
+ * los hoyos se ven y se tocan— con la etiqueta "Hoyo N / Par X" debajo. A la
+ * derecha una foto; debajo del mapa otra; debajo de esa foto, la tercera. A los
+ * costados, flechas ‹ › para saltar de hoyo. El cambio de hoyo entra con un
+ * desvanecido suave (solo las fotos; el mapa anima su bola).
  *
  * En celular no hay mapa —la foto manda—: una barra con ‹ Hoyo N · Par X › para
  * navegar, la foto principal grande y las dos secundarias debajo.
@@ -78,11 +78,8 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
       {/* ======================================================= ESCRITORIO */}
-      <div className="group relative hidden min-h-0 flex-1 lg:block">
-        {/* Etiqueta del hoyo, siempre visible, arriba a la izquierda. */}
-        <EtiquetaHoyo hoyo={hoyo} t={t} className="absolute left-0 top-0 z-40" />
-
-        {/* Flechas para cambiar de hoyo, a los costados. */}
+      <div className="relative hidden min-h-0 flex-1 lg:block">
+        {/* Flechas para cambiar de hoyo, a los costados de todo. */}
         <Flecha
           hacia="izq"
           onClick={() => irHoyo(-1)}
@@ -96,34 +93,33 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
           className="absolute right-0 top-1/2 z-40 -translate-y-1/2"
         />
 
-        {/* El mapa verde, grande y al centro. Al pasar el cursor sube al frente
-            (tapa las fotos) para poder tocar cualquier hoyo; al salir, las
-            fotos vuelven a montarse encima. */}
-        <div className="absolute inset-x-[10%] inset-y-[13%] z-0 group-hover:z-30">
-          <RecorridoHorizontal
-            hoyoActivo={hoyo.n}
-            onElegirHoyo={onElegirHoyo}
-            orientacion="horizontal"
-          />
-        </div>
+        {/* La cuadrícula, con hueco a los lados para las flechas. */}
+        <div className="grid h-full min-h-0 grid-cols-2 gap-3 px-14">
+          {/* Columna izquierda: mapa, etiqueta, foto 2. */}
+          <div className="flex min-h-0 flex-col gap-2">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-sm bg-sombra-honda/55">
+              <RecorridoHorizontal
+                hoyoActivo={hoyo.n}
+                onElegirHoyo={onElegirHoyo}
+                orientacion="horizontal"
+              />
+            </div>
+            <EtiquetaHoyo hoyo={hoyo} t={t} pill className="shrink-0 self-center" />
+            <div className="min-h-0 flex-1" style={fade}>
+              <Foto src={listas[1]} />
+            </div>
+          </div>
 
-        {/* Fotos montadas sobre las orillas del mapa. */}
-        <FotoFlotante
-          src={listas[0]}
-          etiqueta={t('campo.foto', { n: hoyo.n })}
-          estilo={fade}
-          className="absolute left-1/2 top-0 z-10 w-[30%] -translate-x-1/2"
-        />
-        <FotoFlotante
-          src={listas[1]}
-          estilo={fade}
-          className="absolute bottom-0 left-[8%] z-10 w-[28%]"
-        />
-        <FotoFlotante
-          src={listas[2]}
-          estilo={fade}
-          className="absolute bottom-0 right-[8%] z-10 w-[28%]"
-        />
+          {/* Columna derecha: foto 1 (principal) y foto 3. */}
+          <div className="flex min-h-0 flex-col gap-3">
+            <div className="min-h-0 flex-1" style={fade}>
+              <Foto src={listas[0]} etiqueta={t('campo.foto', { n: hoyo.n })} />
+            </div>
+            <div className="min-h-0 flex-1" style={fade}>
+              <Foto src={listas[2]} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* =========================================================== CELULAR */}
@@ -147,18 +143,26 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
   );
 }
 
-/** "Hoyo N" grande y "Par X" debajo. Se usa en web y en celular. */
-function EtiquetaHoyo({ hoyo, t, centrado = false, className = '' }) {
-  return (
-    <div className={`pointer-events-none ${centrado ? 'text-center' : ''} ${className}`}>
+/** "Hoyo N" grande y "Par X" debajo. Pastilla oscura (web) o texto (celular). */
+function EtiquetaHoyo({ hoyo, t, centrado = false, pill = false, className = '' }) {
+  const cuerpo = (
+    <>
       <p className="font-titulo text-rotulo-md leading-none text-arena [text-shadow:0_1px_6px_rgba(0,0,0,0.6)]">
         {t('campo.rotHoyo', { n: hoyo.n })}
       </p>
-      <p className="mt-1 font-texto text-menudo text-arena/85 [text-shadow:0_1px_6px_rgba(0,0,0,0.6)]">
+      <p className="mt-0.5 font-texto text-menudo text-arena/85 [text-shadow:0_1px_6px_rgba(0,0,0,0.6)]">
         {t('campo.rotPar', { par: hoyo.par })}
       </p>
-    </div>
+    </>
   );
+  if (pill) {
+    return (
+      <div className={`pointer-events-none rounded-sm bg-sombra/65 px-5 py-2 text-center backdrop-blur-sm ${className}`}>
+        {cuerpo}
+      </div>
+    );
+  }
+  return <div className={`pointer-events-none ${centrado ? 'text-center' : ''} ${className}`}>{cuerpo}</div>;
 }
 
 /** Flecha ‹ / › para cambiar de hoyo. */
@@ -177,23 +181,7 @@ function Flecha({ hacia, onClick, etiqueta, className = '' }) {
   );
 }
 
-/** Una foto montada sobre el mapa: marco claro + sombra para que flote. */
-function FotoFlotante({ src, etiqueta, estilo, className = '' }) {
-  return (
-    <figure
-      className={`overflow-hidden rounded-sm border-[3px] border-arena/90 shadow-[0_16px_38px_rgba(0,0,0,0.5)] ${className}`}
-      style={estilo}
-      role="img"
-      aria-label={etiqueta || undefined}
-    >
-      <div className="aspect-[16/10] w-full bg-sombra-clara">
-        <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
-      </div>
-    </figure>
-  );
-}
-
-/** Una foto del hoyo a cuadro completo (celular). */
+/** Una foto del hoyo, recortada a su cuadro. */
 function Foto({ src, etiqueta }) {
   return (
     <div
