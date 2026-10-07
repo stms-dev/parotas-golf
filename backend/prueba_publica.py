@@ -63,7 +63,7 @@ caddie = [e for e in d["extras"] if e["code"] == "CADDIE"][0]
 print("  caddie:", caddie["precio"], "pago_directo =", caddie["pago_directo"])
 assert not any(t["modalidad"] == "INDIVIDUAL" for t in d["tarifas"]), "no debe publicar Individual"
 assert not any(e["code"] == "REPLAY" for e in d["extras"]), "el replay no se vende por internet"
-assert len(d["paquetes"]) == 2, "el sitio necesita los dos paquetes para pintarlos"
+assert len(d["paquetes"]) == 3, "el sitio necesita los tres paquetes para pintarlos"
 grupo = next(p for p in d["paquetes"] if p["modalidad"] == "GRUPO")
 assert grupo["minimo"] == 4, "un grupo sigue siendo desde cuatro"
 

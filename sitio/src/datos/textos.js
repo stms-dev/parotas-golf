@@ -230,9 +230,8 @@ export const TEXTOS = {
       'No se completó el pago, así que la salida volvió a estar disponible. No se ' +
       'le cobró nada. Puede elegir otro horario cuando quiera.',
     'listo.detalle':
-      '{dia} a las {hora}, {n} jugador{es}. Le enviamos su pase por correo ' +
-      'electrónico — también puede descargar este folio como comprobante. ' +
-      'Preséntese en la casa club quince minutos antes.',
+      '{dia} a las {hora}, {n} {quien}. Le enviamos su pase y el detalle de su ' +
+      'pago por correo electrónico. Preséntese en la casa club quince minutos antes.',
     'listo.entrando':
       'Su pago está entrando. En cuanto nos lo confirmen —normalmente son segundos— ' +
       'le llega su pase por correo. No hace falta que vuelva a pagar.',
@@ -255,6 +254,17 @@ export const TEXTOS = {
     'paquete.PARTIDA_ABIERTA.detalle':
       'Sale con los que se junten, hasta llegar a 4, aunque vengan de hoteles distintos.',
     'paquete.noAbiertas': 'Ese día el campo no está armando partidas abiertas.',
+    'paquete.PRACTICA': 'Práctica',
+    'paquete.PRACTICA.detalle':
+      'Solo zona de práctica: no sale al campo. Elija su hora de llegada.',
+    'reservar.horaLlegada': '¿A qué hora llega?',
+    'reservar.zonaPractica': 'Zona de práctica',
+    'reservar.practicaPrecio': '{precio} por persona · {fin} de viernes a domingo',
+    'reservar.personaPractica': 'Zona de práctica',
+    'quien.jugador': 'jugador',
+    'quien.jugadores': 'jugadores',
+    'quien.persona': 'persona',
+    'quien.personas': 'personas',
   },
 
   en: {
@@ -461,9 +471,8 @@ export const TEXTOS = {
       'The payment was not completed, so the tee time is available again. You were ' +
       'not charged. Pick another time whenever you like.',
     'listo.detalle':
-      '{dia} at {hora}, {n} player{es}. We are sending your pass by email — you ' +
-      'can also download this booking number as a receipt. Please come to the ' +
-      'clubhouse fifteen minutes before.',
+      '{dia} at {hora}, {n} {quien}. We are sending your pass and your payment ' +
+      'details by email. Please come to the clubhouse fifteen minutes before.',
     'listo.entrando':
       'Your payment is coming through. As soon as it clears — usually seconds — your ' +
       'pass arrives by email. No need to pay again.',
@@ -484,5 +493,16 @@ export const TEXTOS = {
     'paquete.PARTIDA_ABIERTA.detalle':
       'You go out with whoever makes up the four, even from different hotels.',
     'paquete.noAbiertas': 'The course is not making up open groups that day.',
+    'paquete.PRACTICA': 'Practice',
+    'paquete.PRACTICA.detalle':
+      'Practice area only: no round on the course. Pick your arrival time.',
+    'reservar.horaLlegada': 'What time will you arrive?',
+    'reservar.zonaPractica': 'Practice area',
+    'reservar.practicaPrecio': '{precio} per person · {fin} Friday to Sunday',
+    'reservar.personaPractica': 'Practice area',
+    'quien.jugador': 'player',
+    'quien.jugadores': 'players',
+    'quien.persona': 'person',
+    'quien.personas': 'people',
   },
 };

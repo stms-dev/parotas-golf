@@ -53,6 +53,15 @@ const PAQUETES = [
     min: 1,
     max: 4,
   },
+  {
+    value: 'PRACTICA',
+    nombre: 'Práctica',
+    etiqueta: 'Zona de práctica',
+    icono: 'golf',
+    detalle: 'Solo zona de práctica: no sale al campo ni toma la salida. La hora es la de llegada.',
+    min: 1,
+    max: 8,
+  },
 ];
 
 /**
@@ -113,6 +122,8 @@ export default function NewReservationPage() {
   const [hotels, setHotels] = useState([]);
   const [tarifas, setTarifas] = useState([]);
   const [servicios, setServicios] = useState([]);
+  /** La zona de práctica, aunque esté apagada como extra: da el precio del paquete. */
+  const [servicioPractica, setServicioPractica] = useState(null);
   const [config, setConfig] = useState(null);
   /** Carritos y caddies del día elegido: los dos son limitados. */
   const [recursos, setRecursos] = useState(null);
@@ -171,6 +182,10 @@ export default function NewReservationPage() {
         setTarifas(rates);
         setConfig(configs[0] || null);
         setServicios(serviceList);
+        catalogApi
+          .services({ active_only: false })
+          .then((todos) => setServicioPractica(todos.find((x) => x.code === 'PRACTICA') || null))
+          .catch(() => {});
         setHotels(hotelList);
         if (!isHotel && hotelList.length) {
           // Del mostrador se llega con ?directo=1: es alguien que llegó por su
@@ -228,6 +243,8 @@ export default function NewReservationPage() {
     // Cualquier horario libre se puede tomar: ya no se abren en orden. Lo que
     // cierra una salida es que esté llena, bloqueada, o que su hora pasó.
     if (slot.expirada) return false;
+    // La práctica no toma la salida: cualquier hora no bloqueada sirve de llegada.
+    if (form.modality === 'PRACTICA') return slot.status !== 'BLOQUEADO';
     if (slot.status === 'BLOQUEADO' || slot.status === 'OCUPADO') return false;
     if (slot.status === 'ABIERTA') return form.modality === 'PARTIDA_ABIERTA';
     return true;
@@ -245,6 +262,7 @@ export default function NewReservationPage() {
       const elegida = slots.find((s) => s.id === prev.tee_slot_id);
       if (!elegida) return prev;
       const compatible =
+        (form.modality === 'PRACTICA' && elegida.status !== 'BLOQUEADO') ||
         elegida.status === 'DISPONIBLE' ||
         (elegida.status === 'ABIERTA' && form.modality === 'PARTIDA_ABIERTA');
       return compatible ? prev : { ...prev, tee_slot_id: null };
@@ -270,6 +288,14 @@ export default function NewReservationPage() {
 
   // El precio depende del día de la salida: de viernes a domingo es más caro.
   function precioDe(modalidad, categoria = 'ADULTO', hoyos = form.holes) {
+    if (modalidad === 'PRACTICA') {
+      if (!servicioPractica) return null;
+      return Number(
+        esFinDeSemana(date) && servicioPractica.weekend_price
+          ? servicioPractica.weekend_price
+          : servicioPractica.price,
+      );
+    }
     const t = tarifaDelDia(tarifas, {
       modalidad, hoyos, categoria, fecha: date, twilight: salidaTwilight,
     });
@@ -287,8 +313,9 @@ export default function NewReservationPage() {
   // Si ese día/recorrido no tiene tarifa de local, sale igual que adulto.
   const precioLocal = precioDe(form.modality, 'LOCAL');
   const localAplica = precioLocal != null && precioLocal !== precioAdulto;
+  const esPractica = form.modality === 'PRACTICA';
   const precioJugador = (p) =>
-    esJunior(p) ? precioInfantil : p.is_local ? precioLocal : precioAdulto;
+    esPractica ? precioAdulto : esJunior(p) ? precioInfantil : p.is_local ? precioLocal : precioAdulto;
 
   /**
    * El titular como jugador, seguido de los adicionales. Esta lista es la
@@ -354,7 +381,7 @@ export default function NewReservationPage() {
   const precioPractica = practica
     ? Number(esFinDeSemana(date) && practica.weekend_price ? practica.weekend_price : practica.price)
     : 0;
-  const pasesPractica = practica ? jugadores.filter((p) => p.practica).length : 0;
+  const pasesPractica = practica && !esPractica ? jugadores.filter((p) => p.practica).length : 0;
   const subtotalPractica = precioPractica * pasesPractica;
   // El caddie no entra: lo paga el huésped directo al caddie, no el club.
   const subtotalServicios = subtotalSets + subtotalPractica;
@@ -365,9 +392,10 @@ export default function NewReservationPage() {
   const acompanantesConNombre = companions.filter((c) => c.full_name.trim().length >= 3);
   const subtotalAcompanantes = precioAcompanante * acompanantesConNombre.length;
 
-  const carritosNecesarios = Math.ceil(
-    (jugadores.length + acompanantesConNombre.length) / asientosPorCarrito,
-  );
+  // La zona de práctica no usa carrito ni caddie.
+  const carritosNecesarios = esPractica
+    ? 0
+    : Math.ceil((jugadores.length + acompanantesConNombre.length) / asientosPorCarrito);
   // Un caddie por carrito, hasta donde alcancen los del día. Si no quedan, la
   // partida sale sin caddie: el club tiene dos y no deja de vender por eso.
   const caddiesAsignados = Math.max(Math.min(carritosNecesarios, caddiesLibres), 0);
@@ -436,10 +464,10 @@ export default function NewReservationPage() {
           full_name: p.full_name.trim(),
           age: p.age ? Number(p.age) : null,
           is_holder: Boolean(p.is_holder),
-          pga_code: p.pga_code ? p.pga_code.trim() : null,
+          pga_code: !esPractica && p.pga_code ? p.pga_code.trim() : null,
           club_hand: p.club_hand || null,
-          handicap: p.handicap ? String(p.handicap).trim() : null,
-          is_local: Boolean(p.is_local) && !esJunior(p),
+          handicap: !esPractica && p.handicap ? String(p.handicap).trim() : null,
+          is_local: !esPractica && Boolean(p.is_local) && !esJunior(p),
         })),
         companions: companions
           .filter((c) => c.full_name.trim().length >= 3)
@@ -644,6 +672,7 @@ export default function NewReservationPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap items-end gap-6">
+              {!esPractica && (
               <div>
                 <p className="mb-1.5 text-label-sm uppercase tracking-wider text-on-surface-variant">
                   Recorrido del campo
@@ -665,6 +694,7 @@ export default function NewReservationPage() {
                   ))}
                 </div>
               </div>
+              )}
 
               {!isHotel && isRecepcion && (
                 <div className="min-w-[280px]">
@@ -712,7 +742,7 @@ export default function NewReservationPage() {
                 carrito, hasta donde alcancen los dos que tiene el campo, y el
                 huésped le paga directo. Lo que sí hace falta es que la
                 conserjería sepa cuánto vale para poder decírselo. */}
-            {caddie && (
+            {caddie && !esPractica && (
               <div className="mt-5 rounded border border-outline-variant/60 bg-surface-container-low">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/50 px-4 py-2.5">
                   <span className="flex items-center gap-2 text-title-md text-primary">
@@ -1027,6 +1057,7 @@ export default function NewReservationPage() {
                     onChange={(e) => setForm({ ...form, holder_age: e.target.value })}
                   />
                 </Field>
+                {!esPractica && (
                 <Field label="Identificador PGA" hint="Opcional · lo valida recepción">
                   <Input
                     value={form.holder_pga}
@@ -1034,6 +1065,7 @@ export default function NewReservationPage() {
                     onChange={(e) => setForm({ ...form, holder_pga: e.target.value })}
                   />
                 </Field>
+                )}
                 {/* Un solo campo, aunque sean dos cosas distintas en el
                     mundo del golf: el hándicap es el número y el GHIN es la
                     credencial que lo respalda. En la caseta nadie los pide
@@ -1041,6 +1073,7 @@ export default function NewReservationPage() {
                     club necesita es tenerlo anotado. Pedir dos casillas para
                     que una siempre quede vacía solo hace más lento el
                     registro. */}
+                {!esPractica && (
                 <Field label="Handicap/GHIN" hint="Opcional · el número o la credencial">
                   <Input
                     value={form.holder_handicap}
@@ -1048,19 +1081,22 @@ export default function NewReservationPage() {
                     onChange={(e) => setForm({ ...form, holder_handicap: e.target.value })}
                   />
                 </Field>
+                )}
                 <Field label="Bastones" hint="Primero propios o renta">
                   <Bastones
                     valor={form.holder_club_hand}
                     onCambio={(v) => setForm({ ...form, holder_club_hand: v })}
                   />
                 </Field>
+                {!esPractica && (
                 <Field label="¿Es local?" hint={AYUDA_LOCAL}>
                   <SiNo
                     valor={form.holder_local}
                     onCambio={(v) => setForm({ ...form, holder_local: v })}
                   />
                 </Field>
-                {practica && (
+                )}
+                {practica && !esPractica && (
                   <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 180 pelotas`}>
                     <SiNo
                       valor={form.holder_practica}
@@ -1107,7 +1143,8 @@ export default function NewReservationPage() {
                       numero={index + 2}
                       player={player}
                       precio={precioJugador(player)}
-                      conPractica={Boolean(practica)}
+                      conPractica={Boolean(practica) && !esPractica}
+                      soloPractica={esPractica}
                       puedeQuitar={extras.length > minExtras}
                       onQuitar={() => setExtras(extras.filter((_, i) => i !== index))}
                       onChange={(campo, valor) => {
@@ -1356,7 +1393,7 @@ export default function NewReservationPage() {
                 }
               />
               <Renglon t="Paquete" v={`${paquete.nombre} (${jugadores.length} pax)`} />
-              <Renglon t="Recorrido" v={`${form.holes} hoyos`} />
+              <Renglon t="Recorrido" v={esPractica ? 'Zona de práctica' : `${form.holes} hoyos`} />
               <Renglon
                 t="Jugadores con cupo"
                 v={`${jugadores.length} (${adultos.length} ${
@@ -1711,7 +1748,9 @@ function FilaResumen({ numero, nombre, rol, tonoRol, detalle, monto }) {
   );
 }
 
-function JugadorFila({ numero, player, precio, conPractica, puedeQuitar, onQuitar, onChange }) {
+function JugadorFila({
+  numero, player, precio, conPractica, soloPractica = false, puedeQuitar, onQuitar, onChange,
+}) {
   const menor = esJunior(player);
   return (
     <div className="rounded border border-outline-variant/50 bg-surface-container-lowest px-3 py-3">
@@ -1741,7 +1780,7 @@ function JugadorFila({ numero, player, precio, conPractica, puedeQuitar, onQuita
               : 'bg-surface-container-high text-on-surface-variant'
           }`}
         >
-          {menor ? 'Junior' : player.is_local ? 'Local' : 'Adulto'}
+          {menor ? 'Junior' : player.is_local && !soloPractica ? 'Local' : 'Adulto'}
         </span>
         <span className="whitespace-nowrap rounded bg-estado-ok-bg px-2 py-0.5 font-mono text-label-md text-estado-ok-text">
           {mxn(precio || 0)}
@@ -1759,6 +1798,8 @@ function JugadorFila({ numero, player, precio, conPractica, puedeQuitar, onQuita
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-outline-variant/40 pt-2.5">
+        {!soloPractica && (
+        <>
         <input
           value={player.pga_code}
           placeholder="PGA (opcional)"
@@ -1771,13 +1812,15 @@ function JugadorFila({ numero, player, precio, conPractica, puedeQuitar, onQuita
           onChange={(e) => onChange('handicap', e.target.value)}
           className="w-40 rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-md"
         />
+        </>
+        )}
         <div className="flex items-center gap-2">
           <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
             Bastones
           </span>
           <Bastones valor={player.club_hand} onCambio={(v) => onChange('club_hand', v)} />
         </div>
-        {!menor && (
+        {!menor && !soloPractica && (
           <div className="flex items-center gap-2" title={AYUDA_LOCAL}>
             <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
               Local

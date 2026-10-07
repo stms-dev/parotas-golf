@@ -53,6 +53,58 @@ def _fecha_y_hora(reservation) -> str:
     return f"{slot.slot_date.strftime('%d/%m/%Y')} · {slot.slot_time.strftime('%H:%M')} hrs"
 
 
+def _es_practica(reservation) -> bool:
+    return str(reservation.modality) == "PRACTICA"
+
+
+def _que_juega(reservation) -> str:
+    """"18 hoyos" o "Zona de práctica": lo que se reservó."""
+    return "Zona de práctica" if _es_practica(reservation) else f"{reservation.holes} hoyos"
+
+
+def _hora_local(momento) -> str:
+    """Un datetime guardado en UTC, en la hora del campo: "07/10/2026 a las 14:32"."""
+    if momento is None:
+        return ""
+    from datetime import timezone
+
+    from app.shared.tiempo import zona
+
+    tz = zona()
+    local = momento.replace(tzinfo=timezone.utc).astimezone(tz) if tz else momento
+    return f"{local.strftime('%d/%m/%Y')} a las {local.strftime('%H:%M')}"
+
+
+def _pago_en_linea(reservation):
+    """Lo que ya se pagó de la reserva antes de llegar: cuándo, cómo y cuánto.
+
+    Devuelve None si todavía no hay ningún cobro (la reserva del hotel, que se
+    paga en el mostrador).
+    """
+    from app.modules.billing.models import pagos_de_la_reserva
+    from app.shared.money import ZERO, money
+
+    pagos = pagos_de_la_reserva(reservation)
+    if not pagos:
+        return None
+    pagado = money(sum((p.neto_mxn for p in pagos), start=ZERO))
+    ultimo = max(pagos, key=lambda p: p.paid_at or datetime_min())
+    # La nota del cobro en línea dice "Pago en línea · visa ····4242".
+    forma = (ultimo.notes or "").replace("Pago en línea · ", "").strip() or "Tarjeta"
+    return {
+        "pagado": pagado,
+        "cuando": _hora_local(ultimo.paid_at),
+        "forma": forma[:1].upper() + forma[1:],
+        "referencia": ultimo.reference or "",
+    }
+
+
+def datetime_min():
+    from datetime import datetime
+
+    return datetime.min
+
+
 def _marco(contenido: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="es"><body style="margin:0;padding:24px;background:#f6f5f1">
@@ -76,26 +128,58 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
 
     El texto plano no es un adorno: hay clientes de correo que no muestran
     HTML, y un pase que no se puede leer no sirve de nada.
+
+    Si la reserva ya viene pagada (la del sitio, pagada con tarjeta), el pase
+    lleva también el detalle del pago: cuándo se pagó, con qué y el desglose.
+    Así el huésped tiene su comprobante en el mismo correo.
     """
+    from app.shared.money import money
+
     cuando = _fecha_y_hora(reservation)
     jugadores = [p.full_name for p in reservation.players]
+    practica = _es_practica(reservation)
+    que = _que_juega(reservation)
+    pago = _pago_en_linea(reservation)
+    llegada = (
+        "Le pedimos llegar 15 minutos antes de su hora." if practica
+        else "Le pedimos llegar 15 minutos antes de su salida."
+    )
+
+    servicios = [s for s in reservation.services if s.quantity > 0]
 
     texto = (
         f"Hola {reservation.holder_name}:\n\n"
-        f"Su salida quedó registrada.\n\n"
-        f"Folio: {reservation.folio}\n"
+        + ("Su visita a la zona de práctica quedó registrada.\n\n" if practica
+           else "Su salida quedó registrada.\n\n")
+        + f"Folio: {reservation.folio}\n"
         f"Fecha y hora: {cuando}\n"
-        f"Recorrido: {reservation.holes} hoyos\n"
-        f"Jugadores: {', '.join(jugadores)}\n\n"
-        f"Presente el pase adjunto en recepción. Es uno solo para toda la partida.\n"
-        f"Le pedimos llegar 30 minutos antes de su salida.\n\n"
+        f"{'Paquete' if practica else 'Recorrido'}: {que}\n"
+        f"{'Personas' if practica else 'Jugadores'}: {', '.join(jugadores)}\n\n"
+    )
+    if pago:
+        texto += (
+            f"PAGO RECIBIDO\n"
+            f"Pagado el {pago['cuando']} · {pago['forma']}\n"
+            + "".join(f"  {p.full_name}: ${money(p.rate_applied)} MXN\n" for p in reservation.players)
+            + "".join(
+                f"  {(s.service.name if s.service else 'Servicio')} x{s.quantity}: ${money(s.total)} MXN\n"
+                for s in servicios
+            )
+            + f"Total pagado: ${pago['pagado']} MXN\n"
+            + (f"Referencia: {pago['referencia']}\n" if pago["referencia"] else "")
+            + "\n"
+        )
+    texto += (
+        f"Presente el pase adjunto en recepción. Es uno solo para "
+        f"{'todo el grupo' if practica else 'toda la partida'}.\n"
+        f"{llegada}\n\n"
         f"Las Parotas Club de Golf"
     )
 
     filas = "".join(
         f"<tr><td style='padding:7px 0;border-bottom:1px solid #eeece6'>{p.full_name}</td>"
         f"<td style='padding:7px 0;border-bottom:1px solid #eeece6;color:#77756c;text-align:right'>"
-        f"{'Infantil' if p.category == 'INFANTIL' else 'Adulto'}</td></tr>"
+        f"{'Junior' if p.category == 'INFANTIL' else 'Adulto'}</td></tr>"
         for p in reservation.players
     )
     acompanantes = ""
@@ -106,32 +190,82 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
             f"Acompañantes (no juegan): {nombres}</p>"
         )
 
+    bloque_pago = ""
+    if pago:
+        renglones = "".join(
+            f"<tr><td style='padding:6px 0;border-bottom:1px solid #e3ece6'>"
+            f"{p.full_name}<span style='color:#77756c'> · "
+            f"{'Zona de práctica' if practica else ('Junior' if p.category == 'INFANTIL' else 'Green fee')}"
+            f"</span></td>"
+            f"<td style='padding:6px 0;border-bottom:1px solid #e3ece6;text-align:right;"
+            f"font-family:ui-monospace,monospace'>${money(p.rate_applied)}</td></tr>"
+            for p in reservation.players
+        ) + "".join(
+            f"<tr><td style='padding:6px 0;border-bottom:1px solid #e3ece6'>"
+            f"{s.service.name if s.service else 'Servicio'} × {s.quantity}</td>"
+            f"<td style='padding:6px 0;border-bottom:1px solid #e3ece6;text-align:right;"
+            f"font-family:ui-monospace,monospace'>${money(s.total)}</td></tr>"
+            for s in servicios
+        )
+        referencia = (
+            f"<p style='margin:8px 0 0;font-size:11px;color:#8a8a80'>Referencia: {pago['referencia']}</p>"
+            if pago["referencia"] else ""
+        )
+        bloque_pago = f"""
+    <div style="border:1px solid #cfe3d6;border-radius:12px;padding:18px;margin:18px 0;
+                font-family:system-ui,sans-serif">
+      <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#37634e">
+        &#10003; Pago recibido
+      </p>
+      <p style="margin:6px 0 12px;font-size:14px;color:{VERDE}">
+        Pagado el <strong>{pago['cuando']}</strong> · {pago['forma']}
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        {renglones}
+        <tr><td style="padding-top:10px;font-size:15px">Total pagado</td>
+            <td style="padding-top:10px;text-align:right;font-size:17px;
+                       font-family:ui-monospace,monospace">${pago['pagado']} MXN</td></tr>
+      </table>
+      {referencia}
+    </div>"""
+
+    nota_final = (
+        f"Le pedimos llegar <strong>15 minutos antes</strong> de su "
+        f"{'hora' if practica else 'salida'}. "
+        + ("Su reserva ya está pagada: en recepción solo registramos su llegada."
+           if pago else
+           ("El cobro se hace en recepción." if practica
+            else "El cobro y la validación de credenciales PGA se hacen en recepción."))
+    )
+
     html = _marco(f"""
     <p style="font-family:system-ui,sans-serif;font-size:15px">
-      Hola {reservation.holder_name}, su salida quedó registrada.
+      Hola {reservation.holder_name}, {'su visita a la zona de práctica quedó registrada'
+      if practica else 'su salida quedó registrada'}.
     </p>
 
     <div style="background:#f2f7f4;border-radius:12px;padding:22px;margin:18px 0;text-align:center">
       <p style="margin:0;font-family:ui-monospace,monospace;font-size:22px">{reservation.folio}</p>
       <p style="margin:6px 0 16px;font-family:system-ui,sans-serif;font-size:14px;color:#37634e">
-        {cuando} · {reservation.holes} hoyos
+        {cuando} · {que}
       </p>
-      <img src="cid:pase-qr" alt="Pase de la partida" style="width:190px;height:190px"/>
+      <img src="cid:pase-qr" alt="Pase" style="width:190px;height:190px"/>
       <p style="margin:12px 0 0;font-family:system-ui,sans-serif;font-size:12px;color:#77756c">
-        Un solo pase para toda la partida
+        Un solo pase para {'todo el grupo' if practica else 'toda la partida'}
       </p>
     </div>
 
     <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">
       <tr><th colspan="2" style="text-align:left;padding-bottom:6px;font-size:11px;
-          letter-spacing:1px;text-transform:uppercase;color:#8a8a80">Jugadores</th></tr>
+          letter-spacing:1px;text-transform:uppercase;color:#8a8a80">
+          {'Personas' if practica else 'Jugadores'}</th></tr>
       {filas}
     </table>
     {acompanantes}
+    {bloque_pago}
 
     <p style="font-family:system-ui,sans-serif;font-size:13px;color:#77756c;margin-top:20px">
-      Le pedimos llegar <strong>30 minutos antes</strong> de su salida. El cobro y la
-      validación de credenciales PGA se hacen en recepción.
+      {nota_final}
     </p>
     """)
 
@@ -202,7 +336,7 @@ def cuerpo_recibo(reservation) -> tuple[str, str]:
     <div style="background:#f2f7f4;border-radius:12px;padding:18px;margin:16px 0">
       <p style="margin:0;font-family:ui-monospace,monospace;font-size:18px">{reservation.folio}</p>
       <p style="margin:4px 0 0;font-family:system-ui,sans-serif;font-size:14px;color:#37634e">
-        {cuando} · {reservation.holes} hoyos
+        {cuando} · {_que_juega(reservation)}
       </p>
     </div>
 

@@ -63,7 +63,10 @@ export const api = {
   campo: () => pedir('/public/campo'),
 
   /** Las salidas de un día. De las ocupadas solo se sabe que lo están. */
-  disponibilidad: (fecha) => pedir(`/public/disponibilidad?fecha=${fecha}`),
+  disponibilidad: (fecha, modalidad) =>
+    pedir(
+      `/public/disponibilidad?fecha=${fecha}${modalidad === 'PRACTICA' ? '&modalidad=PRACTICA' : ''}`,
+    ),
 
   /** Lo que va a costar. Lo calcula el servidor, no esta pantalla.
    *

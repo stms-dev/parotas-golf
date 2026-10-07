@@ -186,6 +186,7 @@ class ReservaPublicaService:
             "tarifas": tarifas,
             "extras": extras,
             "paquetes": self.paquetes(),
+            "practica": self._precio_practica(),
             "minimo_grupo": self.PAQUETES[BookingModality.GRUPO]["minimo"],
             "cupo_partida_abierta": self.PAQUETES[BookingModality.PARTIDA_ABIERTA]["maximo"],
             "apartado_minutos": settings.APARTADO_MINUTOS,
@@ -202,7 +203,7 @@ class ReservaPublicaService:
         }
 
     # ------------------------------------------------------ disponibilidad
-    def salidas(self, dia: date) -> dict:
+    def salidas(self, dia: date, modalidad: Optional[str] = None) -> dict:
         """Las salidas de un día, con lo mínimo que el público puede saber.
 
         De una salida ocupada solo se dice que está ocupada. Ni quién reservó,
@@ -222,6 +223,9 @@ class ReservaPublicaService:
 
         cerrado = (not settings.horarios_libres) and dia_cerrado(dia, limite)
 
+        practica = str(modalidad or "").upper() == BookingModality.PRACTICA.value
+        tope_practica = self.PAQUETES[BookingModality.PRACTICA]["maximo"]
+
         salidas = []
         for slot in self.disponibilidad.day(dia):
             vencida = (not settings.horarios_libres) and ya_paso(slot.slot_date, slot.slot_time)
@@ -230,6 +234,12 @@ class ReservaPublicaService:
             # le sobren lugares.
             if slot.open_closed:
                 libres = 0
+            # La práctica no toma la salida de golf: cualquier hora que no
+            # esté bloqueada por un evento sirve como hora de llegada.
+            if practica:
+                from app.shared.enums import SlotStatus
+
+                libres = 0 if slot.status == SlotStatus.BLOQUEADO else tope_practica
             salidas.append({
                 "id": slot.id,
                 "hora": slot.slot_time,
@@ -255,7 +265,19 @@ class ReservaPublicaService:
         # La partida abierta se comparte: nunca puede pedir más que el cupo de
         # la franja, porque los demás lugares son de quien se junte.
         BookingModality.PARTIDA_ABIERTA: {"minimo": 1, "maximo": 4},
+        # Zona de práctica: la hora es solo la de llegada, no toma la salida.
+        BookingModality.PRACTICA: {"minimo": 1, "maximo": 8},
     }
+
+    def _precio_practica(self) -> Optional[dict]:
+        servicio = self.reservas.servicio_practica()
+        if servicio is None:
+            return None
+        return {
+            "precio": money(servicio.price),
+            "precio_fin": money(servicio.weekend_price) if servicio.weekend_price is not None else None,
+            "descripcion": servicio.description,
+        }
 
     def paquetes(self) -> list:
         return [
@@ -316,7 +338,7 @@ class ReservaPublicaService:
         renglones = []
         green_fees = ZERO
         for i, j in enumerate(datos.jugadores):
-            plan, categoria = self._tarifa(
+            precio, categoria = self._tarifa(
                 modalidad=modalidad,
                 hoyos=datos.hoyos,
                 edad=j.edad,
@@ -326,9 +348,9 @@ class ReservaPublicaService:
             renglones.append({
                 "nombre": (j.nombre or "").strip() or f"Jugador {i + 1}",
                 "categoria": categoria.value,
-                "green_fee": money(plan.price),
+                "green_fee": money(precio),
             })
-            green_fees += money(plan.price)
+            green_fees += money(precio)
 
         sets = sum(1 for j in datos.jugadores if j.bastones)
         bastones = self._servicio("BASTONES")
@@ -337,14 +359,14 @@ class ReservaPublicaService:
         caddie = self._servicio("CADDIE")
 
         # Zona de práctica: un pase por jugador que la marque.
-        practica = self._servicio("PRACTICA")
+        practica = None if modalidad == BookingModality.PRACTICA else self._servicio("PRACTICA")
         pases = sum(1 for j in datos.jugadores if j.practica) if practica else 0
         precio_practica = money(practica.price_on(slot.slot_date)) if practica else ZERO
         subtotal_practica = precio_practica * pases
 
         return {
             "modalidad": modalidad.value,
-            "hoyos": datos.hoyos,
+            "hoyos": 0 if modalidad == BookingModality.PRACTICA else datos.hoyos,
             "fecha": slot.slot_date,
             "hora": slot.slot_time,
             "twilight": bool(
@@ -377,12 +399,14 @@ class ReservaPublicaService:
         """
         categoria = self._categoria(edad)
         try:
-            # Devuelve (tarifa, categoría con la que se cobra): la de local si
-            # aplica ese día, si no la de adulto.
-            return self.precios.resolve_player_rate(
-                modality=modalidad.value,
+            # Devuelve (precio, categoría con la que se cobra): la de local si
+            # aplica ese día, si no la de adulto. La práctica cobra el precio
+            # de la zona de práctica.
+            return self.reservas.tarifa_jugador(
+                modality=modalidad,
                 holes=hoyos,
                 age=edad,
+                category=categoria,
                 is_local=local,
                 on_date=slot.slot_date,
                 at_time=slot.slot_time,
@@ -436,6 +460,7 @@ class ReservaPublicaService:
 
         # El primero de la lista es el titular: es quien pone el correo y a
         # quien le llega el pase. El sitio lo manda siempre en primer lugar.
+        es_practica = modalidad == BookingModality.PRACTICA
         players = []
         for i, j in enumerate(datos.jugadores):
             players.append(
@@ -443,12 +468,13 @@ class ReservaPublicaService:
                     full_name=j.nombre.strip(),
                     age=j.edad,
                     is_holder=(i == 0),
-                    pga_code=(j.pga or None),
+                    # En práctica no hay hándicap, GHIN ni PGA que anotar.
+                    pga_code=None if es_practica else (j.pga or None),
                     # Un solo dato: el jugador da su hándicap o su GHIN, y lo
                     # que el club necesita es tenerlo anotado.
-                    handicap=(j.handicap or None),
+                    handicap=None if es_practica else (j.handicap or None),
                     club_hand=(j.bastones or None),
-                    is_local=j.local,
+                    is_local=False if es_practica else j.local,
                 )
             )
 
@@ -458,7 +484,7 @@ class ReservaPublicaService:
             bastones = self._servicio("BASTONES")
             if bastones:
                 servicios.append({"service_id": bastones.id, "quantity": sets})
-        pases = sum(1 for j in datos.jugadores if j.practica)
+        pases = 0 if es_practica else sum(1 for j in datos.jugadores if j.practica)
         if pases:
             practica = self._servicio("PRACTICA")
             if practica:
@@ -583,8 +609,12 @@ class ReservaPublicaService:
             folio=reserva.folio,
             total=money(reserva.total),
             descripcion=(
-                f"{jugadores} jugador{'es' if jugadores > 1 else ''} · {cuando} "
-                "· Las Parotas, Club de Golf Huatulco"
+                (
+                    f"Zona de práctica · {jugadores} persona{'s' if jugadores > 1 else ''}"
+                    if str(reserva.modality) == BookingModality.PRACTICA.value
+                    else f"{jugadores} jugador{'es' if jugadores > 1 else ''}"
+                )
+                + f" · {cuando} · Las Parotas, Club de Golf Huatulco"
             ),
             correo=reserva.holder_email,
             # La sesión de pago caduca junto con el apartado de la salida.
@@ -755,6 +785,7 @@ class ReservaPublicaService:
             "fecha": slot.slot_date if slot else None,
             "hora": slot.slot_time if slot else None,
             "jugadores": len(reserva.players),
+            "modalidad": str(reserva.modality),
             "titular": reserva.holder_name,
             "total": money(reserva.total),
             "vence": reserva.hold_expires_at,

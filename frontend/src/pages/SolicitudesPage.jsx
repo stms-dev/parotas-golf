@@ -21,7 +21,7 @@ import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
-import { ESTADO_RESERVA, MODALIDAD, fechaHora, hora, hoy, mxn } from '../utils/format';
+import { ESTADO_RESERVA, MODALIDAD, fechaHora, hora, hoy, mxn, recorrido } from '../utils/format';
 
 const FILTROS = [
   { key: 'pendientes', label: 'Por atender' },
@@ -277,7 +277,7 @@ export default function SolicitudesPage() {
                     </p>
                     <p className="text-body-md text-outline">
                       folio {r.folio} · {r.player_count} jugadores · {MODALIDAD[r.modality]} ·{' '}
-                      {r.holes} hoyos · solicitada {fechaHora(r.created_at)}
+                      {recorrido(r)} · solicitada {fechaHora(r.created_at)}
                     </p>
                   </div>
 

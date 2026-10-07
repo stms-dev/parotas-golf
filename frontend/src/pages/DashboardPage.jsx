@@ -19,7 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
-import { ESTADO_RESERVA, MODALIDAD, fecha, hora, hoy, mxn, toUsd } from '../utils/format';
+import { ESTADO_RESERVA, MODALIDAD, fecha, hora, hoy, mxn, toUsd, recorrido } from '../utils/format';
 
 const TIPOS_EVENTO = [
   ['TORNEO', 'Torneo'],
@@ -471,7 +471,7 @@ function Franja({ slot, reservas, rate, ultima, puedeAsignar }) {
                     to={`/reservas/${r.id}`}
                     className="text-title-md text-primary hover:underline"
                   >
-                    {r.holder_name} · {r.holes} hoyos
+                    {r.holder_name} · {recorrido(r)}
                   </Link>
                   {r.hotel_name && <Etiqueta tono="hotel">{r.hotel_name}</Etiqueta>}
                   <Etiqueta tono={estado.variant === 'ok' ? 'ok' : 'neutral'}>

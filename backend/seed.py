@@ -161,7 +161,13 @@ def sembrar(produccion: bool = False):
             ("PRACTICA", "Zona de práctica", "250.00", ServiceUnit.POR_PERSONA),
         ]
         FIN_DE_SEMANA = {"PRACTICA": "400.00"}
+        from sqlalchemy import select as _select
+        existentes = set(db.execute(_select(AdditionalService.code)).scalars().all())
         for code, name, price, unit in servicios:
+            # La migración de tarifas 2026 ya da de alta la zona de práctica:
+            # no se vuelve a insertar.
+            if code in existentes:
+                continue
             fin = FIN_DE_SEMANA.get(code)
             db.add(
                 AdditionalService(

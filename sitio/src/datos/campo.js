@@ -218,6 +218,7 @@ export const REGLAS = {
 export const PAQUETES = [
   { modalidad: 'GRUPO', minimo: 4, maximo: 8 },
   { modalidad: 'PARTIDA_ABIERTA', minimo: 1, maximo: 4 },
+  { modalidad: 'PRACTICA', minimo: 1, maximo: 8 },
 ];
 
 export const CONTACTO = {

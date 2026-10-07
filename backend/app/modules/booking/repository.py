@@ -10,7 +10,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.modules.booking.models import Reservation, TeeSlot
-from app.shared.enums import ReservationStatus, SlotStatus
+from app.shared.enums import BookingModality, ReservationStatus, SlotStatus
 
 
 class TeeSlotRepository:
@@ -132,6 +132,9 @@ class ReservationRepository:
         stmt = select(Reservation).where(
             Reservation.tee_slot_id == slot_id,
             Reservation.status.notin_([ReservationStatus.CANCELADA, ReservationStatus.NO_SHOW]),
+            # La práctica no sale al campo: su hora es solo la de llegada a la
+            # zona de práctica, así que no ocupa la salida de golf.
+            Reservation.modality != BookingModality.PRACTICA,
         )
         return list(self.db.execute(stmt).scalars().unique().all())
 

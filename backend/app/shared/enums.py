@@ -40,6 +40,11 @@ class BookingModality(str, Enum):
     INDIVIDUAL = "INDIVIDUAL"
     GRUPO = "GRUPO"
     PARTIDA_ABIERTA = "PARTIDA_ABIERTA"
+    # Zona de práctica. No sale al campo: la hora es solo la de llegada, así
+    # que NO ocupa la salida de golf, no lleva hoyos, carrito ni caddie. Su
+    # precio es el del servicio PRACTICA (por persona, más caro en fin de
+    # semana).
+    PRACTICA = "PRACTICA"
 
 
 class HolesOption(int, Enum):

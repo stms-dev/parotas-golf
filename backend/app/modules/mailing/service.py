@@ -71,11 +71,18 @@ class MailingService:
         if not destinatario:
             return None
 
-        asunto = (
-            f"Pase de la partida · {reservation.folio} · Las Parotas"
-            if kind == EmailKind.PASE
-            else f"Recibo de su partida · {reservation.folio} · Las Parotas"
-        )
+        practica = str(reservation.modality) == "PRACTICA"
+        pagada = any(not p.is_voided for p in (reservation.payments or []))
+        if kind == EmailKind.PASE:
+            asunto = (
+                f"{'Pase · Zona de práctica' if practica else 'Pase de la partida'}"
+                f"{' · pagado' if pagada else ''} · {reservation.folio} · Las Parotas"
+            )
+        else:
+            asunto = (
+                f"Recibo de su {'visita' if practica else 'partida'} · "
+                f"{reservation.folio} · Las Parotas"
+            )
 
         correo = OutboxEmail(
             kind=kind,

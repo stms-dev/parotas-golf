@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.shared.enums import BookingModality, InvoiceStatus, PlayerCategory, ReservationStatus, SlotStatus, es_junior
 
@@ -169,12 +169,16 @@ class ReservationCreate(BaseModel):
     # Solo lo usan roles del campo; el usuario HOTEL toma su propio hotel del token.
     hotel_id: Optional[int] = None
 
-    @field_validator("holes")
-    @classmethod
-    def _valid_holes(cls, v: int) -> int:
-        if v not in (9, 18):
+    @model_validator(mode="after")
+    def _valid_holes(self):
+        # La práctica no recorre el campo: se guarda con 0 hoyos, mande lo
+        # que mande la pantalla.
+        if self.modality == BookingModality.PRACTICA:
+            self.holes = 0
+            return self
+        if self.holes not in (9, 18):
             raise ValueError("Los hoyos deben ser 9 o 18")
-        return v
+        return self
 
 
 class ReservationUpdate(BaseModel):

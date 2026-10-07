@@ -19,7 +19,7 @@ import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Badge, Spinner } from '../components/ui';
 import Icono from '../components/Icono';
 import { esFinDeSemana, tarifaDelDia } from '../utils/tarifas';
-import { ESTADO_RESERVA, MODALIDAD, fechaCorta, hora, hoy, mxn, fechaLocal } from '../utils/format';
+import { ESTADO_RESERVA, MODALIDAD, fechaCorta, hora, hoy, mxn, fechaLocal, recorrido } from '../utils/format';
 
 const FILTROS = [
   { key: 'todas', label: 'Todas' },
@@ -389,7 +389,7 @@ export default function HotelPanelPage() {
                             {hora(r.slot_time)}
                           </span>
                           <span className="text-label-sm text-on-surface-variant">
-                            {r.holes} hoyos
+                            {recorrido(r)}
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-right align-middle">

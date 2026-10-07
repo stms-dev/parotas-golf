@@ -131,13 +131,20 @@ export const MODALIDAD = {
   INDIVIDUAL: 'Individual',
   GRUPO: 'Grupo',
   PARTIDA_ABIERTA: 'Partida abierta',
+  PRACTICA: 'Práctica',
 };
 
 /** Las que sí se ofrecen hoy, para los selectores. */
 export const MODALIDAD_VIGENTE = {
   GRUPO: 'Grupo',
   PARTIDA_ABIERTA: 'Partida abierta',
+  PRACTICA: 'Práctica',
 };
+
+/** "18 hoyos", o "Zona de práctica" si la reserva es de práctica. */
+export function recorrido(r) {
+  return r?.modality === 'PRACTICA' ? 'Zona de práctica' : `${r?.holes ?? ''} hoyos`;
+}
 
 export const ROL = {
   SUPER_ADMIN: 'Administrador General',

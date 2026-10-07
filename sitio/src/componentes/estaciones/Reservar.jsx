@@ -105,6 +105,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const [listo, setListo] = useState(null);
 
   const paquetes = campo?.paquetes?.length ? campo.paquetes : PAQUETES;
+  // Zona de práctica: sin hoyos, sin hándicap ni PGA; la hora es de llegada.
+  const esPractica = paquete === 'PRACTICA';
+  const precioPaquetePractica = campo?.practica ?? null;
   const topes =
     paquetes.find((p) => p.modalidad === paquete) ||
     PAQUETES.find((p) => p.modalidad === paquete);
@@ -153,14 +156,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   }, [llegada]);
 
   // ------------------------------------------------------- disponibilidad
-  useEffect(() => setSlot(null), [fecha]);
+  useEffect(() => setSlot(null), [fecha, paquete === 'PRACTICA']);
 
   useEffect(() => {
     if (listo) return undefined;
     let vigente = true;
     setCargando(true);
     api
-      .disponibilidad(fecha)
+      .disponibilidad(fecha, paquete)
       .then((d) => vigente && setDia(d))
       .catch((e) => {
         if (!vigente) return;
@@ -171,7 +174,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     return () => {
       vigente = false;
     };
-  }, [fecha, listo]);
+    // La práctica consulta horas de llegada, no salidas de golf.
+  }, [fecha, listo, paquete === 'PRACTICA']);
 
   // El campo puede cerrar la partida abierta por día completo. Si estaba
   // elegida y el día no la admite, se cambia a Grupo y se avisa, en vez de
@@ -369,7 +373,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       <div className="mt-4 pb-2">
         {paso === 0 && (
           <Paso>
-            <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:grid-cols-3">
               {PAQUETES.map((p) => {
                 const puesto = paquete === p.modalidad;
                 const apagado =
@@ -416,6 +420,19 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               })}
             </div>
 
+            {esPractica ? (
+              <Campo etiqueta={t('reservar.zonaPractica')}>
+                <p className="font-texto text-menudo text-arena/85">
+                  {precioPaquetePractica
+                    ? t('reservar.practicaPrecio', {
+                        precio: pesos(Number(precioPaquetePractica.precio)),
+                        fin: pesos(Number(precioPaquetePractica.precio_fin ?? precioPaquetePractica.precio)),
+                      })
+                    : null}
+                  {precioPaquetePractica?.descripcion ? ` · ${precioPaquetePractica.descripcion}` : ''}
+                </p>
+              </Campo>
+            ) : (
             <Campo etiqueta={t('reservar.recorrido')}>
               <Alternador
                 opciones={[
@@ -431,6 +448,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   : t('reservar.completa')}
               </p>
             </Campo>
+            )}
           </Paso>
         )}
 
@@ -450,7 +468,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               </p>
             </Campo>
 
-            <Campo etiqueta={t('reservar.queHora')}>
+            <Campo etiqueta={esPractica ? t('reservar.horaLlegada') : t('reservar.queHora')}>
               {cargando && !dia ? (
                 <p className="font-texto text-menudo text-arena/80">
                   {t('reservar.consultando')}
@@ -551,6 +569,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       placeholder={t('reservar.edad')}
                       className={`${entrada} w-[5.5rem]`}
                     />
+                    {!esPractica && (
+                    <>
                     <input
                       value={j.handicap}
                       onChange={(e) => cambiar(i, 'handicap', e.target.value)}
@@ -563,6 +583,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       placeholder={t('reservar.pga')}
                       className={`${entrada} w-[9.5rem]`}
                     />
+                    </>
+                    )}
                     <Alternador
                       opciones={[
                         { valor: '', texto: t('reservar.traeBastones') },
@@ -577,7 +599,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         {t('reservar.renta', { precio: pesos(precioBastones) })}
                       </span>
                     )}
-                    {practica && (
+                    {practica && !esPractica && (
                       <Alternador
                         opciones={[
                           { valor: false, texto: t('reservar.sinPractica') },
@@ -628,8 +650,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 font-texto text-[0.95rem]">
                   <Renglon termino={t('reservar.paquete')}>
                     {t(`paquete.${cotizacion.modalidad}`)}
-                    {' · '}
-                    {t('reservar.hoyosDe', { n: cotizacion.hoyos })}
+                    {cotizacion.modalidad !== 'PRACTICA' && (
+                      <>
+                        {' · '}
+                        {t('reservar.hoyosDe', { n: cotizacion.hoyos })}
+                      </>
+                    )}
                   </Renglon>
                   <Renglon termino={t('reservar.salida')}>
                     {t('reservar.aLas', {
@@ -1007,7 +1033,11 @@ function Listo({ reserva, onOtra, t, idioma }) {
             dia: reserva.fecha ? diaEnPalabras(reserva.fecha, idioma) : '',
             hora: hhmm(reserva.hora),
             n: reserva.jugadores,
-            es: reserva.jugadores > 1 ? t('plural.jugador') : '',
+            quien: t(
+              reserva.modalidad === 'PRACTICA'
+                ? reserva.jugadores > 1 ? 'quien.personas' : 'quien.persona'
+                : reserva.jugadores > 1 ? 'quien.jugadores' : 'quien.jugador',
+            ),
           })}
         </p>
       )}

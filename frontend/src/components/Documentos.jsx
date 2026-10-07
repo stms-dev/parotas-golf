@@ -14,7 +14,7 @@ import Logo from './Logo';
 import { useEffect, useState } from 'react';
 
 import { correosApi } from '../api/client';
-import { categoria, fecha, fechaHora, hora, mxn, TASA_IVA, desgloseIva } from '../utils/format';
+import { categoria, fecha, fechaHora, hora, mxn, TASA_IVA, desgloseIva, recorrido } from '../utils/format';
 
 /** Marco común: encabezado del club, cuerpo y botones que no se imprimen. */
 function Marco({ titulo, subtitulo, onCerrar, ancho = 'max-w-3xl', children }) {
@@ -93,7 +93,7 @@ export function Responsiva({ reservation, onCerrar }) {
         <Dato t="Fecha de juego" v={fecha(reservation.slot_date)} />
         <Dato
           t="Salida"
-          v={`${hora(reservation.slot_time)} hrs · ${reservation.holes} hoyos`}
+          v={`${hora(reservation.slot_time)} hrs · ${recorrido(reservation)}`}
         />
         <Dato t="Reserva levantada por" v={reservation.booked_by_name || '—'} />
         <Dato t="Atendió en el mostrador" v={reservation.attended_by_name || '—'} />
@@ -233,7 +233,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
                 <span className="block text-on-surface">{p.full_name}</span>
                 <span className="block text-label-sm text-outline">
                   Green fee {categoria(p.category).toLowerCase()} ·{' '}
-                  {reservation.holes} hoyos
+                  {recorrido(reservation)}
                 </span>
               </td>
               {/* Va la tarifa base, no la ya descontada: el beneficio PGA baja

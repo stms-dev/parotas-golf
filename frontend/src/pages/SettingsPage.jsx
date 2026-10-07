@@ -20,7 +20,7 @@ import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
 import HistorialTipoCambio from '../components/HistorialTipoCambio';
 import Icono from '../components/Icono';
-import { MODALIDAD, fecha, fechaHora, hora, mxn, usd, fechaLocal } from '../utils/format';
+import { MODALIDAD, fecha, fechaHora, hora, mxn, usd, fechaLocal, recorrido } from '../utils/format';
 
 const CATEGORIA = { ADULTO: 'Adulto', INFANTIL: 'Junior (16 años o menos)', LOCAL: 'Local (credencial)' };
 
@@ -213,7 +213,7 @@ function TarifasOficiales({ rates, tasa }) {
                   <span className="text-outline"> · {CATEGORIA[r.category] || r.category}</span>
                 </td>
                 <td className="whitespace-nowrap py-2.5 pl-4 text-body-lg text-on-surface-variant">
-                  {r.holes} hoyos
+                  {recorrido(r)}
                   {/* Sin el día, las dos tarifas del mismo recorrido se verían
                       iguales con precios distintos. */}
                   <span className="ml-1.5 text-label-sm uppercase tracking-wider text-outline">

@@ -187,6 +187,8 @@ def _slot_out(slot, scope: Optional[int] = None, limite=None, proximas=None, rec
     vivas = [
         r for r in slot.reservations
         if r.status not in (ReservationStatus.CANCELADA, ReservationStatus.NO_SHOW)
+        # La práctica no toma la salida de golf: no se pinta en la rejilla.
+        and r.modality != BookingModality.PRACTICA
     ]
     if vivas:
         # SQLAlchemy devuelve la columna como texto; se normaliza al enum.

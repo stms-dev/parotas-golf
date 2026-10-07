@@ -244,23 +244,42 @@ export default function CheckInPage() {
       await cobrarReplay();
       return;
     }
+    // Pagada en línea y sin nada extra: solo se registra la llegada.
+    const soloLlegada = esperaLlegada;
+    if (soloLlegada && !Object.values(arrivals).some(Boolean)) {
+      await avisoError('Marque quién llegó', 'Toque el recuadro de al menos una persona.');
+      return;
+    }
     // El servidor lo vuelve a validar, pero conviene atajarlo aquí con un
     // mensaje claro en vez de un 409.
-    if (!(await cobroEnRegla('el saldo'))) return;
+    if (!soloLlegada && !(await cobroEnRegla('el saldo'))) return;
 
-    const ok = await confirmar({
-      titulo: 'Confirmar llegada y cobro',
-      texto:
-        `Se registrará la llegada de la partida <b>#${reservation.folio}</b> y un cobro de ` +
-        `<b>${mxn(porCobrar)}</b>.` +
-        (cambio > 0
-          ? `<br>Recibido: <b>${mxn(totalCapturado)}</b> · <b>Cambio a entregar: ${mxn(cambio)}</b>`
-          : '') +
-        '<br><span style="font-size:0.9em;opacity:.75">' +
-        'Los cobros quedan en el turno de caja y no se pueden borrar.</span>',
-      confirmar: 'Sí, registrar cobro',
-      icono: 'question',
-    });
+    const ok = await confirmar(
+      soloLlegada
+        ? {
+            titulo: 'Registrar llegada',
+            texto:
+              `La reserva <b>#${reservation.folio}</b> ya está pagada (${mxn(yaPagado)}).` +
+              `<br>Se registrará su llegada y ${
+                esPractica ? 'pasarán a la zona de práctica' : 'la partida quedará en juego'
+              }.`,
+            confirmar: 'Sí, registrar llegada',
+            icono: 'question',
+          }
+        : {
+            titulo: 'Confirmar llegada y cobro',
+            texto:
+              `Se registrará la llegada de la partida <b>#${reservation.folio}</b> y un cobro de ` +
+              `<b>${mxn(porCobrar)}</b>.` +
+              (cambio > 0
+                ? `<br>Recibido: <b>${mxn(totalCapturado)}</b> · <b>Cambio a entregar: ${mxn(cambio)}</b>`
+                : '') +
+              '<br><span style="font-size:0.9em;opacity:.75">' +
+              'Los cobros quedan en el turno de caja y no se pueden borrar.</span>',
+            confirmar: 'Sí, registrar cobro',
+            icono: 'question',
+          },
+    );
     if (!ok) return;
 
     setSaving(true);
@@ -292,7 +311,7 @@ export default function CheckInPage() {
             apply_benefit: pga[p.id].decision === 'valida',
           })),
         services: addedServices,
-        payments: lineasDePago.map((p) => ({
+        payments: (soloLlegada ? [] : lineasDePago).map((p) => ({
           currency: p.currency,
           amount: p.amount,
           method: p.method,
@@ -318,12 +337,20 @@ export default function CheckInPage() {
       setReferencia('');
 
       await exito(
-        response.status === 'EN_JUEGO' ? 'Pagado · partida en juego' : 'Cobro registrado',
-        `Partida <b>#${reservation.folio}</b> · total <b>${mxn(response.total)}</b>.<br>` +
-          (Number(response.change_mxn) > 0
-            ? `<b>Entregue de cambio ${mxn(response.change_mxn)}</b>.<br>`
-            : '') +
-          'Ya puede imprimir el recibo. La cuenta quedó cerrada.',
+        soloLlegada
+          ? 'Llegada registrada'
+          : response.status === 'EN_JUEGO'
+            ? esPractica
+              ? 'Pagado · en práctica'
+              : 'Pagado · partida en juego'
+            : 'Cobro registrado',
+        soloLlegada
+          ? response.message
+          : `Partida <b>#${reservation.folio}</b> · total <b>${mxn(response.total)}</b>.<br>` +
+              (Number(response.change_mxn) > 0
+                ? `<b>Entregue de cambio ${mxn(response.change_mxn)}</b>.<br>`
+                : '') +
+              'Ya puede imprimir el recibo. La cuenta quedó cerrada.',
       );
     } catch (err) {
       setError(err.message);
@@ -444,7 +471,7 @@ export default function CheckInPage() {
       const ticket = await checkinApi.replay(reservation.id, {
         tee_slot_id: salidaReplay,
         attended_by_name: atiende.trim(),
-        payments: lineasDePago.map((p) => ({
+        payments: (soloLlegada ? [] : lineasDePago).map((p) => ({
           currency: p.currency,
           amount: p.amount,
           method: p.method,
@@ -575,6 +602,15 @@ export default function CheckInPage() {
   /** Ya no hay nada que cobrar: la partida quedó saldada. */
   const saldada = bloqueada || (porCobrar === 0 && yaPagado > 0);
   const mostrarCobro = enReplay || !saldada;
+  /** Zona de práctica: no hay hoyos, ni replay, ni PGA. */
+  const esPractica = reservation?.modality === 'PRACTICA';
+  /**
+   * Pagada antes de llegar (en línea): ya no se cobra nada, pero falta que el
+   * huésped se presente. El mostrador solo registra su llegada y entonces sí
+   * queda en juego.
+   */
+  const esperaLlegada =
+    saldada && ['PENDIENTE', 'CONFIRMADA', 'CHECK_IN'].includes(reservation?.status);
 
   function marcarLlegada(playerId) {
     if (bloqueada) return;
@@ -720,7 +756,9 @@ export default function CheckInPage() {
               Flujo de atención de salida
             </p>
             <span className="text-body-md text-outline">
-              {reservation.tee} · partida {hora(reservation.slot_time)} · {reservation.holes} hoyos
+              {esPractica
+                ? `Zona de práctica · llegada ${hora(reservation.slot_time)}`
+                : `${reservation.tee} · partida ${hora(reservation.slot_time)} · ${reservation.holes} hoyos`}
               {/* Quién la levantó del otro lado: si algo no cuadra, es a esa
                   persona a la que hay que hablarle, no al hotel en abstracto. */}
               {reservation.booked_by_name && (
@@ -755,7 +793,13 @@ export default function CheckInPage() {
                     >
                       {hecho ? '✓' : n}
                     </span>
-                    {n === 4 && reservation.status === 'COMPLETADA' ? 'Finalizado' : texto}
+                    {n === 4 && reservation.status === 'COMPLETADA'
+                      ? 'Finalizado'
+                      : n === 1 && esperaLlegada
+                        ? 'Pagado · en espera de llegada'
+                        : n === 3 && esPractica
+                          ? 'En práctica'
+                          : texto}
                   </span>
                 );
               })}
@@ -821,10 +865,13 @@ export default function CheckInPage() {
                         Salida del campo
                       </p>
                       <p className="text-body-md text-outline">
-                        Partida en juego. Al volver: se finaliza, o repiten y se cobra el replay.
+                        {esPractica
+                          ? 'En la zona de práctica. Al terminar, finalice la visita.'
+                          : 'Partida en juego. Al volver: se finaliza, o repiten y se cobra el replay.'}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2.5">
+                      {!esPractica && (
                       <button
                         type="button"
                         onClick={enReplay ? () => setReplay(false) : abrirReplay}
@@ -838,6 +885,7 @@ export default function CheckInPage() {
                         <Icono nombre="refrescar" size={17} className="text-secondary" />
                         {enReplay ? 'Cancelar replay' : `Replay de la partida · ${mxn(precioReplay)}`}
                       </button>
+                      )}
                       <button
                         type="button"
                         onClick={finalizar}
@@ -845,7 +893,7 @@ export default function CheckInPage() {
                         className="flex items-center gap-2 rounded bg-primary-container px-4 py-2.5 text-title-md text-on-primary shadow-card transition hover:bg-primary disabled:opacity-60"
                       >
                         <Icono nombre="check" size={17} className="text-secondary-fixed" />
-                        Finalizar partida
+                        {esPractica ? 'Finalizar práctica' : 'Finalizar partida'}
                       </button>
                     </div>
                   </div>
@@ -897,7 +945,7 @@ export default function CheckInPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/40 px-5 py-4">
                   <h2 className="flex items-center gap-2.5 text-label-md uppercase tracking-wider text-primary">
                     <Icono nombre="grupo" size={18} className="text-secondary" />
-                    Detalle de la partida
+                    {esPractica ? 'Personas en práctica' : 'Detalle de la partida'}
                   </h2>
                   <span className="text-body-md text-outline">
                     {bloqueada
@@ -926,6 +974,7 @@ export default function CheckInPage() {
                           <TarjetaSimple
                             key={player.id}
                             player={player}
+                            practica={esPractica}
                             indice={reservation.players.indexOf(player) + 1}
                             llego={arrivals[player.id] || false}
                             bloqueada={bloqueada}
@@ -967,11 +1016,13 @@ export default function CheckInPage() {
                     </div>
                   )}
 
+                  {!esPractica && (
                   <p className="flex items-start gap-2 rounded bg-surface-container-low px-3.5 py-2.5 text-body-md text-outline">
                     <Icono nombre="escudo" size={16} className="mt-0.5 shrink-0 text-secondary" />
                     Regla de aplicación: el beneficio PGA es estrictamente individual. Solo se
                     descuenta sobre la tarifa del portador de la credencial validada.
                   </p>
+                  )}
                 </div>
               </section>
 
@@ -1020,7 +1071,11 @@ export default function CheckInPage() {
                   }`}
                   aria-disabled={bloqueada}
                 >
-                  {services.filter((s) => !NO_SON_SERVICIOS.includes(s.code)).map((servicio) => {
+                  {services
+                    .filter((s) => !NO_SON_SERVICIOS.includes(s.code))
+                    // En práctica no hay caddie ni se vende otra vez la zona de práctica.
+                    .filter((s) => !esPractica || !['CADDIE', 'PRACTICA'].includes(s.code))
+                    .map((servicio) => {
                     const agregado = addedServices.find((i) => i.service_id === servicio.id);
                     return (
                       <div
@@ -1100,7 +1155,7 @@ export default function CheckInPage() {
                       <p className="text-label-sm uppercase tracking-widest text-secondary-fixed">
                         Liquidación
                       </p>
-                      <p className="font-serif text-headline-lg">Cuenta de la partida</p>
+                      <p className="font-serif text-headline-lg">{esPractica ? 'Cuenta de la práctica' : 'Cuenta de la partida'}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-title-md">#{reservation.folio}</p>
@@ -1118,7 +1173,7 @@ export default function CheckInPage() {
 
                   <dl className="space-y-2 px-5 py-4 text-body-lg">
                     <Linea
-                      t={`${presentes.length}× Green fees base`}
+                      t={`${presentes.length}× ${esPractica ? 'Zona de práctica' : 'Green fees base'}`}
                       nota={
                         presentes.length
                           ? `${presentes.length} @ ${mxn(greenFeesBruto / presentes.length)}`
@@ -1184,18 +1239,22 @@ export default function CheckInPage() {
 
                     <div className="border-t border-white/10 pt-2">
                       <Linea
-                        t={`Subtotal green fees (${presentes.length} ${
-                          presentes.length === 1 ? 'cupo' : 'cupos'
+                        t={`Subtotal ${esPractica ? 'práctica' : 'green fees'} (${presentes.length} ${
+                          esPractica
+                            ? presentes.length === 1 ? 'persona' : 'personas'
+                            : presentes.length === 1 ? 'cupo' : 'cupos'
                         })`}
                         v={mxn(greenFeesBruto - descuentoPgaVigente)}
                       />
                     </div>
 
+                    {!esPractica && (
                     <Linea
                       t={`${reservation.carts_used || 0}× Carrito de golf`}
                       nota="incluido"
                       v="—"
                     />
+                    )}
                     {/* El caddie no se cobra en la caja: el huésped le paga
                         directo. Se enseña para que el mostrador no lo busque
                         en la cuenta ni lo intente cobrar. */}
@@ -1369,17 +1428,44 @@ export default function CheckInPage() {
 
                 {/* Sin saldo no hay nada que cobrar: se dice, y el bloque de
                     captura desaparece para que nadie cobre dos veces. */}
-                {!mostrarCobro ? (
+                {!mostrarCobro && esperaLlegada ? (
+                  // Pagada en línea, todavía no llega: se registra su llegada.
+                  <div className="rounded-lg border border-estado-pend-border bg-estado-pend-bg p-5 text-center shadow-card">
+                    <Icono nombre="historial" size={26} className="mx-auto text-estado-pend-text" />
+                    <p className="mt-1.5 font-serif text-headline-lg text-estado-pend-text">
+                      Pagado · en espera de llegada
+                    </p>
+                    <p className="text-body-lg text-on-surface-variant">
+                      Ya se pagaron {mxn(yaPagado)}. Marque quién llegó y registre la llegada
+                      {esPractica ? ' para pasar a la zona de práctica.' : ' para que la partida quede en juego.'}{' '}
+                      Si piden algo más (bastones, etc.), agréguelo en servicios y se cobra aquí.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={cobrar}
+                      disabled={saving || atiende.trim().length < 3}
+                      title={atiende.trim().length < 3 ? 'Escriba quién atiende' : undefined}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded bg-primary-container px-5 py-3.5 text-title-lg text-on-primary shadow-card transition hover:bg-primary disabled:cursor-not-allowed disabled:bg-surface-container-highest disabled:text-outline disabled:shadow-none"
+                    >
+                      <Icono nombre="verificado" size={19} className="text-secondary-fixed" />
+                      {saving ? 'Registrando…' : 'Registrar llegada'}
+                    </button>
+                  </div>
+                ) : !mostrarCobro ? (
                   <div className="rounded-lg border border-estado-ok-border bg-estado-ok-bg p-5 text-center shadow-card">
                     <Icono nombre="verificado" size={26} className="mx-auto text-estado-ok-text" />
                     <p className="mt-1.5 font-serif text-headline-lg text-estado-ok-text">
-                      {reservation.status === 'COMPLETADA' ? 'Partida finalizada' : 'Partida pagada · en juego'}
+                      {reservation.status === 'COMPLETADA'
+                        ? esPractica ? 'Práctica finalizada' : 'Partida finalizada'
+                        : esPractica ? 'Pagado · en práctica' : 'Partida pagada · en juego'}
                     </p>
                     <p className="text-body-lg text-on-surface-variant">
                       Se cobraron {mxn(yaPagado)}.{' '}
                       {reservation.status === 'COMPLETADA'
                         ? 'La cuenta está cerrada.'
-                        : 'La cuenta quedó cerrada; al volver del campo, finalícela o cobre un replay.'}
+                        : esPractica
+                          ? 'La cuenta quedó cerrada; al terminar, finalícela.'
+                          : 'La cuenta quedó cerrada; al volver del campo, finalícela o cobre un replay.'}
                     </p>
                   </div>
                 ) : (
@@ -1610,7 +1696,7 @@ export default function CheckInPage() {
                       Es un segundo ticket del mismo folio: el ticket original no cambia y el
                       replay no genera comisión para el hotel.
                     </p>
-                  ) : (
+                  ) : esPractica ? null : (
                     <p className="mt-3 flex items-start gap-2 text-body-md text-outline">
                       <Icono nombre="martillo" size={15} className="mt-0.5 shrink-0 text-secondary" />
                       Nota administrativa: el PGA es un beneficio individual. Solo descuenta sobre la
@@ -1739,7 +1825,7 @@ function TarjetaPga({ player, indice, llego, estado, config, bloqueada, onLlegad
 }
 
 /** Jugador sin credencial: solo hay que marcar si llegó. */
-function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada }) {
+function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada, practica = false }) {
   return (
     <Recuadro llego={llego} bloqueada={bloqueada} onLlegada={onLlegada}>
       <div className="flex items-start justify-between gap-3">
@@ -1752,7 +1838,9 @@ function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada }) {
             </span>
           )}
         </p>
-        <span className="shrink-0 text-label-sm uppercase tracking-wider text-outline">Sin PGA</span>
+        <span className="shrink-0 text-label-sm uppercase tracking-wider text-outline">
+          {practica ? 'Práctica' : 'Sin PGA'}
+        </span>
       </div>
       <p className="mt-1.5 flex items-center justify-between gap-3 text-body-md text-outline">
         <span>

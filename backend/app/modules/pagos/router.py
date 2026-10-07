@@ -58,6 +58,12 @@ class PaqueteOut(BaseModel):
     maximo: int
 
 
+class PracticaOut(BaseModel):
+    precio: Decimal
+    precio_fin: Optional[Decimal] = None
+    descripcion: Optional[str] = None
+
+
 class CampoOut(BaseModel):
     primera_salida: Optional[time] = None
     ultima_salida: Optional[time] = None
@@ -79,6 +85,8 @@ class CampoOut(BaseModel):
     # tarjeta en el sitio y no cobra nada. El sitio pinta distinto cada caso
     # para que nadie crea que pagó cuando no.
     pasarela: Optional[str] = None
+    # Precio del paquete Práctica (zona de práctica), por persona.
+    practica: Optional[PracticaOut] = None
 
 
 class SalidaOut(BaseModel):
@@ -206,6 +214,7 @@ class EstadoOut(BaseModel):
     fecha: Optional[date] = None
     hora: Optional[time] = None
     jugadores: int = 0
+    modalidad: Optional[str] = None
     titular: str
     total: Decimal
     vence: Optional[datetime] = None
@@ -241,10 +250,11 @@ def campo(db: Session = Depends(get_db)):
 @router.get("/disponibilidad", response_model=DisponibilidadOut)
 def disponibilidad(
     fecha: date = Query(..., description="Día que se quiere jugar"),
+    modalidad: Optional[str] = Query(None, description="PRACTICA para horas de llegada a la zona de práctica"),
     db: Session = Depends(get_db),
 ):
     """Las salidas de un día. De las ocupadas solo se dice que lo están."""
-    return ReservaPublicaService(db).salidas(fecha)
+    return ReservaPublicaService(db).salidas(fecha, modalidad)
 
 
 @router.post("/cotizacion", response_model=CotizacionOut)

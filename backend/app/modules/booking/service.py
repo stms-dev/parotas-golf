@@ -44,6 +44,7 @@ from app.shared.enums import (
     ReservationStatus,
     SlotStatus,
     UserRole,
+    es_junior,
 )
 from app.shared.money import ZERO, money, to_mxn
 
@@ -337,6 +338,9 @@ class ReservationService_:
             BookingModality.INDIVIDUAL: (1, 1),
             BookingModality.GRUPO: (4, None),
             BookingModality.PARTIDA_ABIERTA: (1, 4),
+            # La práctica no comparte salida con nadie del campo: el tope es
+            # solo para que un grupo grande se reserve hablando con el club.
+            BookingModality.PRACTICA: (1, 8),
         }
         if modality == BookingModality.INDIVIDUAL:
             raise ValidationError(
@@ -350,6 +354,39 @@ class ReservationService_:
                 f"El paquete {modality} admite {limite} jugadores "
                 f"(se enviaron {player_count})"
             )
+
+    # ------------------------------------------------------- zona de práctica
+    def servicio_practica(self):
+        """El servicio de la zona de práctica: de ahí sale el precio del paquete.
+
+        Se toma aunque esté inactivo como *extra*: apagarlo en el catálogo solo
+        quita la casilla de "agregar práctica" a una partida de golf; el
+        paquete Práctica sigue vendiéndose con ese mismo precio.
+        """
+        from sqlalchemy import select
+        from app.modules.catalog.models import AdditionalService
+
+        return self.db.execute(
+            select(AdditionalService).where(AdditionalService.code == "PRACTICA")
+        ).scalar_one_or_none()
+
+    def tarifa_jugador(self, *, modality: BookingModality, holes: int, age, category,
+                       is_local: bool, on_date, at_time):
+        """(precio, categoría) de un jugador. La práctica no usa el tarifario."""
+        if modality == BookingModality.PRACTICA:
+            servicio = self.servicio_practica()
+            if servicio is None:
+                raise BusinessRuleError(
+                    "La zona de práctica no está dada de alta en el catálogo de servicios"
+                )
+            categoria = PlayerCategory.INFANTIL if es_junior(age) else PlayerCategory.ADULTO
+            return money(servicio.price_on(on_date)), categoria
+        plan, categoria = self.pricing.resolve_player_rate(
+            modality=modality.value, holes=holes,
+            age=age, category=category, is_local=is_local,
+            on_date=on_date, at_time=at_time,
+        )
+        return money(plan.price), categoria
 
     def _assert_slot_available(
         self, slot: TeeSlot, players: int, modality: BookingModality
@@ -371,6 +408,11 @@ class ReservationService_:
                 f"La salida de las {slot.slot_time.strftime('%H:%M')} está bloqueada"
                 + (f": {slot.event.name}" if slot.event else "")
             )
+
+        # La práctica no toma la salida: basta con que el horario no esté
+        # bloqueado por un evento.
+        if modality == BookingModality.PRACTICA:
+            return
 
         # Los horarios ya no se abren en orden: el huésped elige el que quiera
         # de los que estén libres. Lo único que cierra una salida es que esté
@@ -506,6 +548,10 @@ class ReservationService_:
         situacion = self.recursos.situacion(slot.slot_date)
         personas = len(data.players) + len(data.companions)
         carritos = self.recursos.carritos_para(personas, situacion["personas_por_carrito"])
+        practica = data.modality == BookingModality.PRACTICA
+        if practica:
+            # La zona de práctica no usa carrito.
+            carritos = 0
         if carritos > situacion["carritos_libres"]:
             raise BusinessRuleError(
                 f"No hay carritos suficientes para el {slot.slot_date.strftime('%d/%m')}: "
@@ -516,7 +562,7 @@ class ReservationService_:
         # El caddie no se pide ni se rechaza: se asigna uno por carrito hasta
         # donde alcancen los que hay libres ese día. Si ya no quedan, la partida
         # sale sin caddie — el club tiene dos y no va a dejar de vender por eso.
-        caddies = self.recursos.caddies_asignables(
+        caddies = 0 if practica else self.recursos.caddies_asignables(
             personas, situacion["caddies_libres"], situacion["personas_por_carrito"]
         )
 
@@ -558,8 +604,8 @@ class ReservationService_:
         #    El descuento PGA NO se aplica aquí: se valida en recepción.
         subtotal_green_fees = ZERO
         for entry in data.players:
-            plan, category = self.pricing.resolve_player_rate(
-                modality=data.modality.value, holes=data.holes,
+            precio, category = self.tarifa_jugador(
+                modality=data.modality, holes=data.holes,
                 age=entry.age, category=entry.category, is_local=entry.is_local,
                 on_date=slot.slot_date,
                 # La hora manda: las últimas salidas del día van a tarifa de
@@ -571,17 +617,20 @@ class ReservationService_:
                 full_name=entry.full_name.strip(),
                 age=entry.age,
                 category=category,
-                handicap=entry.handicap,
-                ghin=(entry.ghin or None),
+                # En práctica no hay hándicap, GHIN ni PGA que anotar.
+                handicap=None if practica else entry.handicap,
+                ghin=None if practica else (entry.ghin or None),
                 club_hand=(entry.club_hand or None),
                 is_holder=entry.is_holder,
-                pga_code=entry.pga_code.upper().strip() if entry.pga_code else None,
-                credential_number=entry.credential_number,
-                rate_applied=plan.price,
-                final_rate=plan.price,
+                pga_code=(
+                    entry.pga_code.upper().strip() if entry.pga_code and not practica else None
+                ),
+                credential_number=None if practica else entry.credential_number,
+                rate_applied=precio,
+                final_rate=precio,
             )
             self.db.add(player)
-            subtotal_green_fees += money(plan.price)
+            subtotal_green_fees += money(precio)
 
         for companion in data.companions:
             self.db.add(
@@ -1298,13 +1347,13 @@ class ReservationService_:
         detail: List[str] = []
         subtotal_green_fees = ZERO
         for entry in data.players:
-            plan, category = self.pricing.resolve_player_rate(
-                modality=data.modality.value, holes=data.holes,
+            precio, category = self.tarifa_jugador(
+                modality=data.modality, holes=data.holes,
                 age=entry.age, category=entry.category, is_local=entry.is_local,
                 on_date=on_date, at_time=on_time,
             )
-            subtotal_green_fees += money(plan.price)
-            detail.append(f"{entry.full_name}: {category} · ${plan.price} MXN")
+            subtotal_green_fees += money(precio)
+            detail.append(f"{entry.full_name}: {category} · ${precio} MXN")
 
         subtotal_services = ZERO
         for entry in data.services:

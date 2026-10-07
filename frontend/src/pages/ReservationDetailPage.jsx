@@ -7,8 +7,7 @@ import { Alert, Badge, Button, Card, Modal, Spinner, Stat, Table, Textarea } fro
 import Icono from '../components/Icono';
 import { error as avisoError, exito, pedirCorreo } from '../utils/avisos';
 import {
-  ESTADO_RESERVA, MODALIDAD, categoria, fecha, fechaHora, fechaLocal, hora, mxn,
-} from '../utils/format';
+  ESTADO_RESERVA, MODALIDAD, categoria, fecha, fechaHora, fechaLocal, hora, mxn, recorrido } from '../utils/format';
 
 export default function ReservationDetailPage() {
   const { id } = useParams();
@@ -182,7 +181,7 @@ export default function ReservationDetailPage() {
       {error && <Alert tone="error" onClose={() => setError(null)}>{error}</Alert>}
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <Stat label="Modalidad" value={MODALIDAD[reservation.modality]} hint={`${reservation.holes} hoyos`} />
+        <Stat label="Modalidad" value={MODALIDAD[reservation.modality]} hint={recorrido(reservation)} />
         <Stat label="Jugadores" value={reservation.players.length} hint={`${reservation.companions.length} acompañantes`} />
         <Stat label="Total" value={mxn(reservation.total)} hint={`TC ${Number(reservation.exchange_rate_applied).toFixed(2)}`} />
         <Stat

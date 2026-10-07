@@ -27,7 +27,7 @@ from app.modules.identity.models import User
 from app.modules.treasury.service import CashSessionService
 from app.realtime.events import EventType, RealtimeEvent
 from app.realtime.manager import publish
-from app.shared.enums import AuditAction, Currency, PaymentMethod, ReservationStatus
+from app.shared.enums import AuditAction, BookingModality, Currency, PaymentMethod, ReservationStatus
 from app.shared.money import ZERO, money, to_mxn
 from app.core.permissions import Permission
 
@@ -438,16 +438,31 @@ class CheckInService:
 
         # Pagada completa, la partida queda en juego. El hotel la ve como
         # confirmada desde este momento; el mostrador ya no la puede tocar.
+        #
+        # La reserva pagada por internet llega aquí ya saldada: en el mostrador
+        # solo se registra su llegada (y, si piden algo más, se cobra eso). El
+        # saldo puede quedar negativo si alguien de la partida no se presentó:
+        # ya pagó de más, así que igual sale a jugar.
         if (
             reservation.status == ReservationStatus.CHECK_IN
             and paid > 0
-            and balance == 0
+            and balance <= 0
         ):
             assert_transition(reservation.status, ReservationStatus.EN_JUEGO)
             reservation.status = ReservationStatus.EN_JUEGO
             # Aquí arranca el reloj de la partida: del pago al cierre.
             reservation.round_started_at = datetime.utcnow()
-            message = "Pagado. La partida quedó en juego."
+            es_practica = str(reservation.modality) == BookingModality.PRACTICA.value
+            if not data.payments:
+                message = (
+                    "Llegada registrada. Ya estaba pagada: "
+                    + ("pasan a la zona de práctica." if es_practica else "la partida quedó en juego.")
+                )
+            else:
+                message = (
+                    "Pagado. " + ("Pasan a la zona de práctica." if es_practica
+                                  else "La partida quedó en juego.")
+                )
 
         self.audit.log(
             user=actor, action=AuditAction.CHECK_IN, module=self.MODULE,
@@ -652,6 +667,8 @@ class CheckInService:
         from app.modules.catalog.models import AdditionalService
 
         reservation = self.reservations.get(reservation_id)
+        if str(reservation.modality) == BookingModality.PRACTICA.value:
+            raise BusinessRuleError("La zona de práctica no tiene replay")
         if reservation.status != ReservationStatus.EN_JUEGO:
             raise BusinessRuleError(
                 "El replay solo se cobra a una partida que ya pagó y está en juego"
