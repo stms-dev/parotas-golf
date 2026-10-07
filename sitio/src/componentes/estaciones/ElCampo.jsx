@@ -1,17 +1,20 @@
 /**
- * El campo: el circuito del recorrido al centro y las fotos del hoyo, grandes,
- * alrededor.
+ * El campo: el mapa verde del recorrido, grande y al centro, con las fotos del
+ * hoyo montadas encima de sus orillas.
  *
- * El mapa es ahora un circuito pequeño (solo nodos + línea), así que las fotos
- * se llevan el espacio y se ven grandes. A los costados hay flechas ‹ › para
- * saltar de hoyo; también se puede tocar un hoyo en el circuito. Arriba se lee
- * siempre "Hoyo N / Par X".
+ *            ┌───────────────┐
+ *            │    foto 1     │        (principal, arriba al centro)
+ *   ‹  ┌─────┴───────────────┴─────┐  ›
+ *      │        M A P A  verde     │   (centro, horizontal)
+ *      │ ┌──────┐         ┌──────┐ │
+ *      └─┤foto 2├─────────┤foto 3├─┘
+ *        └──────┘         └──────┘
  *
- *   ‹            [ foto 1 (principal) ]            ›
- *                   ( circuito chico )
- *                [ foto 2 ]   [ foto 3 ]
- *
- * El cambio de hoyo entra con un desvanecido suave, que toca solo a las fotos.
+ * El mapa es el protagonista y se navega tocando un hoyo; a los costados hay
+ * flechas ‹ › para saltar de hoyo. Arriba se lee siempre "Hoyo N / Par X". El
+ * cambio de hoyo entra con un desvanecido suave, que toca solo a las fotos; el
+ * mapa se queda quieto porque ya anima su bola. Al pasar el cursor por el mapa
+ * sube al frente para poder tocar los hoyos que tapan las fotos.
  *
  * En celular no hay mapa —la foto manda—: una barra con ‹ Hoyo N · Par X › para
  * navegar, la foto principal grande y las dos secundarias debajo.
@@ -69,7 +72,6 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
 
   const fade = { opacity: visible ? 1 : 0, transition: `opacity ${FADE_MS}ms ease` };
 
-  // Saltar al hoyo anterior / siguiente, dando la vuelta en los extremos.
   const idx = HOYOS.findIndex((h) => h.n === hoyo.n);
   const irHoyo = (paso) => onElegirHoyo(HOYOS[(idx + paso + HOYOS.length) % HOYOS.length].n);
 
@@ -80,7 +82,7 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
         {/* Etiqueta del hoyo, siempre visible, arriba a la izquierda. */}
         <EtiquetaHoyo hoyo={hoyo} t={t} className="absolute left-0 top-0 z-40" />
 
-        {/* Flechas para cambiar de hoyo, a los costados de todo. */}
+        {/* Flechas para cambiar de hoyo, a los costados. */}
         <Flecha
           hacia="izq"
           onClick={() => irHoyo(-1)}
@@ -94,10 +96,10 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
           className="absolute right-0 top-1/2 z-40 -translate-y-1/2"
         />
 
-        {/* El circuito, chico y al centro. Al pasar el cursor sube al frente
+        {/* El mapa verde, grande y al centro. Al pasar el cursor sube al frente
             (tapa las fotos) para poder tocar cualquier hoyo; al salir, las
             fotos vuelven a montarse encima. */}
-        <div className="absolute inset-x-[22%] inset-y-[26%] z-0 group-hover:z-30">
+        <div className="absolute inset-x-[10%] inset-y-[13%] z-0 group-hover:z-30">
           <RecorridoHorizontal
             hoyoActivo={hoyo.n}
             onElegirHoyo={onElegirHoyo}
@@ -105,22 +107,22 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
           />
         </div>
 
-        {/* Fotos grandes, montadas sobre las orillas del circuito. */}
+        {/* Fotos montadas sobre las orillas del mapa. */}
         <FotoFlotante
           src={listas[0]}
           etiqueta={t('campo.foto', { n: hoyo.n })}
           estilo={fade}
-          className="absolute left-1/2 top-0 z-10 w-[36%] -translate-x-1/2"
+          className="absolute left-1/2 top-0 z-10 w-[30%] -translate-x-1/2"
         />
         <FotoFlotante
           src={listas[1]}
           estilo={fade}
-          className="absolute bottom-0 left-[9%] z-10 w-[33%]"
+          className="absolute bottom-0 left-[8%] z-10 w-[28%]"
         />
         <FotoFlotante
           src={listas[2]}
           estilo={fade}
-          className="absolute bottom-0 right-[9%] z-10 w-[33%]"
+          className="absolute bottom-0 right-[8%] z-10 w-[28%]"
         />
       </div>
 
@@ -175,7 +177,7 @@ function Flecha({ hacia, onClick, etiqueta, className = '' }) {
   );
 }
 
-/** Una foto montada sobre el circuito: marco claro + sombra para que flote. */
+/** Una foto montada sobre el mapa: marco claro + sombra para que flote. */
 function FotoFlotante({ src, etiqueta, estilo, className = '' }) {
   return (
     <figure
