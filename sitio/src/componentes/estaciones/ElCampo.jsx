@@ -93,31 +93,34 @@ export default function ElCampo({ hoyoActivo, onElegirHoyo }) {
           className="absolute right-0 top-1/2 z-40 -translate-y-1/2"
         />
 
-        {/* La cuadrícula, con hueco a los lados para las flechas. */}
-        <div className="grid h-full min-h-0 grid-cols-2 gap-3 px-14">
-          {/* Columna izquierda: mapa, etiqueta, foto 2. */}
-          <div className="flex min-h-0 flex-col gap-2">
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-sm bg-sombra-honda/55">
+        {/* Cuadrícula 2×2: cada casilla en su renglón, así las de abajo quedan
+            parejas. Hueco a los lados para las flechas. */}
+        <div className="grid h-full min-h-0 grid-cols-2 grid-rows-2 gap-3 px-14">
+          {/* [1,1] Mapa + etiqueta debajo (sin recuadro oscuro). */}
+          <div className="flex min-h-0 flex-col">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
               <RecorridoHorizontal
                 hoyoActivo={hoyo.n}
                 onElegirHoyo={onElegirHoyo}
                 orientacion="horizontal"
               />
             </div>
-            <EtiquetaHoyo hoyo={hoyo} t={t} pill className="shrink-0 self-center" />
-            <div className="min-h-0 flex-1" style={fade}>
-              <Foto src={listas[1]} />
-            </div>
+            <EtiquetaHoyo hoyo={hoyo} t={t} centrado className="mt-1 shrink-0" />
           </div>
 
-          {/* Columna derecha: foto 1 (principal) y foto 3. */}
-          <div className="flex min-h-0 flex-col gap-3">
-            <div className="min-h-0 flex-1" style={fade}>
-              <Foto src={listas[0]} etiqueta={t('campo.foto', { n: hoyo.n })} />
-            </div>
-            <div className="min-h-0 flex-1" style={fade}>
-              <Foto src={listas[2]} />
-            </div>
+          {/* [1,2] Foto principal. */}
+          <div className="min-h-0" style={fade}>
+            <Foto src={listas[0]} etiqueta={t('campo.foto', { n: hoyo.n })} />
+          </div>
+
+          {/* [2,1] Foto, debajo del mapa. */}
+          <div className="min-h-0" style={fade}>
+            <Foto src={listas[1]} />
+          </div>
+
+          {/* [2,2] Foto, debajo de la principal. */}
+          <div className="min-h-0" style={fade}>
+            <Foto src={listas[2]} />
           </div>
         </div>
       </div>

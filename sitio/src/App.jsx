@@ -18,7 +18,7 @@ import Tarifas from './componentes/estaciones/Tarifas';
 import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
-import { CONTACTO, ESTACIONES, fotoDelHoyo } from './datos/campo';
+import { CONTACTO, ESTACIONES } from './datos/campo';
 import { useIdioma } from './datos/idioma';
 import logo from './assets/logo-las-parotas-claro.png';
 
@@ -45,11 +45,6 @@ function Paradas({ estacion, onIr, t }) {
 export default function App() {
   const { idioma, cambiar, t } = useIdioma();
   const [estacion, setEstacion] = useState('salida');
-  // El modo de fondo del sitio: `true` = HD (todas las fotos nítidas),
-  // `false` = Suave (el difuminado de siempre). Afecta TODA la página, portada
-  // incluida. Abre en HD —la portada nítida es lo primero que se ve y es la
-  // que más luce—; el botón del encabezado lo cambia de un golpe.
-  const [nitido, setNitido] = useState(true);
   // Horario, tarifas y reglas, leídos del sistema. Si no contesta se queda en
   // null y las pantallas usan los datos de campo.js: la presentación no se
   // cae porque el backend esté dormido, solo se apaga el formulario.
@@ -122,15 +117,11 @@ export default function App() {
 
   return (
     <div className="relative min-h-[100svh] overflow-hidden bg-sombra">
-      {/* En El campo el fondo es el del hoyo que se está mirando; en la
-          portada, las fotos elegidas sin desenfoque; en las demás paradas,
-          uno al azar que se releva solo. */}
-      <Fondo
-        cambiarCon={estacion}
-        fija={estacion === 'campo' ? fotoDelHoyo(hoyo) : null}
-        hero={estacion === 'salida'}
-        nitido={nitido}
-      />
+      {/* La foto de fondo solo vive en la portada, nítida: es su hero. En las
+          demás paradas el fondo es liso (oscuro), para que el contenido —tablas,
+          formulario, la cuadrícula de El campo— se lea sin competir con una foto
+          detrás. */}
+      {estacion === 'salida' && <Fondo cambiarCon={estacion} hero nitido />}
 
       <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
         {/* ------------------------------------------------------ encabezado */}
@@ -149,18 +140,6 @@ export default function App() {
               <nav className="hidden items-center gap-1.5 md:flex">
                 <Paradas estacion={estacion} onIr={irA} t={t} />
               </nav>
-
-              {/* El modo de fondo, en un solo botón: al pulsarlo alterna entre
-                  HD (todas las fotos nítidas) y Suave (difuminado), para toda
-                  la página. */}
-              <button
-                onClick={() => setNitido((v) => !v)}
-                aria-pressed={nitido}
-                aria-label={t('nitidez.aria')}
-                className="shrink-0 rounded-sm border border-arena/30 px-3.5 py-2 font-texto text-menudo font-semibold text-arena transition hover:border-hoja hover:text-hoja md:px-4 md:text-[0.9rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
-              >
-                {t('nitidez.boton')}
-              </button>
 
               {/* Va aparte de las paradas, con su contorno, porque no es una
                   parada: es la puerta de salida del sitio. Mezclarlo con las

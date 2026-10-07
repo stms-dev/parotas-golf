@@ -358,12 +358,6 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       {/* --------------------------------------------------------- cabeza */}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <h2 className="font-titulo text-rotulo-lg text-arena">{t('reservar.titulo')}</h2>
-        {/* En celular se calla: la pantalla la necesitan los campos. */}
-        <p className="hidden font-texto text-menudo text-arena/80 sm:block">
-          {campo?.apartado_minutos
-            ? t('reservar.apartado', { minutos: campo.apartado_minutos })
-            : t('reservar.apartadoSinMinutos')}
-        </p>
       </div>
 
       <Rail paso={paso} onIr={setPaso} t={t} />
@@ -430,9 +424,11 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 valor={Number(hoyos)}
                 onElegir={setHoyos}
               />
-              <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                {Number(hoyos) === 9 ? t('reservar.media') : t('reservar.completa')}
-              </p>
+              {Number(hoyos) === 18 && (
+                <p className="mt-1.5 font-texto text-menudo text-arena/80">
+                  {t('reservar.completa')}
+                </p>
+              )}
             </Campo>
           </Paso>
         )}
@@ -580,16 +576,6 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         {t('reservar.renta', { precio: pesos(precioBastones) })}
                       </span>
                     )}
-                    {!esJunior(j.edad) && (
-                      <Alternador
-                        opciones={[
-                          { valor: false, texto: t('reservar.noLocal') },
-                          { valor: true, texto: t('reservar.siLocal') },
-                        ]}
-                        valor={Boolean(j.local)}
-                        onElegir={(v) => cambiar(i, 'local', v)}
-                      />
-                    )}
                     {practica && (
                       <Alternador
                         opciones={[
@@ -604,11 +590,6 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       />
                     )}
                   </div>
-                  {j.local && !esJunior(j.edad) && (
-                    <p className="mt-1.5 pl-0 font-texto text-menudo text-arena/80 sm:pl-[1.9rem]">
-                      {t('reservar.notaLocal')}
-                    </p>
-                  )}
                 </li>
               ))}
             </ul>
@@ -768,7 +749,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       {/* Pegado abajo, y con hueco suficiente por debajo: el fondo opaco tiene
           que llegar hasta el borde del panel, o se alcanza a ver media ficha
           de jugador asomándose bajo los botones. */}
-      <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 border-t border-arena/20 bg-sombra pb-5 pt-3.5">
+      <div className="sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-arena/20 bg-sombra pb-5 pt-5">
         <div className="min-w-0">
           {cotizacion && (
             <p className="font-titulo text-[1.9rem] leading-none text-hoja sm:text-dato-xl">

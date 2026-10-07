@@ -61,7 +61,7 @@ export default function Tarifas({ onIr }) {
         {t('tarifas.titulo')}
       </h2>
       <p className="mt-2.5 max-w-lectura font-texto text-parrafo text-arena/90 corta:mt-2 corta:text-[0.95rem]">
-        {t('tarifas.incluye', { incluido })} {t('tarifas.noIncluye')}
+        {t('tarifas.incluye', { incluido })}
       </p>
 
       <table className="mt-5 w-full border-collapse text-left corta:mt-3">
@@ -88,10 +88,10 @@ export default function Tarifas({ onIr }) {
                 <span className="font-texto text-menudo text-arena/80">{t(fila.quien)}</span>
               </td>
               <td className="py-2.5 text-right lg:py-3 corta:py-1.5">
-                <span className="font-titulo text-rotulo-md text-arena corta:text-[1.15rem]">
+                <span className="block font-texto text-[1.1rem] font-semibold text-arena corta:text-[1rem]">
                   {pesos(fila.precios.semana)}
                 </span>
-                <span className="ml-2 font-texto text-menudo text-arena/75">
+                <span className="mt-0.5 block font-texto text-menudo text-arena/75">
                   ≈ {enDolares(fila.precios.semana)} USD
                 </span>
               </td>
@@ -102,10 +102,10 @@ export default function Tarifas({ onIr }) {
                   </span>
                 ) : (
                   <>
-                    <span className="font-titulo text-rotulo-md text-hoja corta:text-[1.15rem]">
+                    <span className="block font-texto text-[1.1rem] font-semibold text-arena corta:text-[1rem]">
                       {pesos(fila.precios.fin)}
                     </span>
-                    <span className="ml-2 font-texto text-menudo text-arena/75">
+                    <span className="mt-0.5 block font-texto text-menudo text-arena/75">
                       ≈ {enDolares(fila.precios.fin)} USD
                     </span>
                   </>
@@ -136,7 +136,7 @@ export default function Tarifas({ onIr }) {
                   {t(`extra.${extra.code}.nota`, { fin: extra.precioFin ? pesos(extra.precioFin) : '' })}
                 </span>
               </span>
-              <span className="shrink-0 font-titulo text-rotulo-md text-arena corta:text-[1.15rem]">
+              <span className="shrink-0 font-texto text-[1.1rem] font-semibold text-arena corta:text-[1rem]">
                 {pesos(extra.precio)}
               </span>
             </li>

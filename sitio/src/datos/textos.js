@@ -90,16 +90,15 @@ export const TEXTOS = {
     'tarifas.soloEntreSemana': 'paga adulto',
     'tarifas.twilight': 'Twilight · salidas de 2:00 a 3:00 pm',
     'tarifas.noIncluye': 'No incluye caddie, propinas, bebidas ni pelotas de juego.',
-    'tarifas.aparte': 'Aparte del green fee',
+    'tarifas.aparte': 'Extras',
     'tarifas.pagoDirecto': 'se le paga directo',
     'tarifas.reservar': 'Reservar tee time',
     'tarifas.carrito': 'carrito compartido',
     'tarifas.scorecard': 'tarjeta de score',
     'tarifas.tees': '10 tees',
-    'tarifas.pelotas': '50 pelotas de práctica (no se usan en el campo)',
+    'tarifas.pelotas': '50 pelotas de práctica',
     'extra.CADDIE': 'Caddie',
-    'extra.CADDIE.nota':
-      'Se le paga directo al caddie; no incluye propina. Hay dos por día y se asignan por orden de salida.',
+    'extra.CADDIE.nota': 'Se le paga directo al caddie; no incluye propina.',
     'extra.BASTONES': 'Renta de bastones',
     'extra.BASTONES.nota': 'Set básico de 10 bastones: putter, madera, driver y hierros. Uno por jugador.',
     'extra.ACOMPANANTE': 'Acompañante',
@@ -193,7 +192,7 @@ export const TEXTOS = {
       'se le paga directo a él, no va en esta cuenta · hay dos y se asignan por orden de salida',
     'reservar.incluye':
       'Incluye carrito compartido, tarjeta de score, 10 tees y 50 pelotas de práctica. Preséntese en la casa ' +
-      'club veinte minutos antes de su salida.',
+      'club quince minutos antes de su salida.',
     'reservar.pagoSeguro': 'Pago seguro con Stripe',
     'reservar.pagoNota':
       'Al confirmar lo mandamos a la página de pago de Stripe y vuelve aquí con su ' +
@@ -232,7 +231,7 @@ export const TEXTOS = {
     'listo.detalle':
       '{dia} a las {hora}, {n} jugador{es}. Le enviamos su pase por correo ' +
       'electrónico — también puede descargar este folio como comprobante. ' +
-      'Preséntese en la casa club veinte minutos antes.',
+      'Preséntese en la casa club quince minutos antes.',
     'listo.entrando':
       'Su pago está entrando. En cuanto nos lo confirmen —normalmente son segundos— ' +
       'le llega su pase por correo. No hace falta que vuelva a pagar.',
@@ -323,16 +322,15 @@ export const TEXTOS = {
     'tarifas.soloEntreSemana': 'adult rate',
     'tarifas.twilight': 'Twilight · tee times 2:00–3:00 pm',
     'tarifas.noIncluye': 'Caddie, tips, drinks and playing balls are not included.',
-    'tarifas.aparte': 'Not included in the green fee',
+    'tarifas.aparte': 'Extras',
     'tarifas.pagoDirecto': 'paid directly',
     'tarifas.reservar': 'Book a tee time',
     'tarifas.carrito': 'a shared cart',
     'tarifas.scorecard': 'a scorecard',
     'tarifas.tees': '10 tees',
-    'tarifas.pelotas': '50 practice balls (not for use on the course)',
+    'tarifas.pelotas': '50 practice balls',
     'extra.CADDIE': 'Caddie',
-    'extra.CADDIE.nota':
-      'Paid directly to the caddie; tip not included. Two are available each day, assigned by tee time.',
+    'extra.CADDIE.nota': 'Paid directly to the caddie; tip not included.',
     'extra.BASTONES': 'Club rental',
     'extra.BASTONES.nota': 'Basic 10-club set: putter, wood, driver and irons. One per player.',
     'extra.ACOMPANANTE': 'Non-playing guest',
@@ -426,7 +424,7 @@ export const TEXTOS = {
       'paid directly to the caddie, not part of this total · two available, assigned by tee time',
     'reservar.incluye':
       'Includes a shared cart, a scorecard, 10 tees and 50 practice balls. Please come to the ' +
-      'clubhouse twenty minutes before your tee time.',
+      'clubhouse fifteen minutes before your tee time.',
     'reservar.pagoSeguro': 'Secure payment with Stripe',
     'reservar.pagoNota':
       'When you confirm we send you to Stripe to pay, and you come back here with ' +
@@ -463,7 +461,7 @@ export const TEXTOS = {
     'listo.detalle':
       '{dia} at {hora}, {n} player{es}. We are sending your pass by email — you ' +
       'can also download this booking number as a receipt. Please come to the ' +
-      'clubhouse twenty minutes before.',
+      'clubhouse fifteen minutes before.',
     'listo.entrando':
       'Your payment is coming through. As soon as it clears — usually seconds — your ' +
       'pass arrives by email. No need to pay again.',
