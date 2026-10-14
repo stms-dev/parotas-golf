@@ -282,17 +282,17 @@ def sembrar(produccion: bool = False):
         # sí trae es el costo, así que el valor del inventario empieza a
         # cuadrar en cuanto se registren las primeras entradas.
         from pathlib import Path
-        from app.modules.inventory.importar import leer
-        from app.modules.inventory.models import InventoryItem
+        from app.modules.tienda.importar import leer
+        from app.modules.tienda.models import TiendaProducto
 
         productos = leer(Path(__file__).parent / "data" / "inventario_inicial.tsv")
         for pr in productos:
             db.add(
-                InventoryItem(
-                    code=pr.codigo, has_barcode=pr.tiene_codigo,
-                    description=pr.descripcion, category=pr.categoria,
-                    brand=pr.marca, size=pr.talla,
-                    purchase_price=pr.precio_compra, stock=0, min_stock=0,
+                TiendaProducto(
+                    codigo=pr.codigo, tiene_codigo_barras=pr.tiene_codigo,
+                    descripcion=pr.descripcion, categoria=pr.categoria,
+                    marca=pr.marca, talla=pr.talla,
+                    costo=pr.precio_compra, existencia=0, minimo=0,
                 )
             )
         sin_codigo = sum(1 for pr in productos if not pr.tiene_codigo)

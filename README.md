@@ -51,9 +51,9 @@ Contraseña para todos: `Reserva2026*`
 
 | Correo | Rol | Ve |
 |---|---|---|
-| `admin@lasparotas.mx` | Administración | Control del sistema · Inventario · Auditoría |
-| `operaciones@lasparotas.mx` | Dirección de operaciones | Panel · Nueva reserva · Partidas & Hoteles · Check-In · Liquidaciones · Inventario · Precios (consulta) |
-| `recepcion@lasparotas.mx` | Recepción | Solicitudes · Recepción & Check-In · Liquidaciones |
+| `admin@lasparotas.mx` | Administración | Control del sistema · Tienda · Auditoría |
+| `operaciones@lasparotas.mx` | Dirección de operaciones | Panel · Nueva reserva · Partidas & Hoteles · Check-In · Liquidaciones · Tienda · Precios (consulta) |
+| `recepcion@lasparotas.mx` | Recepción | Solicitudes · Recepción & Check-In · Liquidaciones · Tienda |
 | `concierge@celeste.mx` | Hotel Celeste (comisión 5%) | Su panel · Nueva reserva |
 | `concierge@barcelo.mx` | Hotel Barceló (sin comisión) | Su panel · Nueva reserva |
 
@@ -70,8 +70,30 @@ La base se llena con la información real del club:
   **viernes a domingo**, y el sistema elige solo el que corresponde al día de
   la salida.
 - **Productos del Pro-Shop** de `backend/data/inventario_inicial.tsv`: 73
-  artículos con su costo. Entran con existencia en cero, porque todavía no hay
-  conteo físico.
+  artículos con su costo. Entran con existencia en cero y sin precio de venta:
+  en **Tienda › Productos** se ponen precios con *Precio por margen* y las
+  piezas con *Conteo físico*.
+
+### Tienda (Pro-Shop)
+
+Punto de venta aparte de check-in, partidas y renta de bastones, en su propia
+ventana (`/sistema/tienda`). Los hoteles no la ven y no factura.
+
+- **Vender**: lector de código de barras (Enter agrega, `3*CODIGO` agrega
+  tres), F2 buscador, F9 cobrar. Efectivo MXN/USD con cambio, tarjeta,
+  transferencia o pago mixto; descuento con motivo; ticket imprimible de 80 mm.
+- **Productos**: alta, edición, baja, entradas de mercancía, ajustes con
+  motivo, conteo físico masivo (el lector suma una pieza por escaneo), kardex,
+  precio por margen y exportar a CSV.
+- **Ventas**: búsqueda por fecha/folio, reimprimir ticket y cancelar (solo con
+  la caja abierta; las piezas regresan al inventario).
+- **Caja**: su propio fondo y corte, aparte de la caja de green fees; al cerrar
+  se cuentan billetes y queda guardada la diferencia.
+- **Reportes**: vendido, utilidad, margen, por día, por hora, por método de
+  pago, por categoría, por vendedor y lo más vendido.
+
+Tablas `tienda_*` en la misma base (migración `e2a4c6b8d0f1`, corre sola al
+arrancar y pasa lo que había en el inventario anterior).
 
 ### Horarios
 

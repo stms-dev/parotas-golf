@@ -244,7 +244,7 @@ export function Collapsible({ title, subtitle, defaultOpen = false, badge, child
   );
 }
 
-export function Modal({ open, title, onClose, children, footer }) {
+export function Modal({ open, title, onClose, children, footer, ancho = 'max-w-lg' }) {
   useEffect(() => {
     const handler = (event) => event.key === 'Escape' && onClose?.();
     if (open) document.addEventListener('keydown', handler);
@@ -254,7 +254,7 @@ export function Modal({ open, title, onClose, children, footer }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-tertiary/35 p-4 backdrop-blur-[4px]">
-      <div className="w-full max-w-lg rounded-lg border border-outline-variant/50 bg-surface-container-lowest shadow-modal">
+      <div className={`w-full ${ancho} rounded-lg border border-outline-variant/50 bg-surface-container-lowest shadow-modal`}>
         <header className="flex items-center justify-between border-b border-outline-variant/40 px-5 py-4">
           <h3 className="font-serif text-headline-md text-primary">{title}</h3>
           <button onClick={onClose} className="text-xl leading-none text-outline hover:text-on-surface">

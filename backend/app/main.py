@@ -31,7 +31,7 @@ from app.modules.checkin.router import router as checkin_router
 from app.modules.events.router import router as events_router
 from app.modules.identity.router import router as auth_router
 from app.modules.identity.router import users_router
-from app.modules.inventory.router import router as inventory_router
+from app.modules.tienda.router import router as tienda_router
 from app.modules.mailing.router import router as mailing_router
 from app.modules.pagos.router import router as publico_router
 from app.modules.treasury.router import router as treasury_router
@@ -243,7 +243,7 @@ for router in (
     checkin_router,
     treasury_router,
     events_router,
-    inventory_router,
+    tienda_router,
     mailing_router,
     # Las rutas que el sitio del club llama sin cuenta.
     publico_router,

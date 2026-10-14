@@ -27,7 +27,7 @@ import SolicitudesPage from '../pages/SolicitudesPage';
 import FinancePage from '../pages/FinancePage';
 import SettingsPage from '../pages/SettingsPage';
 import AdminPage from '../pages/AdminPage';
-import InventoryPage from '../pages/InventoryPage';
+import TiendaPage from '../pages/tienda/TiendaPage';
 import AuditPage from '../pages/AuditPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import ForbiddenPage from '../pages/ForbiddenPage';
@@ -46,7 +46,7 @@ export const PERMISOS = {
   HOTELES: 'catalog:view_hotels',
   AUDITORIA: 'screen:audit',
   CONTROL: 'user:manage',
-  INVENTARIO: 'screen:inventory',
+  TIENDA: 'screen:tienda',
   // Armar las partidas abiertas es trabajo de piso: lo decide quien está
   // viendo el campo, no el mostrador y menos un hotel.
   PARTIDAS_ABIERTAS: 'open_partida:manage',
@@ -197,13 +197,14 @@ export default function AppRouter() {
         <Route path="/configuracion" element={<Navigate to="/precios" replace />} />
 
         <Route
-          path="/inventario"
+          path="/tienda"
           element={
-            <Protected permission={PERMISOS.INVENTARIO}>
-              <InventoryPage />
+            <Protected permission={PERMISOS.TIENDA}>
+              <TiendaPage />
             </Protected>
           }
         />
+        <Route path="/inventario" element={<Navigate to="/tienda?vista=productos" replace />} />
 
         {/* Tablero de la Administración: toca la base, no opera el día. */}
         <Route

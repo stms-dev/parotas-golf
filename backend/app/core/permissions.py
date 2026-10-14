@@ -32,7 +32,8 @@ class Permission:
     SCREEN_FINANCE = "screen:finance"
     SCREEN_SETTINGS = "screen:settings"
     SCREEN_AUDIT = "screen:audit"
-    SCREEN_INVENTORY = "screen:inventory"
+    # La tienda (Pro-Shop): punto de venta, productos, caja propia y reportes.
+    SCREEN_TIENDA = "screen:tienda"
     SCREEN_REQUESTS = "screen:requests"
 
     # ------------------------------------------------------------- reservas
@@ -81,9 +82,11 @@ class Permission:
     CASH_SESSION_MANAGE = "cash_session:manage"
     SETTLEMENT_MANAGE = "settlement:manage"
 
-    # ----------------------------------------------------------- inventario
-    INVENTORY_VIEW = "inventory:view"
-    INVENTORY_MANAGE = "inventory:manage"
+    # ---------------------------------------------------------------- tienda
+    # Vender y abrir/cerrar la caja de la tienda.
+    TIENDA_VENDER = "tienda:vender"
+    # Productos, precios, entradas, ajustes, cancelaciones y reportes.
+    TIENDA_ADMINISTRAR = "tienda:administrar"
 
     # --------------------------------------------------------------- sistema
     USER_MANAGE = "user:manage"
@@ -135,6 +138,11 @@ _RECEPCION: Set[str] = {
     # las comisiones y el detalle PGA del periodo. Lo que sigue sin poder es
     # abrir o cerrar el turno de caja.
     Permission.FINANCE_VIEW_GLOBAL,
+    # La tienda la atiende el mostrador con su mismo usuario: vende y también
+    # la administra (precios, entradas, ajustes, cancelaciones y reportes).
+    Permission.SCREEN_TIENDA,
+    Permission.TIENDA_VENDER,
+    Permission.TIENDA_ADMINISTRAR,
 }
 
 
@@ -182,10 +190,10 @@ _ADMIN_OPERACIONES: Set[str] = {
     # La bitácora es de la Administración: operaciones trabaja el día, no
     # audita lo que hicieron los demás.
 
-    # El Pro-Shop lo lleva operaciones: da de alta mercancía y la mueve.
-    Permission.SCREEN_INVENTORY,
-    Permission.INVENTORY_VIEW,
-    Permission.INVENTORY_MANAGE,
+    # La tienda: vende y la administra completa.
+    Permission.SCREEN_TIENDA,
+    Permission.TIENDA_VENDER,
+    Permission.TIENDA_ADMINISTRAR,
 }
 
 

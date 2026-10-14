@@ -1,0 +1,328 @@
+/**
+ * Caja de la tienda: su propio fondo y su propio corte, aparte de la caja de
+ * green fees. Se abre con un fondo, se vende, y al cerrar se cuenta el
+ * efectivo: el sistema dice cuánto debería haber y la diferencia queda guardada.
+ */
+import { useEffect, useMemo, useState } from 'react';
+
+import { tiendaApi } from '../../api/client';
+import Icono from '../../components/Icono';
+import { Modal } from '../../components/ui';
+import { error as avisoError, notificar } from '../../utils/avisos';
+import { fecha, fechaHora, mxn } from '../../utils/format';
+import { BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, TARJETA, plural } from './comun';
+
+const DENOMINACIONES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5];
+
+export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAdministrar }) {
+  const [cortes, setCortes] = useState([]);
+  const [cerrando, setCerrando] = useState(false);
+  const [imprimir, setImprimir] = useState(null);
+
+  function cargarCortes() {
+    if (!puedeAdministrar) return;
+    tiendaApi.cortes().then(setCortes).catch(() => setCortes([]));
+  }
+
+  useEffect(() => {
+    cargarCortes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caja?.id, caja?.estado]);
+
+  return (
+    <div className="space-y-gutter">
+      {caja ? (
+        <section className={`${TARJETA} p-5`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-label-sm uppercase tracking-wider text-estado-ok-text">● Caja abierta</p>
+              <h2 className="font-serif text-headline-lg text-primary">Corte #{caja.id} · {fecha(caja.fecha)}</h2>
+              <p className="text-body-md text-outline">
+                La abrió {caja.abierto_por_nombre} · {fechaHora(caja.abierto_en)} · fondo {mxn(caja.fondo_inicial)}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setImprimir(caja)} className={BOTON}>
+                <Icono nombre="imprimir" size={15} /> Corte parcial
+              </button>
+              <button type="button" onClick={() => setCerrando(true)} className={BOTON_FUERTE}>
+                <Icono nombre="candado" size={16} className="text-secondary-fixed" /> Cerrar caja
+              </button>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Cifra label="Vendido" valor={mxn(caja.ventas_total)} pie={`${plural(caja.ventas_cuenta, 'venta')} · ${plural(caja.canceladas, 'cancelada')}`} oscuro />
+            <Cifra label="Efectivo en cajón" valor={mxn(caja.efectivo_esperado)} pie={`fondo + ${mxn(caja.efectivo_ventas)} de ventas`} />
+            <Cifra label="Tarjeta" valor={mxn(caja.tarjeta_total)} pie="vouchers de la terminal" />
+            <Cifra label="Transferencia" valor={mxn(caja.transferencia_total)} />
+            <Cifra label="Utilidad" valor={mxn(caja.utilidad)} pie="venta menos costo" tono="text-estado-ok-text" />
+          </div>
+        </section>
+      ) : (
+        <section className={`${TARJETA} flex flex-col items-center gap-3 p-10 text-center`}>
+          <Icono nombre="cajaFuerte" size={40} className="text-outline" />
+          <h2 className="font-serif text-headline-lg text-primary">La caja de la tienda está cerrada</h2>
+          <p className="max-w-md text-body-lg text-on-surface-variant">
+            Ábrala con el fondo de cambio que hay en el cajón para empezar a vender. Es independiente de la caja de
+            green fees.
+          </p>
+          <button type="button" onClick={onAbrirCaja} className={BOTON_FUERTE}>
+            <Icono nombre="llave" size={16} className="text-secondary-fixed" /> Abrir caja
+          </button>
+        </section>
+      )}
+
+      {puedeAdministrar && (
+        <section className={`${TARJETA} overflow-x-auto`}>
+          <div className="flex items-center justify-between px-4 pt-4">
+            <h3 className="text-title-lg text-primary">Cortes anteriores</h3>
+            <button type="button" onClick={cargarCortes} className="text-outline transition hover:text-primary" title="Actualizar">
+              <Icono nombre="refrescar" size={17} />
+            </button>
+          </div>
+          <table className="mt-2 w-full min-w-[880px] text-left">
+            <thead>
+              <tr className="border-y border-outline-variant/50 bg-surface-container-low text-label-sm uppercase tracking-wider text-on-surface-variant">
+                <th className="px-4 py-3">Corte</th>
+                <th className="px-3 py-3">Abrió / cerró</th>
+                <th className="px-3 py-3 text-right">Ventas</th>
+                <th className="px-3 py-3 text-right">Efectivo esperado</th>
+                <th className="px-3 py-3 text-right">Contado</th>
+                <th className="px-3 py-3 text-right">Diferencia</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {cortes.map((c) => (
+                <tr key={c.id} className="border-b border-outline-variant/30 align-top">
+                  <td className="px-4 py-3">
+                    <p className="text-title-md text-primary">#{c.id} · {fecha(c.fecha)}</p>
+                    <p className={`text-label-sm uppercase tracking-wider ${c.estado === 'ABIERTO' ? 'text-estado-ok-text' : 'text-outline'}`}>
+                      {c.estado === 'ABIERTO' ? 'Abierto' : 'Cerrado'}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 text-body-md">
+                    <p>{c.abierto_por_nombre} · {fechaHora(c.abierto_en)}</p>
+                    {c.cerrado_en && <p className="text-outline">{c.cerrado_por_nombre} · {fechaHora(c.cerrado_en)}</p>}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-body-md">
+                    {mxn(c.ventas_total)}
+                    <p className="text-label-md text-outline">{plural(c.ventas_cuenta, 'venta')}</p>
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-body-md">{mxn(c.efectivo_esperado)}</td>
+                  <td className="px-3 py-3 text-right font-mono text-body-md">{c.efectivo_contado != null ? mxn(c.efectivo_contado) : '—'}</td>
+                  <td className="px-3 py-3 text-right"><Diferencia valor={c.diferencia} /></td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" onClick={() => setImprimir(c)} className="text-outline transition hover:text-primary" title="Imprimir corte">
+                      <Icono nombre="imprimir" size={17} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!cortes.length && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-body-lg text-outline">Todavía no hay cortes.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {cerrando && caja && (
+        <CerrarCaja
+          caja={caja}
+          atiende={atiende}
+          onCerrar={() => setCerrando(false)}
+          onListo={(corte) => {
+            setCerrando(false);
+            onCajaCambio?.();
+            setImprimir(corte);
+          }}
+        />
+      )}
+      {imprimir && <HojaCorte corte={imprimir} onCerrar={() => setImprimir(null)} />}
+    </div>
+  );
+}
+
+function Diferencia({ valor }) {
+  if (valor == null) return <span className="text-outline">—</span>;
+  const n = Number(valor);
+  const tono = n === 0 ? 'text-estado-ok-text' : n > 0 ? 'text-estado-pend-text' : 'text-error';
+  return (
+    <span className={`font-mono text-title-md ${tono}`}>
+      {n === 0 ? 'Cuadra' : `${n > 0 ? 'Sobran ' : 'Faltan '}${mxn(Math.abs(n))}`}
+    </span>
+  );
+}
+
+/* --------------------------------------------------------------- cerrar */
+function CerrarCaja({ caja, atiende, onCerrar, onListo }) {
+  const [conteo, setConteo] = useState({});
+  const [directo, setDirecto] = useState('');
+  const [porBilletes, setPorBilletes] = useState(true);
+  const [notas, setNotas] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  const contado = useMemo(
+    () => (porBilletes ? DENOMINACIONES.reduce((t, d) => t + d * Number(conteo[d] || 0), 0) : Number(directo || 0)),
+    [conteo, directo, porBilletes],
+  );
+  const diferencia = Math.round((contado - Number(caja.efectivo_esperado)) * 100) / 100;
+
+  async function cerrar() {
+    if (atiende.trim().length < 3) return avisoError('¿Quién cierra?', 'Escriba arriba quién atiende.');
+    if (diferencia !== 0 && notas.trim().length < 3) {
+      return avisoError('Explique la diferencia', 'Si no cuadra, escriba una nota con lo que pasó.');
+    }
+    setGuardando(true);
+    try {
+      const corte = await tiendaApi.cerrarCaja({ efectivo_contado: contado, atendio: atiende.trim(), notas: notas.trim() || null });
+      notificar('Caja de tienda cerrada');
+      onListo(corte);
+    } catch (err) {
+      avisoError('No se cerró', err.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Cerrar caja de la tienda"
+      onClose={onCerrar}
+      footer={
+        <>
+          <button type="button" onClick={onCerrar} className={BOTON}>Cancelar</button>
+          <button type="button" onClick={cerrar} disabled={guardando} className={BOTON_FUERTE}>
+            {guardando ? 'Cerrando…' : 'Cerrar caja'}
+          </button>
+        </>
+      }
+    >
+      <div className="flex gap-1.5">
+        {[
+          [true, 'Contar billetes'],
+          [false, 'Escribir el total'],
+        ].map(([v, t]) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setPorBilletes(v)}
+            className={`rounded-full border px-3 py-1 text-label-md ${
+              porBilletes === v ? 'border-primary-container bg-primary-container text-on-primary' : 'border-outline-variant text-on-surface-variant'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {porBilletes ? (
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+          {DENOMINACIONES.map((d) => (
+            <label key={d} className="flex items-center gap-2">
+              <span className="w-14 text-right font-mono text-body-md text-on-surface-variant">${d >= 1 ? d : '0.50'}</span>
+              <input
+                type="number"
+                min="0"
+                value={conteo[d] ?? ''}
+                onChange={(e) => setConteo({ ...conteo, [d]: e.target.value })}
+                className={`${CAMPO} py-1 font-mono`}
+                placeholder="0"
+              />
+            </label>
+          ))}
+        </div>
+      ) : (
+        <label className="mt-3 block">
+          <span className={ETIQUETA}>Efectivo contado en el cajón</span>
+          <input type="number" min="0" step="0.5" value={directo} onChange={(e) => setDirecto(e.target.value)} className={`${CAMPO} font-mono text-title-lg`} autoFocus />
+        </label>
+      )}
+
+      <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded bg-surface-container-low p-2">
+          <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">Debería haber</p>
+          <p className="font-mono text-title-lg">{mxn(caja.efectivo_esperado)}</p>
+        </div>
+        <div className="rounded bg-surface-container-low p-2">
+          <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">Contado</p>
+          <p className="font-mono text-title-lg">{mxn(contado)}</p>
+        </div>
+        <div className={`rounded p-2 ${diferencia === 0 ? 'bg-estado-ok-bg' : diferencia > 0 ? 'bg-estado-pend-bg' : 'bg-estado-cancel-bg'}`}>
+          <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">Diferencia</p>
+          <Diferencia valor={diferencia} />
+        </div>
+      </div>
+      <p className="mt-2 text-body-md text-outline">
+        Tarjeta {mxn(caja.tarjeta_total)} y transferencia {mxn(caja.transferencia_total)} se cuadran con la terminal y el banco.
+      </p>
+      <label className="mt-3 block">
+        <span className={ETIQUETA}>Notas {diferencia !== 0 && '(obligatorio si no cuadra)'}</span>
+        <input value={notas} onChange={(e) => setNotas(e.target.value)} className={CAMPO} />
+      </label>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------- hoja imprimible */
+function HojaCorte({ corte, onCerrar }) {
+  const fila = (a, b, fuerte) => (
+    <div className={`flex justify-between ${fuerte ? 'font-semibold' : ''}`}>
+      <span>{a}</span>
+      <span>{b}</span>
+    </div>
+  );
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4">
+      <div className="my-4 w-full max-w-sm">
+        <div className="no-imprimir mb-3 flex items-center justify-between gap-2">
+          <p className="text-title-lg text-white">Corte #{corte.id}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => window.print()} className="flex items-center gap-1.5 rounded bg-primary-container px-4 py-2 text-title-md text-on-primary shadow-card hover:bg-primary">
+              <Icono nombre="imprimir" size={16} className="text-secondary-fixed" /> Imprimir
+            </button>
+            <button type="button" onClick={onCerrar} className="rounded border border-white/40 px-4 py-2 text-title-md text-white hover:bg-white/10">
+              Cerrar
+            </button>
+          </div>
+        </div>
+        <div className="documento-imprimible ticket rounded-lg bg-white p-6 font-mono text-[12.5px] leading-snug text-black shadow-modal">
+          <div className="text-center">
+            <p className="font-serif text-[18px] font-semibold">Las Parotas</p>
+            <p className="text-[11px] uppercase tracking-widest">Pro-Shop · {corte.estado === 'ABIERTO' ? 'Corte parcial' : 'Corte de caja'}</p>
+          </div>
+          <div className="my-3 border-t border-dashed border-black/50" />
+          {fila('Corte', `#${corte.id}`)}
+          {fila('Fecha', fecha(corte.fecha))}
+          {fila('Abrió', corte.abierto_por_nombre)}
+          {fila('Apertura', fechaHora(corte.abierto_en))}
+          {corte.cerrado_en && fila('Cerró', corte.cerrado_por_nombre)}
+          {corte.cerrado_en && fila('Cierre', fechaHora(corte.cerrado_en))}
+          {corte.estado === 'ABIERTO' && fila('Impreso', fechaHora(new Date().toISOString()))}
+          <div className="my-3 border-t border-dashed border-black/50" />
+          {fila('Ventas', corte.ventas_cuenta)}
+          {fila('Canceladas', corte.canceladas)}
+          {fila('Total vendido', mxn(corte.ventas_total), true)}
+          <div className="my-3 border-t border-dashed border-black/50" />
+          {fila('Fondo inicial', mxn(corte.fondo_inicial))}
+          {fila('Efectivo de ventas', mxn(corte.efectivo_ventas))}
+          {fila('Efectivo esperado', mxn(corte.efectivo_esperado), true)}
+          {corte.efectivo_contado != null && fila('Efectivo contado', mxn(corte.efectivo_contado))}
+          {corte.diferencia != null && fila('Diferencia', mxn(corte.diferencia), true)}
+          <div className="my-3 border-t border-dashed border-black/50" />
+          {fila('Tarjeta', mxn(corte.tarjeta_total))}
+          {fila('Transferencia', mxn(corte.transferencia_total))}
+          {corte.notas && <p className="mt-3">Notas: {corte.notas}</p>}
+          <div className="mt-10 grid grid-cols-2 gap-4 text-center text-[10px]">
+            <p className="border-t border-black pt-1">Entrega</p>
+            <p className="border-t border-black pt-1">Recibe</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

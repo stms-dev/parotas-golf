@@ -28,7 +28,7 @@ const NAV = [
   { to: '/solicitudes', label: 'Solicitudes del día', icono: 'registro', permission: 'screen:requests' },
   { to: '/recepcion', label: 'Recepción & Check-In', icono: 'how_to_reg', permission: 'screen:checkin' },
   { to: '/finanzas', label: 'Liquidaciones', icono: 'payments', permission: 'screen:finance' },
-  { to: '/inventario', label: 'Inventario', icono: 'storefront', permission: 'screen:inventory' },
+  { to: '/tienda', label: 'Tienda', icono: 'carrito', permission: 'screen:tienda' },
   // Precios y Configuración eran dos pantallas con los mismos catálogos.
   { to: '/precios', label: 'Precios & Configuración', icono: 'sell', permission: 'screen:settings' },
 ];
@@ -39,7 +39,7 @@ const NAV = [
  */
 const NAV_ADMIN = [
   { to: '/control', label: 'Control del sistema', icono: 'ajustes', exact: true },
-  { to: '/inventario', label: 'Inventario', icono: 'storefront', permission: 'screen:inventory' },
+  { to: '/tienda', label: 'Tienda', icono: 'carrito', permission: 'screen:tienda' },
   { to: '/auditoria', label: 'Auditoría', icono: 'history_edu', permission: 'screen:audit' },
 ];
 

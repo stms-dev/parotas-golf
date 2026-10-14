@@ -53,6 +53,14 @@ const TRAZOS = {
   correo: 'M3.5 6h17a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1ZM3 7l9 6 9-6',
   qr: 'M4 4h6v6H4V4ZM14 4h6v6h-6V4ZM4 14h6v6H4v-6ZM14 14h3v3h-3v-3ZM20 17v3h-3',
   cerrarMenu: 'M4 6h16M4 12h10M4 18h16M19 9l-3 3 3 3',
+  carrito: 'M3 4h2.5l2.2 10.5a1 1 0 0 0 1 .8h8.6a1 1 0 0 0 1-.8L20 7H6.4M9.5 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM17 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z',
+  codigoBarras: 'M4 5v14M7 5v14M10 5v14M12.5 5v14M15 5v14M18 5v14M20 5v14',
+  grafica: 'M4 20h16M7 16v-5M11 16V7M15 16v-7M19 16V5',
+  caja: 'M4 11h16v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8ZM6 11V7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v4M9 3h6v3H9V3ZM8 15h8',
+  basura: 'M5 7h14M10 4h4M8 7l1 13h6l1-13M10.5 11v6M13.5 11v6',
+  menos: 'M5 12h14',
+  imprimir: 'M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M7 14h10v6H7v-6Z',
+  paquete: 'M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3ZM4 7.5l8 4.5 8-4.5M12 12v9',
   abrirMenu: 'M4 6h16M10 12h10M4 18h16M7 9l-3 3 3 3',
 };
 

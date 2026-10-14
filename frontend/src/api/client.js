@@ -303,13 +303,26 @@ export const eventsApi = {
   release: (id) => api.post(`/events/${id}/release`),
 };
 
-export const inventoryApi = {
-  items: (params) => api.get('/inventory/items', params),
-  summary: () => api.get('/inventory/summary'),
-  create: (body) => api.post('/inventory/items', body),
-  update: (id, body) => api.patch(`/inventory/items/${id}`, body),
-  move: (id, body) => api.post(`/inventory/items/${id}/movements`, body),
-  movements: (id) => api.get(`/inventory/items/${id}/movements`),
+export const tiendaApi = {
+  productos: (params) => api.get('/tienda/productos', params),
+  porCodigo: (codigo) => api.get(`/tienda/productos/codigo/${encodeURIComponent(codigo)}`),
+  resumen: () => api.get('/tienda/resumen'),
+  crear: (body, atendio) => api.post(`/tienda/productos?atendio=${encodeURIComponent(atendio)}`, body),
+  actualizar: (id, body) => api.patch(`/tienda/productos/${id}`, body),
+  precioPorMargen: (body) => api.post('/tienda/productos/precio-por-margen', body),
+  mover: (id, body) => api.post(`/tienda/productos/${id}/movimientos`, body),
+  conteo: (body) => api.post('/tienda/productos/conteo', body),
+  movimientos: (params) => api.get('/tienda/movimientos', params),
+  cajaActual: () => api.get('/tienda/caja/actual'),
+  abrirCaja: (body) => api.post('/tienda/caja/abrir', body),
+  cerrarCaja: (body) => api.post('/tienda/caja/cerrar', body),
+  cortes: () => api.get('/tienda/caja/cortes'),
+  corte: (id) => api.get(`/tienda/caja/cortes/${id}`),
+  vender: (body) => api.post('/tienda/ventas', body),
+  ventas: (params) => api.get('/tienda/ventas', params),
+  venta: (id) => api.get(`/tienda/ventas/${id}`),
+  cancelar: (id, body) => api.post(`/tienda/ventas/${id}/cancelar`, body),
+  reportes: (params) => api.get('/tienda/reportes', params),
 };
 
 export const auditApi = {
