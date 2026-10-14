@@ -44,11 +44,22 @@ export default function TiendaPage() {
       .catch(() => setCaja(null));
   }, []);
 
+  // La caja se puede cerrar sola a la hora de cierre: se revisa cada minuto
+  // y al volver a la ventana, para no seguir mostrando una caja que ya cerró.
   useEffect(() => {
     cargarCaja();
+    const reloj = setInterval(cargarCaja, 60000);
+    window.addEventListener('focus', cargarCaja);
+    return () => {
+      clearInterval(reloj);
+      window.removeEventListener('focus', cargarCaja);
+    };
   }, [cargarCaja]);
 
-  const ir = (id) => setParams(id === 'vender' ? {} : { vista: id }, { replace: true });
+  const ir = (id) => {
+    cargarCaja();
+    setParams(id === 'vender' ? {} : { vista: id }, { replace: true });
+  };
   const props = { caja: caja || null, atiende, onCajaCambio: cargarCaja, onAbrirCaja: () => setAbriendo(true) };
 
   return (

@@ -54,7 +54,7 @@ PANTALLAS = [
     "screen:finance",
     "screen:settings",
     "screen:audit",
-    "screen:inventory",
+    "screen:tienda",
 ]
 
 
@@ -77,15 +77,15 @@ check(
 check(
     "Dirección de operaciones: todas menos auditoría",
     len(pantallas_de(OPERACIONES)) == 9 and "audit" not in pantallas_de(OPERACIONES)
-    and "inventory" in pantallas_de(OPERACIONES),
+    and "tienda" in pantallas_de(OPERACIONES),
     ", ".join(pantallas_de(OPERACIONES)),
 )
 check(
     # El mostrador también levanta reservas de quien llega sin hotel y ve la
-    # lista de partidas, pero sigue sin tarifas, auditoría ni inventario.
-    "Recepción: mostrador, solicitudes, partidas, alta y finanzas",
+    # lista de partidas y opera la tienda, pero sigue sin tarifas ni auditoría.
+    "Recepción: mostrador, solicitudes, partidas, alta, finanzas y tienda",
     pantallas_de(RECEPCION)
-    == ["checkin", "finance", "new_reservation", "requests", "reservations"],
+    == ["checkin", "finance", "new_reservation", "requests", "reservations", "tienda"],
     ", ".join(pantallas_de(RECEPCION)),
 )
 check(
@@ -245,14 +245,14 @@ check("Operaciones NO consulta la bitácora", response.status_code == 403, f"HTT
 response = client.get("/api/audit", headers=ADMIN["headers"])
 check("La Administración sí consulta la bitácora", response.status_code == 200, f"HTTP {response.status_code}")
 
-# El inventario lo lleva operaciones; el mostrador y los hoteles no lo tocan.
+# La tienda la operan operaciones y recepción (con todo); los hoteles no la ven.
 print("\n   Inventario del Pro-Shop:")
-check("Operaciones consulta el inventario",
-      client.get("/api/inventory/items", headers=OPERACIONES["headers"]).status_code == 200)
-check("Recepción NO ve el inventario",
-      client.get("/api/inventory/items", headers=RECEPCION["headers"]).status_code == 403)
-check("Un hotel NO ve el inventario",
-      client.get("/api/inventory/items", headers=HOTEL["headers"]).status_code == 403)
+check("Operaciones consulta la tienda",
+      client.get("/api/tienda/productos", headers=OPERACIONES["headers"]).status_code == 200)
+check("Recepción opera la tienda",
+      client.get("/api/tienda/reportes", headers=RECEPCION["headers"]).status_code == 200)
+check("Un hotel NO ve la tienda",
+      client.get("/api/tienda/productos", headers=HOTEL["headers"]).status_code == 403)
 
 print("\n   Y sí administra lo operativo:")
 operativas = [

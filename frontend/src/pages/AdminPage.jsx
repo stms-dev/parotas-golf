@@ -303,6 +303,7 @@ function TurnoDeCaja({ caja, onCambio }) {
 
   return (
     <Tarjeta icono="cajaFuerte" titulo="Turno de caja">
+      <HoraCierreCajas />
       {abierto ? (
         <>
           <div className="grid gap-2.5 sm:grid-cols-3">
@@ -707,11 +708,13 @@ function HorariosDelDia({ dia, slots, onDia, onCambio }) {
 }
 
 /**
- * Hora a partir de la cual ya no se reserva para hoy. Pasada esa hora el día
- * se cierra entero aunque le queden salidas libres; los días siguientes siguen
- * abiertos. Se guarda en la base, así que aplica a todos los hoteles a la vez.
+ * Una hora guardada en los parámetros del sistema, editable aquí.
+ *
+ * - same_day_cutoff: pasada esta hora ya no se reserva para hoy.
+ * - cierre_automatico_caja: a esta hora las cajas (green fees y tienda) que
+ *   sigan abiertas se cierran solas y queda pendiente contar el efectivo.
  */
-function HoraLimite() {
+function HoraAjuste({ clave, defecto, titulo, texto, mensaje }) {
   const [actual, setActual] = useState(null);
   const [valor, setValor] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -720,12 +723,12 @@ function HoraLimite() {
     catalogApi
       .settings()
       .then((lista) => {
-        const h = lista.find((x) => x.key === 'same_day_cutoff')?.value || '15:00';
+        const h = lista.find((x) => x.key === clave)?.value || defecto;
         setActual(h);
         setValor(h);
       })
-      .catch(() => setActual('15:00'));
-  }, []);
+      .catch(() => setActual(defecto));
+  }, [clave, defecto]);
 
   async function guardar() {
     if (!/^\d{1,2}:\d{2}$/.test(valor)) {
@@ -734,12 +737,9 @@ function HoraLimite() {
     }
     setGuardando(true);
     try {
-      const r = await catalogApi.updateSetting('same_day_cutoff', valor);
+      const r = await catalogApi.updateSetting(clave, valor);
       setActual(r.value);
-      await exito(
-        'Hora límite actualizada',
-        `Desde las <b>${r.value}</b> ya no se podrá reservar para el mismo día.`,
-      );
+      await exito(`${titulo} actualizada`, mensaje(r.value));
     } catch (err) {
       await avisoError('No se pudo guardar', err.message);
     } finally {
@@ -750,11 +750,8 @@ function HoraLimite() {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
       <p className="text-body-md text-on-surface-variant">
-        <strong className="text-primary">Hora límite del día.</strong> Pasada esta hora ya no se
-        reserva para hoy; mañana sigue abierto.
-        {actual && (
-          <span className="ml-1 font-mono text-primary">Ahora: {actual}</span>
-        )}
+        <strong className="text-primary">{titulo}.</strong> {texto}
+        {actual && <span className="ml-1 font-mono text-primary">Ahora: {actual}</span>}
       </p>
       <div className="flex items-center gap-2">
         <input
@@ -772,6 +769,30 @@ function HoraLimite() {
         </button>
       </div>
     </div>
+  );
+}
+
+function HoraLimite() {
+  return (
+    <HoraAjuste
+      clave="same_day_cutoff"
+      defecto="15:00"
+      titulo="Hora límite del día"
+      texto="Pasada esta hora ya no se reserva para hoy; mañana sigue abierto."
+      mensaje={(h) => `Desde las <b>${h}</b> ya no se podrá reservar para el mismo día.`}
+    />
+  );
+}
+
+function HoraCierreCajas() {
+  return (
+    <HoraAjuste
+      clave="cierre_automatico_caja"
+      defecto="22:00"
+      titulo="Cierre automático de cajas"
+      texto="A esta hora la caja de green fees y la de la tienda se cierran solas si siguen abiertas; el efectivo se cuenta después."
+      mensaje={(h) => `Las cajas se cerrarán solas a las <b>${h}</b>.`}
+    />
   );
 }
 

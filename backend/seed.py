@@ -252,6 +252,7 @@ def sembrar(produccion: bool = False):
         parametros = [
             ("cash_cutoff_hour", "22", "Hora a partir de la cual la caja no admite cobros"),
             ("same_day_cutoff", "15:00", "Hora límite para reservar el mismo día (HH:MM)"),
+            ("cierre_automatico_caja", "22:00", "Hora en que las cajas (green fees y tienda) se cierran solas (HH:MM)"),
             ("course_name", "Las Parotas Club de Golf", "Nombre del campo"),
             ("course_par", "72", "Par del campo"),
             ("max_handicap_men", "26.4", "Hándicap máximo caballeros"),
@@ -295,6 +296,13 @@ def sembrar(produccion: bool = False):
                     costo=pr.precio_compra, existencia=0, minimo=0,
                 )
             )
+        db.flush()
+        # Precios y piezas inventados para poder probar la tienda desde el
+        # primer día; el conteo físico los reemplaza.
+        from app.modules.tienda.muestra import cargar_muestra
+
+        muestra = cargar_muestra(db.connection())
+        print(f"✓ Tienda con datos de muestra: {muestra}")
         sin_codigo = sum(1 for pr in productos if not pr.tiene_codigo)
         print(f"✓ {len(productos)} productos del Pro-Shop ({sin_codigo} sin código de barras)")
 

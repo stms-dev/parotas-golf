@@ -63,17 +63,38 @@ export function Cifra({ label, valor, pie, tono, oscuro }) {
   );
 }
 
+/** Piezas en tienda (de ahí se vende). Si el anaquel está vacío pero hay en
+ *  bodega, lo dice para que la pasen. */
 export function Existencia({ producto }) {
   const n = producto.existencia;
+  const bodega = producto.existencia_bodega || 0;
   const tono =
     n <= 0
-      ? 'bg-estado-cancel-bg text-estado-cancel-text border-estado-cancel-border'
+      ? bodega > 0
+        ? 'bg-estado-pend-bg text-estado-pend-text border-estado-pend-border'
+        : 'bg-estado-cancel-bg text-estado-cancel-text border-estado-cancel-border'
       : producto.por_surtir
         ? 'bg-estado-pend-bg text-estado-pend-text border-estado-pend-border'
         : 'bg-estado-ok-bg text-estado-ok-text border-estado-ok-border';
   return (
-    <span className={`inline-flex items-center rounded border px-2 py-0.5 font-mono text-label-md ${tono}`}>
-      {n <= 0 ? 'Agotado' : `${n} pza${n === 1 ? '' : 's'}`}
+    <span className={`inline-flex items-center whitespace-nowrap rounded border px-2 py-0.5 font-mono text-label-md ${tono}`}>
+      {n <= 0 ? (bodega > 0 ? `En bodega ${bodega}` : 'Agotado') : `${n} pza${n === 1 ? '' : 's'}`}
+    </span>
+  );
+}
+
+/** Avisos de surtido: comprar, pasar de bodega, sobre máximo. */
+export function Avisos({ producto: p }) {
+  const chips = [];
+  if (p.pasar_a_tienda) chips.push(['Pasar a tienda', 'border-estado-pend-border bg-estado-pend-bg text-estado-pend-text']);
+  if (p.por_surtir) chips.push([`Comprar ${p.compra_sugerida}`, 'border-estado-cancel-border bg-estado-cancel-bg text-estado-cancel-text']);
+  if (p.sobre_maximo) chips.push(['Sobre máximo', 'border-outline-variant bg-surface-container-high text-on-surface-variant']);
+  if (!chips.length) return null;
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {chips.map(([t, c]) => (
+        <span key={t} className={`rounded border px-1.5 py-px text-label-sm uppercase tracking-wider ${c}`}>{t}</span>
+      ))}
     </span>
   );
 }

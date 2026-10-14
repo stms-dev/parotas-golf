@@ -140,6 +140,8 @@ class CashSessionStatus(str, Enum):
     ABIERTA = "ABIERTA"
     CERRADA = "CERRADA"
     CON_DIFERENCIA = "CON_DIFERENCIA"
+    # Se cerró sola a la hora de cierre; nadie contó el cajón.
+    CIERRE_AUTOMATICO = "CIERRE_AUTOMATICO"
 
 
 class SettlementStatus(str, Enum):

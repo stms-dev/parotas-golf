@@ -45,13 +45,15 @@ productos = r.json()
 
 print("\n2. Catálogo y precios")
 res = c.get("/api/tienda/resumen", headers=rec).json()
-check("Los productos importados llegan sin precio", res["sin_precio"] == res["productos"], f"{res['sin_precio']}/{res['productos']}")
+check("Los productos importados traen precio y piezas de muestra", res["sin_precio"] == 0 and res["piezas_tienda"] > 0 and res["piezas_bodega"] > 0,
+      f"tienda {res['piezas_tienda']} · bodega {res['piezas_bodega']}")
 p0 = productos[0]
 r = c.post("/api/tienda/ventas", json={"lineas": [{"producto_id": p0["id"], "cantidad": 1}],
            "pagos": [{"metodo": "EFECTIVO", "monto": 100}], "atendio": A}, headers=rec)
 check("Sin caja abierta no se vende", r.status_code == 409, r.json().get("detail", "")[:60] if r.status_code != 201 else "")
-r = c.post("/api/tienda/productos/precio-por-margen", json={"margen_pct": 60, "redondear_a": 10}, headers=rec)
-check("Precio por margen a todos", r.status_code == 200 and r.json()["actualizados"] == res["productos"], str(r.json()))
+r = c.post("/api/tienda/productos/precio-por-margen", json={"margen_pct": 80, "redondear_a": 10, "solo_sin_precio": False}, headers=rec)
+check("Precio por margen a todos (80%)", r.status_code == 200 and r.json()["actualizados"] == res["productos"], str(r.json()))
+r = c.post("/api/tienda/productos/precio-por-margen", json={"margen_pct": 60, "redondear_a": 10, "solo_sin_precio": False}, headers=rec)
 p0 = c.get(f"/api/tienda/productos?q={p0['codigo']}", headers=rec).json()[0]
 esperado = (Decimal(p0["costo"]) * Decimal("1.6") / 10).to_integral_value(rounding="ROUND_CEILING") * 10
 check("El precio = costo +60% redondeado a 10", Decimal(p0["precio"]) == esperado, f"{p0['costo']} → {p0['precio']}")
@@ -66,9 +68,30 @@ r = c.post("/api/tienda/productos?atendio=" + A, json={"codigo": tee["codigo"], 
            "categoria": "Accesorios", "costo": 1}, headers=rec)
 check("No se repite un código", r.status_code == 409)
 
-print("\n3. Inventario")
-r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "ENTRADA", "cantidad": 12, "atendio": A, "motivo": "Factura 123"}, headers=rec)
-check("Entrada de 12", r.status_code == 200 and r.json()["existencia"] == 12, str(r.json().get("existencia")))
+print("\n3. Inventario: tienda y bodega")
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "ubicacion": "TIENDA", "cantidad": 0, "atendio": A, "motivo": "Arranque"}, headers=rec)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "ubicacion": "BODEGA", "cantidad": 0, "atendio": A, "motivo": "Arranque"}, headers=rec)
+check("Producto en ceros en los dos lugares", r.json()["existencia_total"] == 0)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "ENTRADA", "ubicacion": "BODEGA", "cantidad": 20, "atendio": A, "motivo": "Factura 123"}, headers=rec)
+check("Entrada de 20 a bodega", r.status_code == 200 and r.json()["existencia_bodega"] == 20 and r.json()["existencia"] == 0)
+check("Anaquel vacío con bodega → pasar a tienda", r.json()["pasar_a_tienda"] is True)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "TRASPASO", "ubicacion": "TIENDA", "cantidad": 30, "atendio": A}, headers=rec)
+check("No se traspasa más de lo que hay en bodega", r.status_code == 409)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "TRASPASO", "ubicacion": "TIENDA", "cantidad": 12, "atendio": A}, headers=rec)
+check("Traspaso de 12 bodega → tienda", r.status_code == 200 and r.json()["existencia"] == 12 and r.json()["existencia_bodega"] == 8)
+r = c.patch(f"/api/tienda/productos/{p0['id']}", json={"minimo": 25, "maximo": 40}, headers=rec)
+check("Mínimo 25 / máximo 40 → por surtir, comprar 20", r.json()["por_surtir"] and r.json()["compra_sugerida"] == 20, str(r.json()["compra_sugerida"]))
+r = c.patch(f"/api/tienda/productos/{p0['id']}", json={"minimo": 0, "maximo": 0}, headers=rec)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "TRASPASO", "ubicacion": "BODEGA", "cantidad": 8, "atendio": A}, headers=rec)
+r = c.post("/api/tienda/productos/conteo", json={"filas": [{"producto_id": p0["id"], "contado": 16, "ubicacion": "BODEGA"}], "atendio": A}, headers=rec)
+check("Conteo de bodega cuadra (sin ajuste)", r.json()["ajustados"] == 0, str(r.json()))
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "TRASPASO", "ubicacion": "TIENDA", "cantidad": 16, "atendio": A}, headers=rec)
+check("Entrada + traspasos dejan 20 en tienda", r.json()["existencia"] == 20 and r.json()["existencia_bodega"] == 0)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "cantidad": 18, "atendio": A, "motivo": "Conteo"}, headers=rec)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "ENTRADA", "cantidad": 12, "atendio": A, "motivo": "Factura 124"}, headers=rec)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "cantidad": 0, "atendio": A, "motivo": "x"}, headers=rec)
+r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "ENTRADA", "cantidad": 12, "atendio": A, "motivo": "Factura 125"}, headers=rec)
+check("Entrada de 12 a tienda", r.status_code == 200 and r.json()["existencia"] == 12, str(r.json().get("existencia")))
 r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "cantidad": 10, "atendio": A}, headers=rec)
 check("Ajuste sin motivo se rechaza", r.status_code == 409)
 r = c.post(f"/api/tienda/productos/{p0['id']}/movimientos", json={"tipo": "AJUSTE", "cantidad": 10, "atendio": A, "motivo": "Conteo semanal"}, headers=rec)
@@ -147,6 +170,33 @@ check("Más vendido", rep["top_productos"][0]["piezas"] >= 2, rep["top_productos
 check("Desglose por método", {m["metodo"] for m in rep["por_metodo"]} == {"EFECTIVO", "TARJETA", "TRANSFERENCIA"})
 check("Cancelaciones contadas", rep["canceladas"] == 1)
 check("Historial de cortes", len(c.get("/api/tienda/caja/cortes", headers=rec).json()) == 1)
+check("Resumen separa tienda y bodega", "piezas_bodega" in c.get("/api/tienda/resumen", headers=rec).json())
+
+print("\n9. Cierre automático de cajas")
+from datetime import timedelta
+from app.core.cierre_cajas import cerrar_vencidas
+from app.core.database import SessionLocal
+from app.shared.tiempo import ahora
+
+r = c.post("/api/tienda/caja/abrir", json={"fondo_inicial": 300, "atendio": A}, headers=rec)
+corte_auto = r.json()["id"]
+r = c.post("/api/treasury/cash/open", json={"opening_balance": 0}, headers=token("operaciones@lasparotas.mx"))
+check("Caja de green fees abierta", r.status_code in (200, 201), r.text[:80])
+db = SessionLocal()
+check("Antes de la hora no cierra nada", cerrar_vencidas(db, ahora() - timedelta(days=1)) == {"green_fees": 0, "tienda": 0})
+res_auto = cerrar_vencidas(db, ahora() + timedelta(days=1))
+db.close()
+check("Pasada la hora se cierran las dos", res_auto == {"green_fees": 1, "tienda": 1}, str(res_auto))
+r = c.get("/api/tienda/caja/actual", headers=rec).json()
+check("La tienda queda sin caja abierta", r["abierta"] is False)
+corte = c.get(f"/api/tienda/caja/cortes/{corte_auto}", headers=rec).json()
+check("El corte queda pendiente de arqueo", corte["pendiente_arqueo"] and corte["cerrado_por_nombre"] == "Cierre automático")
+r = c.post(f"/api/tienda/caja/cortes/{corte_auto}/arqueo", json={"efectivo_contado": 300, "atendio": A}, headers=rec)
+check("Arqueo posterior cuadra", r.status_code == 200 and Decimal(r.json()["diferencia"]) == 0, r.text[:100])
+r = c.post(f"/api/tienda/caja/cortes/{corte_auto}/arqueo", json={"efectivo_contado": 300, "atendio": A}, headers=rec)
+check("No se arquea dos veces", r.status_code == 409)
+ses = c.get("/api/treasury/cash", headers=token("operaciones@lasparotas.mx")).json()
+check("Green fees en CIERRE_AUTOMATICO", ses[0]["status"] == "CIERRE_AUTOMATICO", ses[0]["status"])
 
 print("\n" + ("TODO OK" if not fallas else f"{len(fallas)} FALLAS: {fallas}"))
 sys.exit(1 if fallas else 0)

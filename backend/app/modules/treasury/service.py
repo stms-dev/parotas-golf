@@ -185,6 +185,42 @@ class CashSessionService:
         )
         return session
 
+    def cerrar_automatico(self, session: CashSession, hora: str) -> CashSession:
+        """Cierre a la hora configurada. Se congela lo esperado; lo contado
+        queda en cero y la diferencia también, porque nadie contó: el estado
+        CIERRE_AUTOMATICO dice que ese arqueo falta."""
+        expected = self.expected_totals(session)
+        session.expected_cash_mxn = expected["cash_mxn"]
+        session.expected_card_mxn = expected["card_mxn"]
+        session.expected_transfer_mxn = expected["transfer_mxn"]
+        session.expected_total_mxn = expected["total_mxn"]
+        session.difference_mxn = ZERO
+        session.closed_at = datetime.utcnow()
+        session.closed_by_id = None
+        session.status = CashSessionStatus.CIERRE_AUTOMATICO
+        session.notes = f"Cerrada automáticamente a las {hora}, sin arqueo."
+        self.audit.log(
+            user=None, action=AuditAction.CIERRE_CAJA, module=self.MODULE,
+            entity="CashSession", entity_id=session.id, new_value=str(expected["total_mxn"]),
+            description=f"Cierre automático de caja ({hora}) · esperado ${expected['total_mxn']}",
+        )
+        self.db.commit()
+        publish(
+            RealtimeEvent(
+                type=EventType.CAJA_CERRADA,
+                required_permission=Permission.CASH_SESSION_VIEW,
+                payload={
+                    "turno_id": session.id,
+                    "esperado": str(session.expected_total_mxn),
+                    "contado": "0.00",
+                    "diferencia": "0.00",
+                    "estado": session.status,
+                    "responsable": "Cierre automático",
+                },
+            )
+        )
+        return session
+
     def list(self, *, limit: int = 30) -> List[CashSession]:
         stmt = select(CashSession).order_by(CashSession.opened_at.desc()).limit(limit)
         return list(self.db.execute(stmt).scalars().all())

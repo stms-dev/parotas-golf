@@ -75,6 +75,29 @@ async def _repartir_correos() -> None:
             logger.exception("Falló la tanda de correos")
 
 
+async def _cerrar_cajas() -> None:
+    """Cada minuto revisa si ya pasó la hora de cierre y cierra lo abierto."""
+    from app.core.cierre_cajas import cerrar_vencidas
+    from app.core.database import SessionLocal
+
+    def _revisar() -> dict:
+        db = SessionLocal()
+        try:
+            return cerrar_vencidas(db)
+        finally:
+            db.close()
+
+    while True:
+        try:
+            await asyncio.to_thread(_revisar)
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falló la revisión de cierre automático de cajas")
+            await asyncio.sleep(60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Al arrancar se le entrega el bucle de eventos al gestor de WebSockets.
@@ -119,8 +142,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Sin servidor de correo: los correos quedan en la bandeja")
 
+    # El reloj de las cajas: a la hora de cierre se cierran solas.
+    tarea_cajas = asyncio.create_task(_cerrar_cajas())
+    logger.info("Cierre automático de cajas activo")
+
     yield
 
+    tarea_cajas.cancel()
     if tarea_correos:
         tarea_correos.cancel()
     logger.info("Cerrando canal de tiempo real")

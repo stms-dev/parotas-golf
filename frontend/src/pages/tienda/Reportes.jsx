@@ -198,10 +198,10 @@ export default function Reportes() {
         <section className={`${TARJETA} p-5`}>
           <h3 className="text-title-lg text-primary">Inventario hoy</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Cifra label="Valor al costo" valor={mxn(inv.valor_costo)} pie={plural(inv.piezas, 'pieza')} />
+            <Cifra label="Valor al costo" valor={mxn(inv.valor_costo)} pie={`${plural(inv.piezas, 'pieza')} · ${inv.piezas_tienda} tienda · ${inv.piezas_bodega} bodega`} />
             <Cifra label="Valor a la venta" valor={mxn(inv.valor_venta)} pie={`ganancia posible ${mxn(Number(inv.valor_venta) - Number(inv.valor_costo))}`} />
-            <Cifra label="Por surtir" valor={inv.por_surtir} pie={`${inv.sin_existencia} agotados`} tono={inv.por_surtir ? 'text-estado-pend-text' : undefined} />
-            <Cifra label="Sin precio" valor={inv.sin_precio} tono={inv.sin_precio ? 'text-error' : undefined} />
+            <Cifra label="Por comprar" valor={inv.por_surtir} pie={`${inv.sin_existencia} agotados`} tono={inv.por_surtir ? 'text-error' : undefined} />
+            <Cifra label="Pasar a tienda" valor={inv.pasar_a_tienda} pie={`${inv.sobre_maximo} sobre el máximo`} tono={inv.pasar_a_tienda ? 'text-estado-pend-text' : undefined} />
           </div>
         </section>
       )}

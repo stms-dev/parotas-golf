@@ -318,6 +318,7 @@ export const tiendaApi = {
   cerrarCaja: (body) => api.post('/tienda/caja/cerrar', body),
   cortes: () => api.get('/tienda/caja/cortes'),
   corte: (id) => api.get(`/tienda/caja/cortes/${id}`),
+  arqueo: (id, body) => api.post(`/tienda/caja/cortes/${id}/arqueo`, body),
   vender: (body) => api.post('/tienda/ventas', body),
   ventas: (params) => api.get('/tienda/ventas', params),
   venta: (id) => api.get(`/tienda/ventas/${id}`),

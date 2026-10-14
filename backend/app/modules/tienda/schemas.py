@@ -15,7 +15,9 @@ class ProductoIn(BaseModel):
     costo: Decimal = Field(ge=0)
     precio: Optional[Decimal] = Field(default=None, ge=0)
     minimo: int = Field(default=0, ge=0)
-    existencia_inicial: int = Field(default=0, ge=0)
+    maximo: int = Field(default=0, ge=0)
+    existencia_inicial: int = Field(default=0, ge=0)   # en tienda
+    bodega_inicial: int = Field(default=0, ge=0)
 
 
 class ProductoUpdate(BaseModel):
@@ -27,6 +29,7 @@ class ProductoUpdate(BaseModel):
     costo: Optional[Decimal] = Field(default=None, ge=0)
     precio: Optional[Decimal] = Field(default=None, ge=0)
     minimo: Optional[int] = Field(default=None, ge=0)
+    maximo: Optional[int] = Field(default=None, ge=0)
     activo: Optional[bool] = None
 
 
@@ -43,9 +46,15 @@ class ProductoOut(BaseModel):
     costo: Decimal
     precio: Optional[Decimal]
     existencia: int
+    existencia_bodega: int
+    existencia_total: int
     minimo: int
+    maximo: int
     activo: bool
     por_surtir: bool
+    sobre_maximo: bool
+    compra_sugerida: int
+    pasar_a_tienda: bool
     updated_at: Optional[datetime] = None
 
 
@@ -59,8 +68,10 @@ class PrecioMasivoIn(BaseModel):
 
 
 class MovimientoIn(BaseModel):
-    tipo: Literal["ENTRADA", "AJUSTE"]
-    # ENTRADA: piezas que llegaron. AJUSTE: lo que se contó en el anaquel.
+    tipo: Literal["ENTRADA", "AJUSTE", "TRASPASO"]
+    # ENTRADA: piezas que llegaron. AJUSTE: lo que se contó ahí.
+    # TRASPASO: piezas que se mueven HACIA `ubicacion` desde el otro lugar.
+    ubicacion: Literal["TIENDA", "BODEGA"] = "TIENDA"
     cantidad: int = Field(ge=0, le=100000)
     motivo: Optional[str] = Field(default=None, max_length=300)
     costo_unitario: Optional[Decimal] = Field(default=None, ge=0)
@@ -75,6 +86,7 @@ class MovimientoOut(BaseModel):
     producto_codigo: Optional[str] = None
     producto_descripcion: Optional[str] = None
     tipo: str
+    ubicacion: str = "TIENDA"
     cantidad: int
     existencia_despues: int
     motivo: Optional[str]
@@ -90,6 +102,7 @@ class MovimientoOut(BaseModel):
 class FilaConteo(BaseModel):
     producto_id: int
     contado: int = Field(ge=0, le=100000)
+    ubicacion: Literal["TIENDA", "BODEGA"] = "TIENDA"
 
 
 class ConteoIn(BaseModel):
@@ -129,6 +142,7 @@ class CorteOut(BaseModel):
     diferencia: Optional[Decimal]
     utilidad: Decimal = Decimal("0")
     notas: Optional[str]
+    pendiente_arqueo: bool = False
 
 
 # --------------------------------------------------------------------- ventas
@@ -152,6 +166,14 @@ class VentaIn(BaseModel):
     cliente: Optional[str] = Field(default=None, max_length=120)
     notas: Optional[str] = Field(default=None, max_length=300)
     atendio: str = Field(min_length=3, max_length=120)
+
+
+class ArqueoIn(BaseModel):
+    """Contar el efectivo de un corte que se cerró solo a la hora de cierre."""
+
+    efectivo_contado: Decimal = Field(ge=0, le=10000000)
+    atendio: str = Field(min_length=3, max_length=120)
+    notas: Optional[str] = Field(default=None, max_length=500)
 
 
 class CancelarVentaIn(BaseModel):
@@ -216,6 +238,10 @@ class VentaOut(BaseModel):
 class ResumenInventario(BaseModel):
     productos: int
     piezas: int
+    piezas_tienda: int = 0
+    piezas_bodega: int = 0
+    pasar_a_tienda: int = 0
+    sobre_maximo: int = 0
     valor_costo: Decimal
     valor_venta: Decimal
     por_surtir: int

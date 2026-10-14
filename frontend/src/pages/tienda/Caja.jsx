@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 
-import { tiendaApi } from '../../api/client';
+import { catalogApi, tiendaApi } from '../../api/client';
 import Icono from '../../components/Icono';
 import { Modal } from '../../components/ui';
 import { error as avisoError, notificar } from '../../utils/avisos';
@@ -18,6 +18,16 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
   const [cortes, setCortes] = useState([]);
   const [cerrando, setCerrando] = useState(false);
   const [imprimir, setImprimir] = useState(null);
+  const [arqueando, setArqueando] = useState(null);
+  const [horaCierre, setHoraCierre] = useState('22:00');
+
+  useEffect(() => {
+    catalogApi
+      .settings()
+      .then((l) => setHoraCierre(l.find((x) => x.key === 'cierre_automatico_caja')?.value || '22:00'))
+      .catch(() => {});
+  }, []);
+  const pendientes = cortes.filter((c) => c.pendiente_arqueo);
 
   function cargarCortes() {
     if (!puedeAdministrar) return;
@@ -39,6 +49,10 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
               <h2 className="font-serif text-headline-lg text-primary">Corte #{caja.id} · {fecha(caja.fecha)}</h2>
               <p className="text-body-md text-outline">
                 La abrió {caja.abierto_por_nombre} · {fechaHora(caja.abierto_en)} · fondo {mxn(caja.fondo_inicial)}
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-body-md text-on-surface-variant">
+                <Icono nombre="reloj" size={15} /> Si nadie la cierra, se cierra sola a las <strong>{horaCierre}</strong> y queda
+                pendiente contar el efectivo.
               </p>
             </div>
             <div className="flex gap-2">
@@ -68,6 +82,18 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
           </p>
           <button type="button" onClick={onAbrirCaja} className={BOTON_FUERTE}>
             <Icono nombre="llave" size={16} className="text-secondary-fixed" /> Abrir caja
+          </button>
+        </section>
+      )}
+
+      {pendientes.length > 0 && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-estado-pend-border bg-estado-pend-bg px-5 py-4">
+          <p className="text-body-lg text-estado-pend-text">
+            <strong>{pendientes.length === 1 ? 'Un corte se cerró solo' : `${pendientes.length} cortes se cerraron solos`}</strong>{' '}
+            a la hora de cierre y falta contar el efectivo.
+          </p>
+          <button type="button" onClick={() => setArqueando(pendientes[pendientes.length - 1])} className={BOTON_FUERTE}>
+            <Icono nombre="arqueo" size={16} className="text-secondary-fixed" /> Contar corte #{pendientes[pendientes.length - 1].id}
           </button>
         </section>
       )}
@@ -111,7 +137,19 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
                   </td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">{mxn(c.efectivo_esperado)}</td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">{c.efectivo_contado != null ? mxn(c.efectivo_contado) : '—'}</td>
-                  <td className="px-3 py-3 text-right"><Diferencia valor={c.diferencia} /></td>
+                  <td className="px-3 py-3 text-right">
+                    {c.pendiente_arqueo ? (
+                      <button
+                        type="button"
+                        onClick={() => setArqueando(c)}
+                        className="rounded border border-estado-pend-border bg-estado-pend-bg px-2 py-1 text-label-md text-estado-pend-text hover:brightness-95"
+                      >
+                        Contar efectivo
+                      </button>
+                    ) : (
+                      <Diferencia valor={c.diferencia} />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button type="button" onClick={() => setImprimir(c)} className="text-outline transition hover:text-primary" title="Imprimir corte">
                       <Icono nombre="imprimir" size={17} />
@@ -141,6 +179,19 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
           }}
         />
       )}
+      {arqueando && (
+        <CerrarCaja
+          caja={arqueando}
+          arqueo
+          atiende={atiende}
+          onCerrar={() => setArqueando(null)}
+          onListo={(corte) => {
+            setArqueando(null);
+            cargarCortes();
+            setImprimir(corte);
+          }}
+        />
+      )}
       {imprimir && <HojaCorte corte={imprimir} onCerrar={() => setImprimir(null)} />}
     </div>
   );
@@ -158,7 +209,7 @@ function Diferencia({ valor }) {
 }
 
 /* --------------------------------------------------------------- cerrar */
-function CerrarCaja({ caja, atiende, onCerrar, onListo }) {
+function CerrarCaja({ caja, atiende, onCerrar, onListo, arqueo = false }) {
   const [conteo, setConteo] = useState({});
   const [directo, setDirecto] = useState('');
   const [porBilletes, setPorBilletes] = useState(true);
@@ -178,8 +229,9 @@ function CerrarCaja({ caja, atiende, onCerrar, onListo }) {
     }
     setGuardando(true);
     try {
-      const corte = await tiendaApi.cerrarCaja({ efectivo_contado: contado, atendio: atiende.trim(), notas: notas.trim() || null });
-      notificar('Caja de tienda cerrada');
+      const cuerpo = { efectivo_contado: contado, atendio: atiende.trim(), notas: notas.trim() || null };
+      const corte = arqueo ? await tiendaApi.arqueo(caja.id, cuerpo) : await tiendaApi.cerrarCaja(cuerpo);
+      notificar(arqueo ? `Arqueo del corte #${caja.id} guardado` : 'Caja de tienda cerrada');
       onListo(corte);
     } catch (err) {
       avisoError('No se cerró', err.message);
@@ -191,13 +243,13 @@ function CerrarCaja({ caja, atiende, onCerrar, onListo }) {
   return (
     <Modal
       open
-      title="Cerrar caja de la tienda"
+      title={arqueo ? `Contar efectivo · corte #${caja.id}` : 'Cerrar caja de la tienda'}
       onClose={onCerrar}
       footer={
         <>
           <button type="button" onClick={onCerrar} className={BOTON}>Cancelar</button>
           <button type="button" onClick={cerrar} disabled={guardando} className={BOTON_FUERTE}>
-            {guardando ? 'Cerrando…' : 'Cerrar caja'}
+            {guardando ? 'Guardando…' : arqueo ? 'Guardar arqueo' : 'Cerrar caja'}
           </button>
         </>
       }

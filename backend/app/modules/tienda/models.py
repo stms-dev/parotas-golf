@@ -43,9 +43,15 @@ class TiendaProducto(Base):
     # Sin precio de venta no se puede vender: la lista inicial trae solo costo.
     precio: Mapped[Optional[Decimal]] = mapped_column(DecimalMoney, nullable=True)
 
-    existencia: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    # Con esto o menos, el producto aparece como "por surtir".
+    # Dos lugares: lo que está en el piso de venta (de ahí sale lo que se
+    # vende) y lo que está guardado en bodega. Se pasa de uno a otro con un
+    # TRASPASO, que queda en el kardex como cualquier otro movimiento.
+    existencia: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # en tienda
+    existencia_bodega: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Mínimo y máximo sobre el total (tienda + bodega). Con el mínimo o menos
+    # hay que comprar; la compra sugerida es lo que falta para el máximo.
     minimo: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    maximo: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -54,18 +60,45 @@ class TiendaProducto(Base):
     )
 
     @property
+    def existencia_total(self) -> int:
+        return (self.existencia or 0) + (self.existencia_bodega or 0)
+
+    @property
     def por_surtir(self) -> bool:
-        return self.minimo > 0 and self.existencia <= self.minimo
+        """Toca comprar: el total llegó al mínimo."""
+        return self.minimo > 0 and self.existencia_total <= self.minimo
+
+    @property
+    def sobre_maximo(self) -> bool:
+        return self.maximo > 0 and self.existencia_total > self.maximo
+
+    @property
+    def compra_sugerida(self) -> int:
+        """Piezas para volver al máximo (al mínimo + 1 si no hay máximo)."""
+        if not self.por_surtir:
+            return 0
+        meta = self.maximo if self.maximo > self.minimo else self.minimo + 1
+        return max(meta - self.existencia_total, 0)
+
+    @property
+    def pasar_a_tienda(self) -> bool:
+        """El anaquel está vacío pero en bodega hay: hay que sacarlo."""
+        return self.existencia <= 0 and (self.existencia_bodega or 0) > 0
 
 
 class TiendaMovimiento(Base):
-    """Cada cambio de existencia, con signo. ENTRADA, AJUSTE, VENTA o CANCELACION."""
+    """Cada cambio de existencia, con signo, en un lugar (TIENDA o BODEGA).
+
+    ENTRADA, AJUSTE, TRASPASO, VENTA o CANCELACION. Un traspaso deja dos
+    renglones: lo que sale de un lugar y lo que entra al otro.
+    """
 
     __tablename__ = "tienda_movimientos"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("tienda_productos.id"), nullable=False, index=True)
     tipo: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    ubicacion: Mapped[str] = mapped_column(String(8), default="TIENDA", server_default="TIENDA", nullable=False)
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False)
     existencia_despues: Mapped[int] = mapped_column(Integer, nullable=False)
     motivo: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

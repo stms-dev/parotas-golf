@@ -70,9 +70,10 @@ La base se llena con la información real del club:
   **viernes a domingo**, y el sistema elige solo el que corresponde al día de
   la salida.
 - **Productos del Pro-Shop** de `backend/data/inventario_inicial.tsv`: 73
-  artículos con su costo. Entran con existencia en cero y sin precio de venta:
-  en **Tienda › Productos** se ponen precios con *Precio por margen* y las
-  piezas con *Conteo físico*.
+  artículos con su costo. Para poder probar la tienda entran con **datos de
+  muestra**: precio = costo + 60% y piezas inventadas en tienda y bodega, con
+  mínimo y máximo (en el kardex dicen "Datos de muestra"). El *Conteo físico*
+  los reemplaza por lo real.
 
 ### Tienda (Pro-Shop)
 
@@ -82,18 +83,25 @@ ventana (`/sistema/tienda`). Los hoteles no la ven y no factura.
 - **Vender**: lector de código de barras (Enter agrega, `3*CODIGO` agrega
   tres), F2 buscador, F9 cobrar. Efectivo MXN/USD con cambio, tarjeta,
   transferencia o pago mixto; descuento con motivo; ticket imprimible de 80 mm.
-- **Productos**: alta, edición, baja, entradas de mercancía, ajustes con
-  motivo, conteo físico masivo (el lector suma una pieza por escaneo), kardex,
-  precio por margen y exportar a CSV.
+- **Productos**: existencias en **tienda** (de ahí se vende) y en **bodega**,
+  con traspasos entre las dos; **mínimo y máximo** sobre el total (en el mínimo
+  o menos se marca *Comprar N*, lo que falta para el máximo); avisos de
+  *Pasar a tienda* y *Sobre máximo*. Alta, edición, baja, entradas, ajustes con
+  motivo, conteo físico por lugar (el lector suma una pieza por escaneo),
+  kardex, precio por margen y exportar a CSV.
 - **Ventas**: búsqueda por fecha/folio, reimprimir ticket y cancelar (solo con
   la caja abierta; las piezas regresan al inventario).
 - **Caja**: su propio fondo y corte, aparte de la caja de green fees; al cerrar
   se cuentan billetes y queda guardada la diferencia.
+- **Cierre automático** (las dos cajas, green fees y tienda): a la hora de
+  *Control del sistema › Turno de caja* (22:00 por omisión) lo que siga
+  abierto se cierra solo con lo esperado congelado; el efectivo se cuenta
+  después (*Contar efectivo* en Caja de la tienda).
 - **Reportes**: vendido, utilidad, margen, por día, por hora, por método de
   pago, por categoría, por vendedor y lo más vendido.
 
-Tablas `tienda_*` en la misma base (migración `e2a4c6b8d0f1`, corre sola al
-arrancar y pasa lo que había en el inventario anterior).
+Tablas `tienda_*` en la misma base (migraciones `e2a4c6b8d0f1` y
+`a7c9e1f3b5d2`, corren solas al arrancar).
 
 ### Horarios
 

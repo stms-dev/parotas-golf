@@ -276,6 +276,7 @@ class SettingUpdate(BaseModel):
 # a cualquier clave dejaría que un error de captura creara basura en la tabla.
 AJUSTES_EDITABLES = {
     "same_day_cutoff": "Hora límite para reservar el mismo día (HH:MM)",
+    "cierre_automatico_caja": "Hora en que las cajas (green fees y tienda) se cierran solas (HH:MM)",
     "carritos_totales": "Carritos de golf del club",
     "personas_por_carrito": "Personas que caben en cada carrito",
     "caddies_totales": "Caddies disponibles en el campo",
@@ -294,7 +295,7 @@ def update_setting(
     if key not in AJUSTES_EDITABLES:
         raise ValidationError(f"El parámetro «{key}» no se puede cambiar desde aquí")
     valor = payload.value.strip()
-    if key == "same_day_cutoff":
+    if key in ("same_day_cutoff", "cierre_automatico_caja"):
         from app.shared.tiempo import leer_hora
 
         # Se valida leyéndola con un respaldo imposible: si vuelve el

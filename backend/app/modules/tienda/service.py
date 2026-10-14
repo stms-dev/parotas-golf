@@ -83,11 +83,15 @@ class CatalogoTienda:
         productos = self.listar()
         return {
             "productos": len(productos),
-            "piezas": sum(p.existencia for p in productos),
-            "valor_costo": money(sum((money(p.costo) * p.existencia for p in productos), start=ZERO)),
-            "valor_venta": money(sum((money(p.precio or 0) * p.existencia for p in productos), start=ZERO)),
+            "piezas": sum(p.existencia_total for p in productos),
+            "piezas_tienda": sum(p.existencia for p in productos),
+            "piezas_bodega": sum(p.existencia_bodega for p in productos),
+            "pasar_a_tienda": sum(1 for p in productos if p.pasar_a_tienda),
+            "sobre_maximo": sum(1 for p in productos if p.sobre_maximo),
+            "valor_costo": money(sum((money(p.costo) * p.existencia_total for p in productos), start=ZERO)),
+            "valor_venta": money(sum((money(p.precio or 0) * p.existencia_total for p in productos), start=ZERO)),
             "por_surtir": sum(1 for p in productos if p.por_surtir),
-            "sin_existencia": sum(1 for p in productos if p.existencia <= 0),
+            "sin_existencia": sum(1 for p in productos if p.existencia_total <= 0),
             "sin_precio": sum(1 for p in productos if p.precio is None),
             "sin_codigo": sum(1 for p in productos if not p.tiene_codigo_barras),
             "categorias": self.categorias(),
@@ -115,15 +119,22 @@ class CatalogoTienda:
             costo=money(datos.costo),
             precio=money(datos.precio) if datos.precio is not None else None,
             minimo=datos.minimo,
+            maximo=datos.maximo,
             existencia=0,
+            existencia_bodega=0,
         )
         self.db.add(producto)
         self.db.flush()
-        if datos.existencia_inicial:
-            producto.existencia = datos.existencia_inicial
+        for lugar, piezas in (("TIENDA", datos.existencia_inicial), ("BODEGA", datos.bodega_inicial)):
+            if not piezas:
+                continue
+            if lugar == "TIENDA":
+                producto.existencia = piezas
+            else:
+                producto.existencia_bodega = piezas
             self.db.add(TiendaMovimiento(
-                producto_id=producto.id, tipo="ENTRADA", cantidad=datos.existencia_inicial,
-                existencia_despues=datos.existencia_inicial, motivo="Existencia inicial",
+                producto_id=producto.id, tipo="ENTRADA", ubicacion=lugar, cantidad=piezas,
+                existencia_despues=piezas, motivo="Existencia inicial",
                 costo_unitario=producto.costo, usuario_id=actor.id, atendio=atendio,
             ))
         self.audit.log(
@@ -194,14 +205,30 @@ class CatalogoTienda:
         return cambiados
 
     # ------------------------------------------------------------- movimientos
+    @staticmethod
+    def _en(producto: TiendaProducto, lugar: str) -> int:
+        return producto.existencia if lugar == "TIENDA" else producto.existencia_bodega
+
+    @staticmethod
+    def _poner(producto: TiendaProducto, lugar: str, piezas: int) -> None:
+        if lugar == "TIENDA":
+            producto.existencia = piezas
+        else:
+            producto.existencia_bodega = piezas
+
     def mover(self, producto_id: int, datos, actor: User) -> TiendaProducto:
         producto = self.obtener(producto_id)
-        antes = producto.existencia
+        lugar = datos.ubicacion
+        nombre = "tienda" if lugar == "TIENDA" else "bodega"
         motivo = (datos.motivo or "").strip() or None
+        atendio = datos.atendio.strip()
+        renglones = []  # (lugar, delta, despues)
+
         if datos.tipo == "ENTRADA":
             if datos.cantidad <= 0:
                 raise BusinessRuleError("Indique cuántas piezas entraron")
-            despues, delta = antes + datos.cantidad, datos.cantidad
+            despues = self._en(producto, lugar) + datos.cantidad
+            renglones.append((lugar, datos.cantidad, despues))
             # Si el lote llegó a otro costo, ese pasa a ser el costo vigente.
             if datos.costo_unitario is not None and money(datos.costo_unitario) != money(producto.costo):
                 self.audit.log(
@@ -211,23 +238,41 @@ class CatalogoTienda:
                     description=f"{producto.codigo} · costo actualizado por entrada",
                 )
                 producto.costo = money(datos.costo_unitario)
-        else:
-            despues, delta = datos.cantidad, datos.cantidad - antes
+        elif datos.tipo == "AJUSTE":
+            antes = self._en(producto, lugar)
+            delta = datos.cantidad - antes
             if delta == 0:
-                raise BusinessRuleError("El conteo coincide con lo registrado; no hay nada que ajustar")
+                raise BusinessRuleError(f"El conteo de {nombre} coincide con lo registrado; no hay nada que ajustar")
             if not motivo:
                 raise BusinessRuleError("Un ajuste por conteo necesita el motivo")
-        producto.existencia = despues
-        self.db.add(TiendaMovimiento(
-            producto_id=producto.id, tipo=datos.tipo, cantidad=delta, existencia_despues=despues,
-            motivo=motivo, costo_unitario=money(datos.costo_unitario) if datos.costo_unitario is not None else None,
-            usuario_id=actor.id, atendio=datos.atendio.strip(),
-        ))
+            renglones.append((lugar, delta, datos.cantidad))
+        else:  # TRASPASO hacia `lugar`
+            origen = "BODEGA" if lugar == "TIENDA" else "TIENDA"
+            hay = self._en(producto, origen)
+            if datos.cantidad <= 0:
+                raise BusinessRuleError("Indique cuántas piezas se pasan")
+            if datos.cantidad > hay:
+                raise BusinessRuleError(
+                    f"En {'bodega' if origen == 'BODEGA' else 'tienda'} solo hay {hay} pieza{'s' if hay != 1 else ''}"
+                )
+            renglones.append((origen, -datos.cantidad, hay - datos.cantidad))
+            renglones.append((lugar, datos.cantidad, self._en(producto, lugar) + datos.cantidad))
+            motivo = motivo or f"De {'bodega a tienda' if lugar == 'TIENDA' else 'tienda a bodega'}"
+
+        for donde, delta, despues in renglones:
+            self._poner(producto, donde, despues)
+            self.db.add(TiendaMovimiento(
+                producto_id=producto.id, tipo=datos.tipo, ubicacion=donde, cantidad=delta,
+                existencia_despues=despues, motivo=motivo,
+                costo_unitario=money(datos.costo_unitario)
+                if datos.tipo == "ENTRADA" and datos.costo_unitario is not None else None,
+                usuario_id=actor.id, atendio=atendio,
+            ))
         self.audit.log(
             user=actor, action=AuditAction.MODIFICAR, module=MODULO,
             entity="TiendaProducto", entity_id=producto.id, field="existencia",
-            old_value=str(antes), new_value=str(despues),
-            description=f"{datos.tipo.title()} {delta:+d} · {producto.codigo} · {datos.atendio.strip()}"
+            new_value=f"tienda {producto.existencia} · bodega {producto.existencia_bodega}",
+            description=f"{datos.tipo.title()} {datos.cantidad} ({nombre}) · {producto.codigo} · {atendio}"
                         + (f" · {motivo}" if motivo else ""),
         )
         self.db.commit()
@@ -243,13 +288,14 @@ class CatalogoTienda:
         cambiados = 0
         for fila in datos.filas:
             producto = self.obtener(fila.producto_id)
-            antes = producto.existencia
+            antes = self._en(producto, fila.ubicacion)
             delta = fila.contado - antes
             if delta == 0:
                 continue
-            producto.existencia = fila.contado
+            self._poner(producto, fila.ubicacion, fila.contado)
             self.db.add(TiendaMovimiento(
-                producto_id=producto.id, tipo="AJUSTE", cantidad=delta, existencia_despues=fila.contado,
+                producto_id=producto.id, tipo="AJUSTE", ubicacion=fila.ubicacion,
+                cantidad=delta, existencia_despues=fila.contado,
                 motivo=motivo, usuario_id=actor.id, atendio=atendio,
             ))
             cambiados += 1
@@ -315,6 +361,7 @@ class CajaTienda:
             "id", "fecha", "estado", "abierto_en", "abierto_por_nombre", "fondo_inicial",
             "cerrado_en", "cerrado_por_nombre", "efectivo_contado", "diferencia", "notas",
         )}
+        base["pendiente_arqueo"] = corte.estado == "CERRADO" and corte.efectivo_contado is None
         if corte.estado == "ABIERTO":
             base.update(self.totales(corte))
         else:
@@ -368,6 +415,54 @@ class CajaTienda:
             entity_id=corte.id, new_value=str(corte.efectivo_contado),
             description=(
                 f"Cierre de caja de tienda · esperado ${corte.efectivo_esperado} · "
+                f"contado ${corte.efectivo_contado} · diferencia ${corte.diferencia} · {datos.atendio.strip()}"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(corte)
+        return corte
+
+    def cerrar_automatico(self, corte: TiendaCorte, hora: str) -> TiendaCorte:
+        """Cierre a la hora configurada, sin nadie que cuente el cajón.
+
+        Se congelan los totales igual que en un cierre normal, pero el efectivo
+        contado queda vacío: el arqueo se registra después, desde Caja.
+        """
+        t = self.totales(corte)
+        corte.ventas_total = t["ventas_total"]
+        corte.ventas_cuenta = t["ventas_cuenta"]
+        corte.efectivo_esperado = t["efectivo_esperado"]
+        corte.tarjeta_total = t["tarjeta_total"]
+        corte.transferencia_total = t["transferencia_total"]
+        corte.efectivo_contado = None
+        corte.diferencia = None
+        corte.estado = "CERRADO"
+        corte.cerrado_en = datetime.utcnow()
+        corte.cerrado_por_id = None
+        corte.cerrado_por_nombre = "Cierre automático"
+        corte.notas = f"Cerrada automáticamente a las {hora}. Falta contar el efectivo."
+        self.audit.log(
+            user=None, action=AuditAction.CIERRE_CAJA, module=MODULO, entity="TiendaCorte",
+            entity_id=corte.id, new_value=str(corte.efectivo_esperado),
+            description=f"Cierre automático de caja de tienda ({hora}) · esperado ${corte.efectivo_esperado}",
+        )
+        self.db.commit()
+        return corte
+
+    def arqueo(self, corte_id: int, datos, actor: User) -> TiendaCorte:
+        """Contar el efectivo de un corte que se cerró solo."""
+        corte = self.obtener(corte_id)
+        if corte.estado != "CERRADO" or corte.efectivo_contado is not None:
+            raise BusinessRuleError("Ese corte ya tiene su efectivo contado")
+        corte.efectivo_contado = money(datos.efectivo_contado)
+        corte.diferencia = money(corte.efectivo_contado - money(corte.efectivo_esperado))
+        nota = (datos.notas or "").strip()
+        corte.notas = " · ".join(x for x in (corte.notas, f"Arqueo de {datos.atendio.strip()}", nota) if x)
+        self.audit.log(
+            user=actor, action=AuditAction.CIERRE_CAJA, module=MODULO, entity="TiendaCorte",
+            entity_id=corte.id, new_value=str(corte.efectivo_contado),
+            description=(
+                f"Arqueo posterior de caja de tienda #{corte.id} · esperado ${corte.efectivo_esperado} · "
                 f"contado ${corte.efectivo_contado} · diferencia ${corte.diferencia} · {datos.atendio.strip()}"
             ),
         )
@@ -450,9 +545,12 @@ class VentasTienda:
             if p.precio is None:
                 raise BusinessRuleError(f"{p.descripcion} no tiene precio de venta. Póngale precio primero.")
             if cantidad > p.existencia:
+                extra = (
+                    f" En bodega hay {p.existencia_bodega}: páselas a tienda primero."
+                    if p.existencia_bodega else " Registre la entrada o ajuste el conteo."
+                )
                 raise BusinessRuleError(
-                    f"Solo hay {p.existencia} de {p.descripcion} y se quieren vender {cantidad}. "
-                    "Registre la entrada o ajuste el conteo."
+                    f"En tienda solo hay {p.existencia} de {p.descripcion} y se quieren vender {cantidad}." + extra
                 )
             precio = money(p.precio)
             total_linea = money(precio * cantidad)

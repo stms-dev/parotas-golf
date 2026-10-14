@@ -86,9 +86,10 @@ export default function Vender({ caja, atiende, onCajaCambio, onAbrirCaja }) {
     const ya = enCarrito(producto.id);
     if (ya + cantidad > producto.existencia) {
       setAviso(
-        producto.existencia <= 0
-          ? `${producto.descripcion} está agotado.`
-          : `Solo hay ${producto.existencia} de ${producto.descripcion}.`,
+        (producto.existencia <= 0
+          ? `${producto.descripcion} no tiene piezas en tienda.`
+          : `En tienda solo hay ${producto.existencia} de ${producto.descripcion}.`) +
+          (producto.existencia_bodega > 0 ? ` En bodega hay ${producto.existencia_bodega}: páselas desde Productos.` : ''),
       );
       return false;
     }

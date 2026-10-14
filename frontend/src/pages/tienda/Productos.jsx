@@ -11,11 +11,13 @@ import Icono from '../../components/Icono';
 import { Modal } from '../../components/ui';
 import { error as avisoError, notificar } from '../../utils/avisos';
 import { fechaHora, mxn } from '../../utils/format';
-import { BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, Existencia, TARJETA, plural } from './comun';
+import { Avisos, BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, Existencia, TARJETA, plural } from './comun';
 
 const FILTROS = [
   ['todos', 'Todos'],
-  ['surtir', 'Por surtir'],
+  ['surtir', 'Por comprar'],
+  ['pasar', 'Pasar a tienda'],
+  ['maximo', 'Sobre máximo'],
   ['agotados', 'Agotados'],
   ['sinprecio', 'Sin precio'],
   ['baja', 'Dados de baja'],
@@ -52,7 +54,9 @@ export default function Productos({ atiende }) {
     return productos.filter((p) => {
       if (filtro === 'baja' ? p.activo : !p.activo) return false;
       if (filtro === 'surtir' && !p.por_surtir) return false;
-      if (filtro === 'agotados' && p.existencia > 0) return false;
+      if (filtro === 'agotados' && p.existencia_total > 0) return false;
+      if (filtro === 'pasar' && !p.pasar_a_tienda) return false;
+      if (filtro === 'maximo' && !p.sobre_maximo) return false;
       if (filtro === 'sinprecio' && p.precio != null) return false;
       if (categoria && p.categoria !== categoria) return false;
       return (
@@ -66,8 +70,8 @@ export default function Productos({ atiende }) {
 
   function exportar() {
     const filas = [
-      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio', 'Existencia', 'Minimo', 'Activo'],
-      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.existencia, p.minimo, p.activo ? 'Si' : 'No']),
+      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio', 'Tienda', 'Bodega', 'Total', 'Minimo', 'Maximo', 'Comprar', 'Activo'],
+      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.existencia, p.existencia_bodega, p.existencia_total, p.minimo, p.maximo, p.compra_sugerida, p.activo ? 'Si' : 'No']),
     ];
     const csv = filas.map((f) => f.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
@@ -81,15 +85,21 @@ export default function Productos({ atiende }) {
   return (
     <div className="space-y-gutter">
       {resumen && (
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <Cifra label="Productos" valor={resumen.productos} pie={`${plural(resumen.piezas, 'pieza')} en existencia`} />
+        <section className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <Cifra label="Piezas" valor={resumen.piezas} pie={`${resumen.piezas_tienda} en tienda · ${resumen.piezas_bodega} en bodega`} />
           <Cifra label="Valor al costo" valor={mxn(resumen.valor_costo)} pie="lo que costó lo que hay" oscuro />
           <Cifra label="Valor a la venta" valor={mxn(resumen.valor_venta)} pie="si se vendiera todo" />
           <Cifra
-            label="Por surtir"
+            label="Por comprar"
             valor={resumen.por_surtir}
-            pie={`${resumen.sin_existencia} agotados`}
-            tono={resumen.por_surtir ? 'text-estado-pend-text' : undefined}
+            pie={`en el mínimo o menos · ${resumen.sin_existencia} agotados`}
+            tono={resumen.por_surtir ? 'text-error' : undefined}
+          />
+          <Cifra
+            label="Pasar a tienda"
+            valor={resumen.pasar_a_tienda}
+            pie="anaquel vacío, hay en bodega"
+            tono={resumen.pasar_a_tienda ? 'text-estado-pend-text' : undefined}
           />
           <Cifra
             label="Sin precio"
@@ -150,16 +160,17 @@ export default function Productos({ atiende }) {
       </section>
 
       <section className={`${TARJETA} overflow-x-auto`}>
-        <table className="w-full min-w-[960px] text-left">
+        <table className="w-full min-w-[1060px] text-left">
           <thead>
             <tr className="border-b border-outline-variant/50 bg-surface-container-low text-label-sm uppercase tracking-wider text-on-surface-variant">
               <th className="px-4 py-3">Producto</th>
-              <th className="px-3 py-3">Categoría</th>
               <th className="px-3 py-3 text-right">Costo</th>
               <th className="px-3 py-3 text-right">Precio</th>
               <th className="px-3 py-3 text-right" title="Ganancia sobre el costo">Sobre costo</th>
-              <th className="px-3 py-3">Existencia</th>
-              <th className="px-3 py-3 text-right">Mín.</th>
+              <th className="px-3 py-3">Tienda</th>
+              <th className="px-3 py-3 text-right">Bodega</th>
+              <th className="px-3 py-3 text-right">Total</th>
+              <th className="px-3 py-3 text-right" title="Mínimo / máximo del total">Mín / Máx</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
@@ -173,11 +184,11 @@ export default function Productos({ atiende }) {
                   <td className="px-4 py-3">
                     <p className="text-title-md text-primary">{p.descripcion}</p>
                     <p className="font-mono text-label-md text-outline">
-                      {p.codigo}
+                      {p.codigo} · {p.categoria}
                       {[p.marca, p.talla].filter(Boolean).length ? ` · ${[p.marca, p.talla].filter(Boolean).join(' · ')}` : ''}
                     </p>
+                    <Avisos producto={p} />
                   </td>
-                  <td className="px-3 py-3 text-body-md">{p.categoria}</td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">{mxn(p.costo)}</td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">
                     {p.precio != null ? mxn(p.precio) : <span className="text-error">Sin precio</span>}
@@ -186,13 +197,18 @@ export default function Productos({ atiende }) {
                     {margen == null ? '—' : `${margen.toFixed(0)}%`}
                   </td>
                   <td className="px-3 py-3"><Existencia producto={p} /></td>
-                  <td className="px-3 py-3 text-right font-mono text-body-md">{p.minimo || '—'}</td>
+                  <td className="px-3 py-3 text-right font-mono text-body-md">{p.existencia_bodega}</td>
+                  <td className="px-3 py-3 text-right font-mono text-title-md">{p.existencia_total}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-body-md text-on-surface-variant">
+                    {p.minimo || p.maximo ? `${p.minimo || 0} / ${p.maximo || '—'}` : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       <Accion icono="add" texto="Entrada" onClick={() => setMoviendo({ producto: p, tipo: 'ENTRADA' })} />
-                      <Accion icono="arqueo" texto="Ajuste" onClick={() => setMoviendo({ producto: p, tipo: 'AJUSTE' })} />
-                      <Accion icono="historial" texto="Kardex" onClick={() => setKardex(p)} />
-                      <Accion icono="ajustes" texto="Editar" onClick={() => setEditando(p)} />
+                      <Accion icono="intercambiar" texto="Pasar" onClick={() => setMoviendo({ producto: p, tipo: 'TRASPASO' })} />
+                      <Accion icono="arqueo" titulo="Ajuste por conteo" onClick={() => setMoviendo({ producto: p, tipo: 'AJUSTE' })} />
+                      <Accion icono="historial" titulo="Kardex" onClick={() => setKardex(p)} />
+                      <Accion icono="ajustes" titulo="Editar" onClick={() => setEditando(p)} />
                     </div>
                   </td>
                 </tr>
@@ -200,7 +216,7 @@ export default function Productos({ atiende }) {
             })}
             {!visibles.length && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-body-lg text-outline">Ningún producto con ese filtro.</td>
+                <td colSpan={9} className="px-4 py-10 text-center text-body-lg text-outline">Ningún producto con ese filtro.</td>
               </tr>
             )}
           </tbody>
@@ -257,15 +273,15 @@ export default function Productos({ atiende }) {
   );
 }
 
-function Accion({ icono, texto, onClick }) {
+function Accion({ icono, texto, titulo, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={texto}
+      title={titulo || texto}
       className="flex items-center gap-1 rounded border border-outline-variant/60 px-2 py-1 text-label-md text-on-surface-variant transition hover:border-primary-container hover:text-primary"
     >
-      <Icono nombre={icono} size={14} /> {texto}
+      <Icono nombre={icono} size={14} /> {texto && <span>{texto}</span>}
     </button>
   );
 }
@@ -282,7 +298,9 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
     costo: producto?.costo ?? '',
     precio: producto?.precio ?? '',
     minimo: producto?.minimo ?? 0,
+    maximo: producto?.maximo ?? 0,
     existencia_inicial: 0,
+    bodega_inicial: 0,
     activo: producto?.activo ?? true,
   });
   const [guardando, setGuardando] = useState(false);
@@ -293,6 +311,9 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
     if (f.descripcion.trim().length < 2) return avisoError('Falta la descripción', '');
     if (f.costo === '' || Number(f.costo) < 0) return avisoError('Falta el costo', '');
     if (nuevo && atiende.trim().length < 3) return avisoError('¿Quién registra?', 'Escriba arriba quién atiende.');
+    if (Number(f.maximo) > 0 && Number(f.maximo) < Number(f.minimo)) {
+      return avisoError('Revise mínimo y máximo', 'El máximo no puede ser menor que el mínimo.');
+    }
     setGuardando(true);
     const cuerpo = {
       codigo: f.codigo.trim() || null,
@@ -303,10 +324,14 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
       costo: Number(f.costo),
       precio: f.precio === '' ? null : Number(f.precio),
       minimo: Number(f.minimo) || 0,
+      maximo: Number(f.maximo) || 0,
     };
     try {
       if (nuevo) {
-        await tiendaApi.crear({ ...cuerpo, existencia_inicial: Number(f.existencia_inicial) || 0 }, atiende.trim());
+        await tiendaApi.crear(
+          { ...cuerpo, existencia_inicial: Number(f.existencia_inicial) || 0, bodega_inicial: Number(f.bodega_inicial) || 0 },
+          atiende.trim(),
+        );
         notificar('Producto dado de alta');
       } else {
         await tiendaApi.actualizar(producto.id, { ...cuerpo, codigo: f.codigo.trim() || producto.codigo, activo: f.activo });
@@ -358,10 +383,16 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
           <span className={ETIQUETA}>Talla / modelo</span>
           <input value={f.talla} onChange={set('talla')} className={CAMPO} />
         </label>
-        <label>
-          <span className={ETIQUETA}>Mínimo (avisa por surtir)</span>
-          <input type="number" min="0" value={f.minimo} onChange={set('minimo')} className={CAMPO} />
-        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label>
+            <span className={ETIQUETA}>Mínimo</span>
+            <input type="number" min="0" value={f.minimo} onChange={set('minimo')} className={CAMPO} />
+          </label>
+          <label>
+            <span className={ETIQUETA}>Máximo</span>
+            <input type="number" min="0" value={f.maximo} onChange={set('maximo')} className={CAMPO} />
+          </label>
+        </div>
         <label>
           <span className={ETIQUETA}>Costo</span>
           <input type="number" min="0" step="0.01" value={f.costo} onChange={set('costo')} className={`${CAMPO} font-mono`} />
@@ -371,13 +402,23 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
           <input type="number" min="0" step="0.01" value={f.precio} onChange={set('precio')} className={`${CAMPO} font-mono`} />
         </label>
         <p className="sm:col-span-2 text-body-md text-outline">
+          Mínimo y máximo cuentan tienda + bodega: con el mínimo o menos se marca para comprar, y la compra sugerida
+          es lo que falta para llegar al máximo.
+        </p>
+        <p className="sm:col-span-2 text-body-md text-outline">
           {f.precio === '' ? 'Sin precio no se puede vender.' : `Gana ${mxn(Number(f.precio) - Number(f.costo || 0))} por pieza${margen == null ? '' : ` · ${margen.toFixed(0)}% sobre el costo`}`}
         </p>
         {nuevo ? (
-          <label>
-            <span className={ETIQUETA}>Existencia inicial</span>
-            <input type="number" min="0" value={f.existencia_inicial} onChange={set('existencia_inicial')} className={CAMPO} />
-          </label>
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+            <label>
+              <span className={ETIQUETA}>Piezas en tienda</span>
+              <input type="number" min="0" value={f.existencia_inicial} onChange={set('existencia_inicial')} className={CAMPO} />
+            </label>
+            <label>
+              <span className={ETIQUETA}>Piezas en bodega</span>
+              <input type="number" min="0" value={f.bodega_inicial} onChange={set('bodega_inicial')} className={CAMPO} />
+            </label>
+          </div>
         ) : (
           <label className="flex items-center gap-2 text-body-lg sm:col-span-2">
             <input type="checkbox" checked={f.activo} onChange={set('activo')} />
@@ -390,13 +431,35 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
 }
 
 /* ------------------------------------------------------ entrada / ajuste */
+const LUGARES = { TIENDA: 'Tienda', BODEGA: 'Bodega' };
+
 function Movimiento({ producto, tipo, atiende, onCerrar, onListo }) {
   const entrada = tipo === 'ENTRADA';
-  const [cantidad, setCantidad] = useState(entrada ? '' : String(producto.existencia));
+  const traspaso = tipo === 'TRASPASO';
+  const ajuste = tipo === 'AJUSTE';
+  // Entrada: por omisión llega a bodega. Traspaso: por omisión de bodega a tienda.
+  const [lugar, setLugar] = useState(entrada ? 'BODEGA' : 'TIENDA');
+  const en = (l) => (l === 'TIENDA' ? producto.existencia : producto.existencia_bodega);
+  const origen = lugar === 'TIENDA' ? 'BODEGA' : 'TIENDA';
+  const [cantidad, setCantidad] = useState(ajuste ? String(producto.existencia) : '');
   const [costo, setCosto] = useState(String(producto.costo));
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const diferencia = entrada ? Number(cantidad || 0) : Number(cantidad || 0) - producto.existencia;
+  const n = Number(cantidad || 0);
+
+  function cambiarLugar(l) {
+    setLugar(l);
+    if (ajuste) setCantidad(String(en(l)));
+  }
+
+  const despues = { TIENDA: producto.existencia, BODEGA: producto.existencia_bodega };
+  if (entrada) despues[lugar] += n;
+  if (ajuste) despues[lugar] = n;
+  if (traspaso) {
+    despues[lugar] += n;
+    despues[origen] -= n;
+  }
+  const invalido = traspaso ? n <= 0 || n > en(origen) : entrada ? n <= 0 : false;
 
   async function guardar() {
     if (atiende.trim().length < 3) return avisoError('¿Quién registra?', 'Escriba arriba quién atiende.');
@@ -404,12 +467,15 @@ function Movimiento({ producto, tipo, atiende, onCerrar, onListo }) {
     try {
       await tiendaApi.mover(producto.id, {
         tipo,
-        cantidad: Number(cantidad || 0),
+        ubicacion: lugar,
+        cantidad: n,
         motivo: motivo.trim() || null,
         costo_unitario: entrada && costo !== '' ? Number(costo) : null,
         atendio: atiende.trim(),
       });
-      notificar(entrada ? `Entrada de ${cantidad} registrada` : 'Ajuste registrado');
+      notificar(
+        entrada ? `Entrada de ${n} a ${LUGARES[lugar].toLowerCase()}` : traspaso ? `${n} pasadas a ${LUGARES[lugar].toLowerCase()}` : 'Ajuste registrado',
+      );
       onListo();
     } catch (err) {
       avisoError('No se registró', err.message);
@@ -418,27 +484,58 @@ function Movimiento({ producto, tipo, atiende, onCerrar, onListo }) {
     }
   }
 
+  const titulo = entrada ? 'Entrada de mercancía' : traspaso ? 'Pasar entre bodega y tienda' : 'Ajuste por conteo';
   return (
     <Modal
       open
-      title={entrada ? 'Entrada de mercancía' : 'Ajuste por conteo'}
+      title={titulo}
       onClose={onCerrar}
       footer={
         <>
           <button type="button" onClick={onCerrar} className={BOTON}>Cancelar</button>
-          <button type="button" onClick={guardar} disabled={guardando || (entrada && !Number(cantidad))} className={BOTON_FUERTE}>
+          <button type="button" onClick={guardar} disabled={guardando || invalido} className={BOTON_FUERTE}>
             {guardando ? 'Guardando…' : 'Registrar'}
           </button>
         </>
       }
     >
       <p className="text-title-md text-primary">{producto.descripcion}</p>
-      <p className="font-mono text-label-md text-outline">{producto.codigo} · hoy hay {producto.existencia}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <p className="font-mono text-label-md text-outline">
+        {producto.codigo} · tienda {producto.existencia} · bodega {producto.existencia_bodega}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {(traspaso
+          ? [['TIENDA', 'Bodega → Tienda'], ['BODEGA', 'Tienda → Bodega']]
+          : [['TIENDA', entrada ? 'Llega a tienda' : 'Conté la tienda'], ['BODEGA', entrada ? 'Llega a bodega' : 'Conté la bodega']]
+        ).map(([l, t]) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => cambiarLugar(l)}
+            className={`rounded-full border px-3 py-1 text-label-md ${
+              lugar === l ? 'border-primary-container bg-primary-container text-on-primary' : 'border-outline-variant text-on-surface-variant'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label>
-          <span className={ETIQUETA}>{entrada ? 'Piezas que llegaron' : 'Piezas contadas en el anaquel'}</span>
+          <span className={ETIQUETA}>
+            {entrada ? 'Piezas que llegaron' : traspaso ? `Piezas a pasar (hay ${en(origen)})` : 'Piezas contadas'}
+          </span>
           <input type="number" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} className={`${CAMPO} font-mono text-title-lg`} autoFocus />
         </label>
+        {traspaso && (
+          <div className="flex items-end">
+            <button type="button" onClick={() => setCantidad(String(en(origen)))} className={BOTON}>
+              Todas ({en(origen)})
+            </button>
+          </div>
+        )}
         {entrada && (
           <label>
             <span className={ETIQUETA}>Costo unitario de este lote</span>
@@ -446,14 +543,27 @@ function Movimiento({ producto, tipo, atiende, onCerrar, onListo }) {
           </label>
         )}
         <label className="sm:col-span-2">
-          <span className={ETIQUETA}>{entrada ? 'Nota (proveedor, factura…)' : 'Motivo del ajuste (obligatorio)'}</span>
+          <span className={ETIQUETA}>
+            {entrada ? 'Nota (proveedor, factura…)' : ajuste ? 'Motivo del ajuste (obligatorio)' : 'Nota (opcional)'}
+          </span>
           <input value={motivo} onChange={(e) => setMotivo(e.target.value)} className={CAMPO} />
         </label>
       </div>
-      <p className={`mt-3 rounded px-3 py-2 text-body-lg ${diferencia < 0 ? 'bg-estado-cancel-bg text-estado-cancel-text' : 'bg-surface-container-low'}`}>
-        Quedarán <strong>{entrada ? producto.existencia + diferencia : Number(cantidad || 0)}</strong> piezas
-        {!entrada && ` (${diferencia >= 0 ? '+' : ''}${diferencia} contra lo registrado)`}.
-      </p>
+
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        {['TIENDA', 'BODEGA'].map((l) => (
+          <div key={l} className={`rounded p-2 ${despues[l] < 0 ? 'bg-estado-cancel-bg' : 'bg-surface-container-low'}`}>
+            <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">{LUGARES[l]}</p>
+            <p className="font-mono text-title-lg">
+              {en(l)} → <strong>{despues[l]}</strong>
+            </p>
+          </div>
+        ))}
+        <div className="rounded bg-primary-container p-2 text-on-primary">
+          <p className="text-label-sm uppercase tracking-wider text-secondary-fixed">Total</p>
+          <p className="font-mono text-title-lg">{despues.TIENDA + despues.BODEGA}</p>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -462,6 +572,7 @@ function Movimiento({ producto, tipo, atiende, onCerrar, onListo }) {
 const TIPOS = {
   ENTRADA: 'Entrada',
   AJUSTE: 'Ajuste',
+  TRASPASO: 'Traspaso',
   VENTA: 'Venta',
   CANCELACION: 'Cancelación',
 };
@@ -484,6 +595,13 @@ function Kardex({ producto, onCerrar }) {
               <div>
                 <p className="text-title-md">
                   {TIPOS[m.tipo] || m.tipo}
+                  <span
+                    className={`ml-1.5 rounded px-1.5 py-px text-label-sm uppercase tracking-wider ${
+                      m.ubicacion === 'BODEGA' ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-primary-fixed text-on-primary-fixed'
+                    }`}
+                  >
+                    {m.ubicacion === 'BODEGA' ? 'Bodega' : 'Tienda'}
+                  </span>
                   {m.venta_folio && <span className="ml-1.5 font-mono text-label-md text-secondary">{m.venta_folio}</span>}
                 </p>
                 <p className="text-body-md text-outline">
@@ -496,7 +614,9 @@ function Kardex({ producto, onCerrar }) {
                   {m.cantidad > 0 ? '+' : ''}
                   {m.cantidad}
                 </p>
-                <p className="font-mono text-label-md text-outline">quedan {m.existencia_despues}</p>
+                <p className="font-mono text-label-md text-outline">
+                  quedan {m.existencia_despues} en {m.ubicacion === 'BODEGA' ? 'bodega' : 'tienda'}
+                </p>
               </div>
             </li>
           ))}
@@ -588,6 +708,8 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
   const [codigo, setCodigo] = useState('');
   const [ultimo, setUltimo] = useState(null);
   const [motivo, setMotivo] = useState('Conteo físico');
+  const [lugar, setLugar] = useState('TIENDA');
+  const en = (p) => (lugar === 'TIENDA' ? p.existencia : p.existencia_bodega);
   const [guardando, setGuardando] = useState(false);
 
   const visibles = productos.filter((p) => {
@@ -596,7 +718,10 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
       (!t || p.codigo.toLowerCase().includes(t) || p.descripcion.toLowerCase().includes(t));
   });
   const capturados = Object.entries(contado).filter(([, v]) => v !== '');
-  const cambios = capturados.filter(([id, v]) => Number(v) !== productos.find((p) => p.id === Number(id))?.existencia);
+  const cambios = capturados.filter(([id, v]) => {
+    const p = productos.find((x) => x.id === Number(id));
+    return p && Number(v) !== en(p);
+  });
 
   // Cada escaneo suma una pieza: se cuenta pasando el lector por el anaquel.
   function escanear(e) {
@@ -615,7 +740,7 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
     setGuardando(true);
     try {
       const r = await tiendaApi.conteo({
-        filas: capturados.map(([id, v]) => ({ producto_id: Number(id), contado: Number(v) || 0 })),
+        filas: capturados.map(([id, v]) => ({ producto_id: Number(id), contado: Number(v) || 0, ubicacion: lugar })),
         motivo: motivo.trim() || null,
         atendio: atiende.trim(),
       });
@@ -632,7 +757,7 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
     <Modal
       open
       ancho="max-w-3xl"
-      title="Conteo físico"
+      title={`Conteo físico · ${lugar === 'TIENDA' ? 'tienda' : 'bodega'}`}
       onClose={onCerrar}
       footer={
         <>
@@ -650,6 +775,28 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
         Escriba cuántas piezas hay de cada producto, o pase el lector: cada escaneo suma una. Solo se ajusta lo que no
         coincide con el sistema, y cada ajuste queda en el kardex.
       </p>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className="text-label-sm uppercase tracking-wider text-on-surface-variant">Estoy contando:</span>
+        {[
+          ['TIENDA', 'La tienda'],
+          ['BODEGA', 'La bodega'],
+        ].map(([l, t]) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => {
+              if (capturados.length && l !== lugar && !window.confirm('Cambiar de lugar borra lo capturado. ¿Seguir?')) return;
+              setLugar(l);
+              setContado({});
+            }}
+            className={`rounded-full border px-3 py-1 text-label-md ${
+              lugar === l ? 'border-primary-container bg-primary-container text-on-primary' : 'border-outline-variant text-on-surface-variant'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
       <form onSubmit={escanear} className="mt-3 flex gap-2">
         <label className="relative flex-1">
           <Icono nombre="codigoBarras" size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
@@ -665,12 +812,12 @@ function Conteo({ productos, categorias, atiende, onCerrar, onListo }) {
       <ul className="mt-3 divide-y divide-outline-variant/40 rounded border border-outline-variant/50">
         {visibles.map((p) => {
           const v = contado[p.id] ?? '';
-          const dif = v === '' ? null : Number(v) - p.existencia;
+          const dif = v === '' ? null : Number(v) - en(p);
           return (
             <li key={p.id} className={`flex items-center gap-3 px-3 py-2 ${ultimo === p.id ? 'bg-secondary-fixed/40' : ''}`}>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body-lg">{p.descripcion}</p>
-                <p className="font-mono text-label-md text-outline">{p.codigo} · sistema: {p.existencia}</p>
+                <p className="font-mono text-label-md text-outline">{p.codigo} · sistema: {en(p)}</p>
               </div>
               <span className={`w-12 text-right font-mono text-label-md ${dif == null || dif === 0 ? 'text-outline' : dif > 0 ? 'text-estado-ok-text' : 'text-error'}`}>
                 {dif == null ? '' : dif === 0 ? '=' : `${dif > 0 ? '+' : ''}${dif}`}

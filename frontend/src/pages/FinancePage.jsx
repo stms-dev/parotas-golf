@@ -743,9 +743,17 @@ export default function FinancePage() {
       {ultimoCierre && (
         <p className="flex items-center gap-2 px-1 text-body-md text-outline">
           <Icono nombre="verificado" size={16} className="text-secondary" />
-          Último corte de caja: {fechaHora(ultimoCierre.closed_at)} por{' '}
-          {ultimoCierre.closed_by_name || 'recepción'} · diferencia{' '}
-          {mxn(ultimoCierre.difference_mxn)}.
+          {ultimoCierre.status === 'CIERRE_AUTOMATICO' ? (
+            <>
+              Último corte de caja: {fechaHora(ultimoCierre.closed_at)} · se cerró sola a la hora de cierre, sin
+              arqueo · esperado {mxn(ultimoCierre.expected_total_mxn)}.
+            </>
+          ) : (
+            <>
+              Último corte de caja: {fechaHora(ultimoCierre.closed_at)} por{' '}
+              {ultimoCierre.closed_by_name || 'recepción'} · diferencia {mxn(ultimoCierre.difference_mxn)}.
+            </>
+          )}
         </p>
       )}
     </div>

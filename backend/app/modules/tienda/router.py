@@ -12,6 +12,7 @@ from app.core.permissions import Permission
 from app.modules.identity.models import User
 from app.modules.tienda.schemas import (
     AbrirCorteIn,
+    ArqueoIn,
     CancelarVentaIn,
     CerrarCorteIn,
     ConteoIn,
@@ -154,6 +155,12 @@ def caja_cortes(db: Session = Depends(get_db), _: User = Depends(ADMINISTRAR)):
 def caja_corte(corte_id: int, db: Session = Depends(get_db), _: User = Depends(VENDER)):
     caja = CajaTienda(db)
     return CorteOut(**caja.salida(caja.obtener(corte_id)))
+
+
+@router.post("/caja/cortes/{corte_id}/arqueo", response_model=CorteOut)
+def caja_arqueo(corte_id: int, data: ArqueoIn, db: Session = Depends(get_db), user: User = Depends(VENDER)):
+    caja = CajaTienda(db)
+    return CorteOut(**caja.salida(caja.arqueo(corte_id, data, user)))
 
 
 # -------------------------------------------------------------------- ventas
