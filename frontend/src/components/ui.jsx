@@ -189,34 +189,138 @@ export function EmptyState({ title, description, action }) {
   );
 }
 
-export function Table({ columns, rows, renderRow, empty = 'Sin registros' }) {
+/**
+ * Paginación de una lista en memoria.
+ *
+ *   const pag = usePaginacion(filas, 10, filtro);
+ *   pag.visibles.map(...)   // solo las de la página actual
+ *   <Paginador pag={pag} /> // « 1 2 3 »
+ *
+ * `reiniciar` es cualquier valor que, al cambiar (un filtro, una búsqueda),
+ * regresa a la primera página. Si la lista se acorta y la página ya no existe,
+ * se ajusta sola a la última.
+ */
+export function usePaginacion(items, porPagina = 10, reiniciar = '') {
+  const [pagina, setPagina] = useState(1);
+  const total = Math.max(1, Math.ceil(items.length / porPagina));
+
+  useEffect(() => {
+    setPagina(1);
+  }, [reiniciar]);
+
+  const actual = Math.min(pagina, total);
+  const inicio = (actual - 1) * porPagina;
+
+  return {
+    pagina: actual,
+    setPagina,
+    total,
+    cantidad: items.length,
+    porPagina,
+    desde: items.length === 0 ? 0 : inicio + 1,
+    hasta: Math.min(inicio + porPagina, items.length),
+    visibles: items.slice(inicio, inicio + porPagina),
+  };
+}
+
+/** Números a mostrar: 1 … 4 5 6 … 12, siempre con la primera, la última y las vecinas. */
+function numerosDePagina(actual, total) {
+  const conjunto = new Set([1, total, actual - 1, actual, actual + 1]);
+  const lista = [...conjunto].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const salida = [];
+  lista.forEach((n, i) => {
+    if (i > 0 && n - lista[i - 1] > 1) salida.push(`…${n}`);
+    salida.push(n);
+  });
+  return salida;
+}
+
+/** « 1 2 3 »: no se pinta si todo cabe en una página. */
+export function Paginador({ pag, etiqueta = 'registros', className = '' }) {
+  if (!pag || pag.total <= 1) return null;
+  const base =
+    'flex h-8 min-w-[2rem] items-center justify-center rounded border px-2 text-body-md transition';
+  const quieto = 'border-transparent text-on-surface-variant hover:border-outline-variant/60 hover:bg-surface-container-low';
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-outline-variant/60 bg-surface-container-low">
-            {columns.map((column) => (
-              <th
-                key={column}
-                className="px-4 py-2.5 text-label-sm uppercase tracking-wider text-outline"
-              >
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-outline-variant/30">
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-10 text-center text-body-lg text-outline">
-                {empty}
-              </td>
-            </tr>
+    <nav
+      aria-label="Paginación"
+      className={`flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/30 px-3 py-2.5 ${className}`}
+    >
+      <p className="text-body-md text-outline">
+        {pag.desde}–{pag.hasta} de {pag.cantidad} {etiqueta}
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label="Página anterior"
+          disabled={pag.pagina <= 1}
+          onClick={() => pag.setPagina(pag.pagina - 1)}
+          className={`${base} ${quieto} disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent`}
+        >
+          ‹
+        </button>
+        {numerosDePagina(pag.pagina, pag.total).map((n) =>
+          typeof n === 'string' ? (
+            <span key={n} className="px-1 text-outline">…</span>
           ) : (
-            rows.map(renderRow)
-          )}
-        </tbody>
-      </table>
+            <button
+              key={n}
+              type="button"
+              aria-current={n === pag.pagina ? 'page' : undefined}
+              onClick={() => pag.setPagina(n)}
+              className={`${base} ${
+                n === pag.pagina
+                  ? 'border-primary-container bg-primary-container font-semibold text-on-primary'
+                  : quieto
+              }`}
+            >
+              {n}
+            </button>
+          ),
+        )}
+        <button
+          type="button"
+          aria-label="Página siguiente"
+          disabled={pag.pagina >= pag.total}
+          onClick={() => pag.setPagina(pag.pagina + 1)}
+          className={`${base} ${quieto} disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent`}
+        >
+          ›
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+export function Table({ columns, rows, renderRow, empty = 'Sin registros', porPagina = 10, reiniciar = '' }) {
+  const pag = usePaginacion(rows, porPagina, reiniciar);
+  return (
+    <div className="caja-lineas">
+      <div className="overflow-x-auto">
+        <table className="tabla-lineas text-left">
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column} className="text-label-sm uppercase tracking-wider text-outline">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-10 text-center text-body-lg text-outline">
+                  {empty}
+                </td>
+              </tr>
+            ) : (
+              pag.visibles.map(renderRow)
+            )}
+          </tbody>
+        </table>
+      </div>
+      <Paginador pag={pag} />
     </div>
   );
 }

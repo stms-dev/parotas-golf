@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 
 import { bookingApi, catalogApi, correosApi, eventsApi, treasuryApi, usersApi } from '../api/client';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Spinner } from '../components/ui';
+import { Alert, Paginador, Spinner, usePaginacion } from '../components/ui';
 import HistorialTipoCambio from '../components/HistorialTipoCambio';
 import Icono from '../components/Icono';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
@@ -809,6 +809,7 @@ function HoraCierreCajas() {
 function Correos() {
   const [correos, setCorreos] = useState([]);
   const [trabajando, setTrabajando] = useState(null);
+  const pagCorreos = usePaginacion(correos, 8);
 
   function cargar() {
     correosApi.bandeja({ limit: 25 }).then(setCorreos).catch(() => setCorreos([]));
@@ -849,19 +850,20 @@ function Correos() {
           Todavía no se ha mandado ningún correo.
         </p>
       ) : (
+        <div className="caja-lineas">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-body-md">
+          <table className="tabla-lineas text-left text-body-md">
             <thead>
               <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
-                <th className="pb-2">Documento</th>
-                <th className="pb-2">Para</th>
-                <th className="pb-2">Folio</th>
-                <th className="pb-2">Estado</th>
-                <th className="pb-2"></th>
+                <th>Documento</th>
+                <th>Para</th>
+                <th>Folio</th>
+                <th>Estado</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/30">
-              {correos.map((c) => (
+            <tbody>
+              {pagCorreos.visibles.map((c) => (
                 <tr key={c.id}>
                   <td className="py-2">{c.kind === 'PASE' ? 'Pase de la partida' : 'Recibo'}</td>
                   <td className="py-2 text-on-surface-variant">{c.to_email}</td>
@@ -894,6 +896,8 @@ function Correos() {
               ))}
             </tbody>
           </table>
+        </div>
+        <Paginador pag={pagCorreos} etiqueta="correos" />
         </div>
       )}
       <p className="mt-3 text-body-md text-outline">
@@ -1073,6 +1077,7 @@ function Tarifas({ tarifas, tasa, onCambio }) {
   const [editando, setEditando] = useState(null);
   const [precio, setPrecio] = useState('');
   const [alta, setAlta] = useState(false);
+  const pagTarifas = usePaginacion(tarifas, 10);
 
   async function guardar(tarifa) {
     const nuevo = Number(precio);
@@ -1111,10 +1116,11 @@ function Tarifas({ tarifas, tasa, onCambio }) {
         />
       )}
 
+      <div className="caja-lineas">
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="tabla-lineas text-left">
           <thead>
-            <tr className="bg-surface-container-low text-on-surface-variant">
+            <tr className="text-on-surface-variant">
               {['Paquete', 'Hoyos', 'Quién', 'Días', 'Precio', 'En dólares', ''].map((c, i) => (
                 <th
                   key={c || i}
@@ -1128,8 +1134,8 @@ function Tarifas({ tarifas, tasa, onCambio }) {
             </tr>
           </thead>
           <tbody>
-            {tarifas.map((t) => (
-              <tr key={t.id} className="border-t border-outline-variant/30">
+            {pagTarifas.visibles.map((t) => (
+              <tr key={t.id}>
                 <td className="max-w-0 truncate px-3 py-2.5 text-title-md text-primary">
                   {MODALIDAD[t.modality] || t.modality}
                 </td>
@@ -1204,6 +1210,8 @@ function Tarifas({ tarifas, tasa, onCambio }) {
             )}
           </tbody>
         </table>
+      </div>
+      <Paginador pag={pagTarifas} etiqueta="tarifas" />
       </div>
     </Tarjeta>
   );
@@ -1435,6 +1443,8 @@ function Comisiones({ hoteles, onCambio }) {
 function Cuentas({ cuentas, hoteles, onCambio }) {
   const [alta, setAlta] = useState(false);
   const [clave, setClave] = useState(null);
+  const cuentasVisibles = cuentas.filter((u) => u.role !== 'SISTEMA');
+  const pagCuentas = usePaginacion(cuentasVisibles, 10);
 
   async function alternarActiva(u) {
     const ok = await confirmar({
@@ -1507,10 +1517,11 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
         />
       )}
 
+      <div className="caja-lineas">
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="tabla-lineas text-left">
           <thead>
-            <tr className="bg-surface-container-low text-on-surface-variant">
+            <tr className="text-on-surface-variant">
               {['Correo', 'Nombre', 'Rol', 'Hotel', 'Entró', ''].map((c, i) => (
                 <th
                   key={c || i}
@@ -1524,10 +1535,10 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
             </tr>
           </thead>
           <tbody>
-            {cuentas.filter((u) => u.role !== 'SISTEMA').map((u) => (
+            {pagCuentas.visibles.map((u) => (
               <tr
                 key={u.id}
-                className={`border-t border-outline-variant/30 ${u.is_active ? '' : 'opacity-50'}`}
+                className={u.is_active ? '' : 'opacity-50'}
               >
                 <td className="max-w-0 truncate px-3 py-2.5 font-mono text-body-lg text-primary">
                   {u.email}
@@ -1590,6 +1601,8 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
             ))}
           </tbody>
         </table>
+      </div>
+      <Paginador pag={pagCuentas} etiqueta="cuentas" />
       </div>
     </Tarjeta>
   );

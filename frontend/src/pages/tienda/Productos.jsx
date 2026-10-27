@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { tiendaApi } from '../../api/client';
 import Icono from '../../components/Icono';
-import { Modal } from '../../components/ui';
+import { Modal, Paginador, usePaginacion } from '../../components/ui';
 import { error as avisoError, notificar } from '../../utils/avisos';
 import { fechaHora, mxn } from '../../utils/format';
 import { Avisos, BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, Existencia, TARJETA, plural } from './comun';
@@ -67,6 +67,8 @@ export default function Productos({ atiende }) {
       );
     });
   }, [productos, termino, categoria, filtro]);
+  // El catálogo es largo: de 15 en 15. Exportar a CSV sigue llevándose todos los filtrados.
+  const pag = usePaginacion(visibles, 15, `${termino}|${categoria}|${filtro}`);
 
   function exportar() {
     const filas = [
@@ -159,10 +161,11 @@ export default function Productos({ atiende }) {
         </div>
       </section>
 
-      <section className={`${TARJETA} overflow-x-auto`}>
-        <table className="w-full min-w-[1060px] text-left">
+      <section className={TARJETA}>
+        <div className="overflow-x-auto">
+        <table className="tabla-lineas min-w-[1060px] text-left">
           <thead>
-            <tr className="border-b border-outline-variant/50 bg-surface-container-low text-label-sm uppercase tracking-wider text-on-surface-variant">
+            <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
               <th className="px-4 py-3">Producto</th>
               <th className="px-3 py-3 text-right">Costo</th>
               <th className="px-3 py-3 text-right">Precio</th>
@@ -175,12 +178,12 @@ export default function Productos({ atiende }) {
             </tr>
           </thead>
           <tbody>
-            {visibles.map((p) => {
+            {pag.visibles.map((p) => {
               const margen = p.precio != null && Number(p.costo) > 0
                 ? ((Number(p.precio) - Number(p.costo)) / Number(p.costo)) * 100
                 : null;
               return (
-                <tr key={p.id} className={`border-b border-outline-variant/30 align-top hover:bg-surface-container-low/60 ${p.activo ? '' : 'opacity-60'}`}>
+                <tr key={p.id} className={`align-top ${p.activo ? '' : 'opacity-60'}`}>
                   <td className="px-4 py-3">
                     <p className="text-title-md text-primary">{p.descripcion}</p>
                     <p className="font-mono text-label-md text-outline">
@@ -221,6 +224,8 @@ export default function Productos({ atiende }) {
             )}
           </tbody>
         </table>
+        </div>
+        <Paginador pag={pag} etiqueta="productos" />
       </section>
 
       {editando && (

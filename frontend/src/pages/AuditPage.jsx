@@ -80,6 +80,8 @@ export default function AuditPage() {
             columns={['Fecha y hora', 'Usuario', 'Acción', 'Parámetro', 'Anterior', 'Nuevo']}
             rows={rows}
             empty="Sin registros con esos filtros"
+            porPagina={15}
+            reiniciar={JSON.stringify(filters)}
             renderRow={(row) => (
               <tr key={row.id} className="hover:bg-surface-container-low">
                 <td className="px-3 py-2 font-mono text-body-md text-on-surface-variant">{fechaHora(row.created_at)}</td>

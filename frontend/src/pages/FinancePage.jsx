@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { treasuryApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Spinner } from '../components/ui';
+import { Alert, Paginador, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
 import { fecha, fechaHora, hoy, mxn, fechaLocal } from '../utils/format';
 
@@ -129,6 +129,12 @@ export default function FinancePage() {
     [EVENTOS.PAGO_REGISTRADO, EVENTOS.CHECKIN_REGISTRADO, EVENTOS.CAJA_CERRADA],
     () => cargar(false),
   );
+
+  // Paginación de las tres listas largas; vuelven a la página 1 al cambiar de periodo.
+  const clavePeriodo = `${rango}|${aMano.start}|${aMano.end}`;
+  const pagHoteles = usePaginacion(resumen?.by_hotel || [], 8, clavePeriodo);
+  const pagLiquidaciones = usePaginacion(liquidaciones, 6, clavePeriodo);
+  const pagBeneficios = usePaginacion(beneficios, 10, clavePeriodo);
 
   if (loading) return <Spinner />;
   if (error) return <Alert tone="error">{error}</Alert>;
@@ -505,9 +511,9 @@ export default function FinancePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="tabla-lineas text-left">
             <thead>
-              <tr className="bg-surface-container-low text-on-surface-variant">
+              <tr className="text-on-surface-variant">
                 {['Hotel / entidad', 'Reservas', 'Venta bruta', 'Descto. PGA', 'Comisión', 'Neto campo', 'Estado'].map(
                   (c, i) => (
                     <th
@@ -523,15 +529,12 @@ export default function FinancePage() {
               </tr>
             </thead>
             <tbody>
-              {resumen.by_hotel.map((h) => {
+              {pagHoteles.visibles.map((h) => {
                 const liquidada = liquidaciones.find(
                   (l) => l.hotel_id === h.hotel_id && l.status === 'LIQUIDADA',
                 );
                 return (
-                  <tr
-                    key={h.hotel_id}
-                    className="border-t border-outline-variant/30 transition hover:bg-surface-container-low/60"
-                  >
+                  <tr key={h.hotel_id}>
                     <td className="max-w-0 truncate px-3 py-3.5 text-title-md text-primary">
                       {h.hotel_name}
                     </td>
@@ -604,6 +607,7 @@ export default function FinancePage() {
             </tbody>
           </table>
         </div>
+        <Paginador pag={pagHoteles} etiqueta="hoteles" />
 
         {/* Lo de arriba es lo devengado en el periodo que se está viendo; esto
             de abajo son las liquidaciones ya emitidas, que no cambian aunque
@@ -615,8 +619,8 @@ export default function FinancePage() {
               Liquidaciones ya emitidas
             </p>
             <ul className="divide-y divide-outline-variant/30">
-              {liquidaciones.slice(0, 12).map((l) => (
-                <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+              {pagLiquidaciones.visibles.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 px-2 py-2.5 transition hover:bg-[var(--sombra-cursor)]">
                   <span className="min-w-0">
                     <span className="block text-title-md text-primary">{l.hotel_name}</span>
                     <span className="block font-mono text-label-sm text-outline">
@@ -643,6 +647,7 @@ export default function FinancePage() {
                 </li>
               ))}
             </ul>
+            <Paginador pag={pagLiquidaciones} etiqueta="liquidaciones" className="mt-1 border-t-0 px-0" />
           </div>
         )}
       </section>
@@ -664,9 +669,9 @@ export default function FinancePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="tabla-lineas text-left">
             <thead>
-              <tr className="bg-surface-container-low text-on-surface-variant">
+              <tr className="text-on-surface-variant">
                 {['Folio', 'Hotel', 'Jugador', 'Credencial PGA', 'Tarifa base', 'Descuento', 'Tarifa final', 'Validó'].map(
                   (c, i) => (
                     <th
@@ -682,8 +687,8 @@ export default function FinancePage() {
               </tr>
             </thead>
             <tbody>
-              {beneficios.map((b, i) => (
-                <tr key={`${b.folio}-${i}`} className="border-t border-outline-variant/30">
+              {pagBeneficios.visibles.map((b, i) => (
+                <tr key={`${b.folio}-${i}`}>
                   <td className="whitespace-nowrap px-3 py-3">
                     <span className="block font-mono text-body-lg text-primary">#{b.folio}</span>
                     <span className="block font-mono text-label-sm text-outline">
@@ -730,6 +735,7 @@ export default function FinancePage() {
             </tbody>
           </table>
         </div>
+        <Paginador pag={pagBeneficios} etiqueta="beneficios" />
 
         <p className="flex items-start gap-2 border-t border-outline-variant/40 px-5 py-4 text-body-md text-outline">
           <Icono nombre="escudo" size={16} className="mt-0.5 shrink-0 text-secondary" />

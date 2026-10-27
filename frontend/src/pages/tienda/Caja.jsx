@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { catalogApi, tiendaApi } from '../../api/client';
 import Icono from '../../components/Icono';
-import { Modal } from '../../components/ui';
+import { Modal, Paginador, usePaginacion } from '../../components/ui';
 import { error as avisoError, notificar } from '../../utils/avisos';
 import { fecha, fechaHora, mxn } from '../../utils/format';
 import { BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, TARJETA, plural } from './comun';
@@ -29,6 +29,7 @@ export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdmini
       .catch(() => {});
   }, []);
   const pendientes = cortes.filter((c) => c.pendiente_arqueo);
+  const pagCortes = usePaginacion(cortes, 8);
 
   function cargarCortes() {
     if (!puedeAdministrar) return;
@@ -116,16 +117,17 @@ export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdmini
       )}
 
       {puedeAdministrar && (
-        <section className={`${TARJETA} overflow-x-auto`}>
+        <section className={TARJETA}>
           <div className="flex items-center justify-between px-4 pt-4">
             <h3 className="text-title-lg text-primary">Cortes anteriores</h3>
             <button type="button" onClick={cargarCortes} className="text-outline transition hover:text-primary" title="Actualizar">
               <Icono nombre="refrescar" size={17} />
             </button>
           </div>
-          <table className="mt-2 w-full min-w-[880px] text-left">
+          <div className="mt-2 overflow-x-auto">
+          <table className="tabla-lineas min-w-[880px] text-left">
             <thead>
-              <tr className="border-y border-outline-variant/50 bg-surface-container-low text-label-sm uppercase tracking-wider text-on-surface-variant">
+              <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
                 <th className="px-4 py-3">Corte</th>
                 <th className="px-3 py-3">Abrió / cerró</th>
                 <th className="px-3 py-3 text-right">Ventas</th>
@@ -136,8 +138,8 @@ export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdmini
               </tr>
             </thead>
             <tbody>
-              {cortes.map((c) => (
-                <tr key={c.id} className="border-b border-outline-variant/30 align-top">
+              {pagCortes.visibles.map((c) => (
+                <tr key={c.id} className="align-top">
                   <td className="px-4 py-3">
                     <p className="text-title-md text-primary">#{c.id} · {fecha(c.fecha)}</p>
                     <p className={`text-label-sm uppercase tracking-wider ${c.estado === 'ABIERTO' ? 'text-estado-ok-text' : 'text-outline'}`}>
@@ -181,6 +183,8 @@ export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdmini
               )}
             </tbody>
           </table>
+          </div>
+          <Paginador pag={pagCortes} etiqueta="cortes" />
         </section>
       )}
 

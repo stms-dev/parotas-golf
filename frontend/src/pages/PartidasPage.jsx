@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { bookingApi, catalogApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Badge, Spinner } from '../components/ui';
+import { Alert, Badge, Paginador, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
 import { ESTADO_RESERVA, MODALIDAD, fechaCorta, hora, hoy, mxn, fechaLocal } from '../utils/format';
 
@@ -53,6 +53,8 @@ export default function PartidasPage() {
   const [rows, setRows] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
+  // De 12 en 12; vuelve a la primera página al cambiar periodo, estado, hotel o búsqueda.
+  const pag = usePaginacion(rows, 12, `${rango}|${aMano.start}|${aMano.end}|${filtros.status}|${filtros.hotel_id}|${filtros.term}`);
   const [error, setError] = useState(null);
 
   const rapido = rangoDe(rango);
@@ -289,10 +291,11 @@ export default function PartidasPage() {
             <Spinner />
           </div>
         ) : (
+          <div className="caja-lineas border-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="tabla-lineas text-left">
               <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant">
+                <tr className="text-on-surface-variant">
                   {['Folio', 'Titular / hotel', 'Salida', 'Partida', 'Estado', 'Total', 'Saldo'].map(
                     (c, i) => (
                       <th
@@ -308,14 +311,11 @@ export default function PartidasPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
+                {pag.visibles.map((row) => {
                   const estado = ESTADO_RESERVA[row.status] || {};
                   const debe = Number(row.balance) > 0;
                   return (
-                    <tr
-                      key={row.id}
-                      className="border-t border-outline-variant/30 transition hover:bg-surface-container-low/60"
-                    >
+                    <tr key={row.id}>
                       <td className="whitespace-nowrap px-3 py-3">
                         <Link
                           to={`/reservas/${row.id}`}
@@ -367,6 +367,8 @@ export default function PartidasPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <Paginador pag={pag} etiqueta="partidas" />
           </div>
         )}
       </section>

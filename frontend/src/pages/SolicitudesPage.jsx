@@ -18,7 +18,7 @@ import { Link } from 'react-router-dom';
 
 import { bookingApi, dashboardApi } from '../api/client';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Spinner } from '../components/ui';
+import { Alert, Paginador, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
 import { ESTADO_RESERVA, MODALIDAD, fechaHora, hora, hoy, mxn, recorrido } from '../utils/format';
@@ -136,6 +136,8 @@ export default function SolicitudesPage() {
     return [...reservas].sort(orden);
   }, [filtro, listas, reservas]);
 
+  const pag = usePaginacion(visibles, 8, `${dia}|${filtro}`);
+
   const vencidas = listas.porAtender.filter((r) => yaPaso(r.slot_date, r.slot_time));
 
   if (loading) return <Spinner />;
@@ -235,15 +237,16 @@ export default function SolicitudesPage() {
             Nada por aquí con ese filtro.
           </p>
         ) : (
+          <>
           <ul className="divide-y divide-outline-variant/30">
-            {visibles.map((r) => {
+            {pag.visibles.map((r) => {
               const estado = ESTADO_RESERVA[r.status] || {};
               const pasada = yaPaso(r.slot_date, r.slot_time);
               const abierta = ['PENDIENTE', 'CONFIRMADA'].includes(r.status);
               return (
                 <li
                   key={r.id}
-                  className={`flex flex-wrap items-center gap-4 px-5 py-4 ${
+                  className={`flex flex-wrap items-center gap-4 px-5 py-4 transition hover:bg-[var(--sombra-cursor)] ${
                     abierta && pasada ? 'bg-estado-pend-bg/40' : ''
                   }`}
                 >
@@ -327,6 +330,8 @@ export default function SolicitudesPage() {
               );
             })}
           </ul>
+          <Paginador pag={pag} etiqueta="solicitudes" />
+          </>
         )}
       </section>
     </div>

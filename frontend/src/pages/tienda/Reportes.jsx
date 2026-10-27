@@ -136,9 +136,10 @@ export default function Reportes() {
             <section className={`${TARJETA} p-5`}>
               <h3 className="text-title-lg text-primary">Lo que más se vende</h3>
               {r.top_productos.length ? (
-                <table className="mt-3 w-full text-left">
+                <div className="caja-lineas mt-3 overflow-x-auto">
+                <table className="tabla-lineas text-left">
                   <thead>
-                    <tr className="border-b border-outline-variant/50 text-label-sm uppercase tracking-wider text-on-surface-variant">
+                    <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
                       <th className="py-2">#</th>
                       <th className="py-2">Producto</th>
                       <th className="py-2 pl-3 text-right">Piezas</th>
@@ -148,7 +149,7 @@ export default function Reportes() {
                   </thead>
                   <tbody>
                     {r.top_productos.map((p, i) => (
-                      <tr key={p.producto_id ?? p.codigo} className="border-b border-outline-variant/30">
+                      <tr key={p.producto_id ?? p.codigo}>
                         <td className="py-2 pr-2 font-mono text-label-md text-outline">{i + 1}</td>
                         <td className="py-2">
                           <p className="text-title-md">{p.descripcion}</p>
@@ -161,6 +162,7 @@ export default function Reportes() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               ) : (
                 <Vacio />
               )}

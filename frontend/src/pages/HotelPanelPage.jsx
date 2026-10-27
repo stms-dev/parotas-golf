@@ -16,7 +16,7 @@ import { Link } from 'react-router-dom';
 import { bookingApi, catalogApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Badge, Spinner } from '../components/ui';
+import { Alert, Badge, Paginador, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
 import { esFinDeSemana, tarifaDelDia } from '../utils/tarifas';
 import { ESTADO_RESERVA, MODALIDAD, fechaCorta, hora, hoy, mxn, fechaLocal, recorrido } from '../utils/format';
@@ -152,6 +152,8 @@ export default function HotelPanelPage() {
       );
     return reservas;
   }, [reservas, filtro, today]);
+
+  const pag = usePaginacion(reservasFiltradas, 10, `${filtro}|${folio}|${desde}|${hasta}`);
 
   const conteo = (key) => {
     if (key === 'hoy') return reservas.filter((r) => r.slot_date === today).length;
@@ -308,10 +310,11 @@ export default function HotelPanelPage() {
             hoyISO={today}
           />
 
+          <div className="caja-lineas">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="tabla-lineas text-left">
               <thead>
-                <tr className="bg-surface-container-low text-on-surface-variant">
+                <tr className="text-on-surface-variant">
                   {['Folio & fecha', 'Huésped titular', 'Paquete & pax', 'Tee time', 'Estado'].map(
                     (c, i) => (
                       <th
@@ -334,14 +337,11 @@ export default function HotelPanelPage() {
                     </td>
                   </tr>
                 ) : (
-                  reservasFiltradas.map((r) => {
+                  pag.visibles.map((r) => {
                     const estado = ESTADO_RESERVA[r.status] || {};
                     const cancelada = r.status === 'CANCELADA';
                     return (
-                      <tr
-                        key={r.id}
-                        className="border-t border-outline-variant/30 transition hover:bg-surface-container-low/60"
-                      >
+                      <tr key={r.id}>
                         <td className="whitespace-nowrap px-3 py-4 align-middle">
                           <Link
                             to={`/reservas/${r.id}`}
@@ -401,6 +401,8 @@ export default function HotelPanelPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <Paginador pag={pag} etiqueta="reservas" />
           </div>
 
           <p className="pt-4 text-label-md text-on-surface-variant">

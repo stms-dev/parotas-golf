@@ -438,7 +438,13 @@ reutilizables: `tabla-lineas` (tabla) con `caja-lineas` (su contenedor) y
 `fila-lineas` (tarjetas en lista). Dan líneas grises muy suaves y un sombreado
 leve al pasar el cursor; los tonos están en tres variables al inicio del bloque
 (`--linea-tenue`, `--linea-fina`, `--sombra-cursor`), así que se ajustan en un
-solo lugar. Hoy se usan en Precios & Configuración.
+solo lugar. Se usan en todo el sistema (tablas y listas largas).
+
+**Paginación (`‹ 1 2 3 ›`).** `components/ui.jsx` trae `usePaginacion(items,
+porPagina, reiniciar)` y `<Paginador pag etiqueta />`; el componente `Table`
+ya pagina solo (`porPagina`, por defecto 10). El paginador no aparece si todo
+cabe en una página. Es paginación en el navegador: si una lista llega a miles
+de filas conviene paginar también en la API.
 
 **Servicios** (en Precios & Tarifas) — quien tiene el permiso de servicios puede
 cambiar el precio (lun a jue y vie a dom) y activar o dar de baja cada servicio.

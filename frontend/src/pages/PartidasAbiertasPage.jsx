@@ -19,7 +19,7 @@ import { Link } from 'react-router-dom';
 
 import { bookingApi } from '../api/client';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
-import { Alert, Badge, Button, Card, EmptyState, Modal, Select, Spinner } from '../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Modal, Paginador, Select, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
 import { confirmar, error as avisoError, exito } from '../utils/avisos';
 import { ESTADO_RESERVA, fechaCorta, hora, hoy } from '../utils/format';
@@ -62,6 +62,7 @@ export default function PartidasAbiertasPage() {
   );
 
   const salidas = datos?.salidas || [];
+  const pagSalidas = usePaginacion(salidas, 6, dia);
   const admite = datos?.admite_abiertas !== false;
   const jugadores = salidas.reduce((suma, s) => suma + s.occupied, 0);
   const hoteles = new Set(
@@ -219,7 +220,7 @@ export default function PartidasAbiertasPage() {
           </section>
 
           <div className="space-y-4">
-            {salidas.map((salida) => (
+            {pagSalidas.visibles.map((salida) => (
               <Card
                 key={salida.tee_slot_id}
                 title={`Salida de las ${hora(salida.slot_time)}`}
@@ -250,7 +251,7 @@ export default function PartidasAbiertasPage() {
                   {salida.reservas.map((reserva) => (
                     <li
                       key={reserva.id}
-                      className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-3 px-5 py-3.5 transition hover:bg-[var(--sombra-cursor)] sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -288,6 +289,11 @@ export default function PartidasAbiertasPage() {
                 </ul>
               </Card>
             ))}
+            {pagSalidas.total > 1 && (
+              <div className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest">
+                <Paginador pag={pagSalidas} etiqueta="salidas" className="border-t-0" />
+              </div>
+            )}
           </div>
         </>
       )}

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { tiendaApi } from '../../api/client';
 import Icono from '../../components/Icono';
-import { Modal } from '../../components/ui';
+import { Modal, Paginador, usePaginacion } from '../../components/ui';
 import { error as avisoError, notificar } from '../../utils/avisos';
 import { fechaHora, hoy, mxn } from '../../utils/format';
 import { BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, EstadoVenta, METODOS, TARJETA, Ticket, plural } from './comun';
@@ -21,6 +21,7 @@ export default function Ventas({ caja, atiende, onCajaCambio }) {
   const [ventas, setVentas] = useState(null);
   const [ticket, setTicket] = useState(null);
   const [cancelando, setCancelando] = useState(null);
+  const pag = usePaginacion(ventas || [], 12, `${desde}|${hasta}|${estado}|${termino}`);
 
   async function cargar() {
     setVentas(null);
@@ -102,10 +103,11 @@ export default function Ventas({ caja, atiende, onCajaCambio }) {
         <Cifra label="Canceladas" valor={totales.canceladas} tono={totales.canceladas ? 'text-error' : undefined} />
       </section>
 
-      <section className={`${TARJETA} overflow-x-auto`}>
-        <table className="w-full min-w-[900px] text-left">
+      <section className={TARJETA}>
+        <div className="overflow-x-auto">
+        <table className="tabla-lineas min-w-[900px] text-left">
           <thead>
-            <tr className="border-b border-outline-variant/50 bg-surface-container-low text-label-sm uppercase tracking-wider text-on-surface-variant">
+            <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
               <th className="px-4 py-3">Folio</th>
               <th className="px-3 py-3">Fecha</th>
               <th className="px-3 py-3">Productos</th>
@@ -122,10 +124,10 @@ export default function Ventas({ caja, atiende, onCajaCambio }) {
                 <td colSpan={8} className="px-4 py-10 text-center text-body-lg text-outline">Cargando…</td>
               </tr>
             )}
-            {ventas?.map((v) => {
+            {pag.visibles.map((v) => {
               const puedeCancelar = v.estado === 'PAGADA' && caja && v.corte_id === caja.id;
               return (
-                <tr key={v.id} className={`border-b border-outline-variant/30 align-top hover:bg-surface-container-low/60 ${v.estado === 'CANCELADA' ? 'opacity-70' : ''}`}>
+                <tr key={v.id} className={`align-top ${v.estado === 'CANCELADA' ? 'opacity-70' : ''}`}>
                   <td className="px-4 py-3 font-mono text-title-md text-primary">{v.folio}</td>
                   <td className="px-3 py-3 text-body-md">{fechaHora(v.created_at)}</td>
                   <td className="max-w-[280px] px-3 py-3 text-body-md">
@@ -170,6 +172,8 @@ export default function Ventas({ caja, atiende, onCajaCambio }) {
             )}
           </tbody>
         </table>
+        </div>
+        <Paginador pag={pag} etiqueta="ventas" />
       </section>
 
       <p className="text-body-md text-outline">
