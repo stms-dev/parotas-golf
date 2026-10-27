@@ -179,7 +179,7 @@ export default function SettingsPage() {
 
 function Panel({ icono, titulo, insignia, accion, children }) {
   return (
-    <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest shadow-card">
+    <section className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest shadow-card transition hover:border-outline-variant/70">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/40 px-5 py-4">
         <h2 className="flex items-center gap-2.5 text-label-md uppercase tracking-wider text-primary">
           <Icono nombre={icono} size={18} className="text-secondary" />
@@ -257,8 +257,8 @@ function TarifasOficiales({ rates, tasa }) {
 
   return (
     <Panel icono="pago" titulo="Tarifas y precios oficiales" insignia="Valores base">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="caja-lineas overflow-x-auto">
+        <table className="tabla-lineas text-left">
           <thead>
             <tr className="text-on-surface-variant">
               <th className="pb-2 text-label-sm uppercase tracking-wider">Ronda</th>
@@ -350,7 +350,7 @@ function Monedas({ tc, hoteles, editableTc, editableComision, onCambio }) {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
+        <div className="fila-lineas rounded bg-surface-container-low px-4 py-3">
           <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">
             Moneda base oficial
           </p>
@@ -358,7 +358,7 @@ function Monedas({ tc, hoteles, editableTc, editableComision, onCambio }) {
             MXN <span className="text-body-md text-outline">(Peso mexicano)</span>
           </p>
         </div>
-        <div className="rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
+        <div className="fila-lineas rounded bg-surface-container-low px-4 py-3">
           <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">
             Moneda aceptada
           </p>
@@ -464,7 +464,7 @@ function PadronPga({ pga, editable }) {
       titulo="PGA y profesionales acreditados"
       insignia={config?.is_active ? 'Beneficio activo' : 'Beneficio inactivo'}
     >
-      <div className="mb-4 rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
+      <div className="mb-4 fila-lineas rounded bg-surface-container-low px-4 py-3">
         <p className="text-body-lg text-on-surface">
           {config
             ? `Beneficio vigente: ${
@@ -480,11 +480,11 @@ function PadronPga({ pga, editable }) {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="caja-lineas overflow-x-auto">
+        <table className="tabla-lineas text-left">
           <thead>
             <tr className="text-on-surface-variant">
-              {['Credencial PGA', 'Profesional asociado', 'Acreditación', 'Estado'].map((c, i) => (
+              {['Credencial', 'Profesional', 'Acreditación', 'Estado'].map((c, i) => (
                 <th
                   key={c}
                   className={`whitespace-nowrap pb-2 text-label-sm uppercase tracking-wider ${
@@ -709,7 +709,7 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
         {servicios.map((s) => (
           <div
             key={s.id}
-            className={`rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3 ${
+            className={`fila-lineas rounded bg-surface-container-low px-4 py-3 ${
               s.is_active ? '' : 'opacity-70'
             }`}
           >
@@ -810,8 +810,8 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
 function Bitacora({ registros }) {
   return (
     <Panel icono="history_edu" titulo="Registro maestro de auditoría de cambios" insignia="Últimos movimientos">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="caja-lineas overflow-x-auto">
+        <table className="tabla-lineas text-left">
           <thead>
             <tr className="text-on-surface-variant">
               {['Usuario', 'Fecha / hora', 'Parámetro modificado', 'Valor anterior', 'Valor nuevo'].map(

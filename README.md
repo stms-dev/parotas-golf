@@ -433,6 +433,13 @@ hora se mide con la del campo, no con la del servidor. Es una sola regla para
 todo (antes el cobro del check-in usaba otra hora, `cash_cutoff_hour`, ya
 retirada).
 
+**Líneas de división tenues.** `frontend/src/styles.css` define clases
+reutilizables: `tabla-lineas` (tabla) con `caja-lineas` (su contenedor) y
+`fila-lineas` (tarjetas en lista). Dan líneas grises muy suaves y un sombreado
+leve al pasar el cursor; los tonos están en tres variables al inicio del bloque
+(`--linea-tenue`, `--linea-fina`, `--sombra-cursor`), así que se ajustan en un
+solo lugar. Hoy se usan en Precios & Configuración.
+
 **Servicios** (en Precios & Tarifas) — quien tiene el permiso de servicios puede
 cambiar el precio (lun a jue y vie a dom) y activar o dar de baja cada servicio.
 Un servicio dado de baja deja de salir en el sitio y en las reservas nuevas; la

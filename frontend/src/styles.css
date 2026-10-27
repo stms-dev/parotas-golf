@@ -166,3 +166,72 @@
     display: none !important;
   }
 }
+
+
+/*
+ * Líneas de división tenues y sombreado suave al pasar el cursor.
+ *
+ * Reutilizable en todo el sistema: una tabla lleva `tabla-lineas` y su
+ * contenedor `caja-lineas`; una lista de tarjetas lleva `fila-lineas`. Los
+ * tonos salen del gris de contorno (#c1c8c3) con poca opacidad: delimitan sin
+ * pesar. Cambiando estas variables se retoca todo el sistema de una vez.
+ */
+:root {
+  --linea-tenue: rgb(193 200 195 / 0.55);
+  --linea-fina: rgb(193 200 195 / 0.35);
+  --sombra-cursor: rgb(31 61 47 / 0.045);
+}
+
+@layer components {
+  .caja-lineas {
+    border: 1px solid var(--linea-tenue);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .tabla-lineas {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .tabla-lineas :is(th, td) {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
+  .tabla-lineas thead th {
+    white-space: nowrap;
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--linea-tenue);
+    background: rgb(244 244 241 / 0.7);
+  }
+
+  .tabla-lineas tbody td {
+    border-top: 1px solid var(--linea-fina);
+    transition: background-color 0.15s ease;
+  }
+
+  .tabla-lineas tbody tr:first-child td {
+    border-top: 0;
+  }
+
+  /* Divisiones verticales aún más tenues que las horizontales. */
+  .tabla-lineas :is(th, td) + :is(th, td) {
+    border-left: 1px solid rgb(193 200 195 / 0.25);
+  }
+
+  .tabla-lineas tbody tr:hover td {
+    background-color: var(--sombra-cursor);
+  }
+
+  .fila-lineas {
+    border: 1px solid var(--linea-fina);
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .fila-lineas:hover {
+    background-color: var(--sombra-cursor);
+    border-color: var(--linea-tenue);
+  }
+}

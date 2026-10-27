@@ -31,8 +31,8 @@ export default function HistorialTipoCambio({ limite = 15, compacto = false }) {
   if (filas.length === 0) return <p className="text-body-md text-outline">Sin cambios registrados.</p>;
 
   return (
-    <div className={`overflow-x-auto ${compacto ? 'max-h-[220px] overflow-y-auto' : ''}`}>
-      <table className="w-full text-left text-body-md">
+    <div className={`caja-lineas overflow-x-auto ${compacto ? 'max-h-[220px] overflow-y-auto' : ''}`}>
+      <table className="tabla-lineas  text-left text-body-md">
         <thead className="sticky top-0 bg-surface-container-lowest">
           <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
             <th className="pb-2">Vigente desde</th>
