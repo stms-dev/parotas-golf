@@ -16,6 +16,7 @@ from app.modules.tienda.schemas import (
     CancelarVentaIn,
     CerrarCorteIn,
     ConteoIn,
+    FondoIn,
     CorteOut,
     MovimientoIn,
     MovimientoOut,
@@ -127,16 +128,39 @@ def movimientos(
 
 # ---------------------------------------------------------------------- caja
 @router.get("/caja/actual")
-def caja_actual(db: Session = Depends(get_db), _: User = Depends(VENDER)):
+def caja_actual(
+    atiende: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(VENDER),
+):
+    """La caja de hoy. Si no hay ninguna y todavía es horario, se abre sola.
+
+    `atiende` es el nombre que quedará como quien la abrió; sin él, el de la cuenta.
+    """
+    from app.core.cierre_cajas import en_horario_de_caja, hora_de_cierre
+
     caja = CajaTienda(db)
     corte = caja.abierto()
-    return {"abierta": bool(corte), "corte": CorteOut(**caja.salida(corte)) if corte else None}
+    if not corte and en_horario_de_caja(db):
+        corte = caja.abierto_o_abrir(user, atiende)
+    return {
+        "abierta": bool(corte),
+        "corte": CorteOut(**caja.salida(corte)) if corte else None,
+        "cierra_a": hora_de_cierre(db).strftime("%H:%M"),
+        "fuera_de_horario": not corte and not en_horario_de_caja(db),
+    }
 
 
 @router.post("/caja/abrir", response_model=CorteOut)
 def caja_abrir(data: AbrirCorteIn, db: Session = Depends(get_db), user: User = Depends(VENDER)):
     caja = CajaTienda(db)
     return CorteOut(**caja.salida(caja.abrir(data.fondo_inicial, data.atendio, user)))
+
+
+@router.put("/caja/fondo", response_model=CorteOut)
+def caja_fondo(data: FondoIn, db: Session = Depends(get_db), user: User = Depends(VENDER)):
+    caja = CajaTienda(db)
+    return CorteOut(**caja.salida(caja.cambiar_fondo(data.fondo_inicial, user)))
 
 
 @router.post("/caja/cerrar", response_model=CorteOut)

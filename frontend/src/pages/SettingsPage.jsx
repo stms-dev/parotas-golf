@@ -97,8 +97,8 @@ export default function SettingsPage() {
               {fecha(fechaLocal())}
             </span>
           </p>
-          <h1 className="font-serif text-display-lg leading-tight text-primary">
-            Configuración del Sistema & Parámetros Operativos
+          <h1 className="font-serif text-headline-lg leading-tight text-primary sm:text-display-lg">
+            Precios & Configuración
           </h1>
           <p className="text-body-lg text-outline">
             Tarifas, tipo de cambio, beneficio PGA, horarios y servicios del campo.
@@ -125,42 +125,50 @@ export default function SettingsPage() {
 
       {aviso && <Alert tone="success">{aviso}</Alert>}
 
-      <div className="grid gap-gutter xl:grid-cols-2">
-        <TarifasOficiales rates={rates} tasa={tasa} />
+      {/* Dos columnas que se reparten las tarjetas para que alturas parecidas
+          queden lado a lado; cada tarjeta mide lo que necesita, sin estirarse
+          para igualar a la vecina (eso dejaba medio panel en blanco). */}
+      <div className="grid items-start gap-gutter xl:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-gutter">
+          <TarifasOficiales rates={rates} tasa={tasa} />
 
-        <Monedas
-          tc={tc}
-          hoteles={hoteles}
-          editableTc={false}
-          editableComision={false}
-          onCambio={(mensaje) => {
-            setAviso(mensaje);
-            cargar(false);
-          }}
-        />
+          <Servicios
+            servicios={servicios}
+            tasa={tasa}
+            puedeEditar={can('catalog:manage_services')}
+            onCambio={() => cargar(false)}
+          />
+        </div>
 
-        <Panel icono="historial" titulo="Historial del tipo de cambio" insignia="Cada cambio">
-          <HistorialTipoCambio limite={20} compacto />
-        </Panel>
+        <div className="flex min-w-0 flex-col gap-gutter">
+          <Monedas
+            tc={tc}
+            hoteles={hoteles}
+            editableTc={false}
+            editableComision={false}
+            onCambio={(mensaje) => {
+              setAviso(mensaje);
+              cargar(false);
+            }}
+          />
 
-        <PadronPga pga={pga} editable={false} />
+          <Panel icono="historial" titulo="Historial del tipo de cambio" insignia="Cada cambio">
+            <HistorialTipoCambio limite={8} compacto />
+          </Panel>
 
-        <HorarioMaestro
-          horario={horario}
-          editable={false}
-          onCambio={(mensaje) => {
-            setAviso(mensaje);
-            cargar(false);
-          }}
-        />
-
-        <Servicios
-          servicios={servicios}
-          tasa={tasa}
-          puedeEditar={can('catalog:manage_services')}
-          onCambio={() => cargar(false)}
-        />
+          <PadronPga pga={pga} editable={false} />
+        </div>
       </div>
+
+      {/* Ancho completo: son tres campos y quedan mejor repartidos en una fila. */}
+      <HorarioMaestro
+        horario={horario}
+        editable={false}
+        onCambio={(mensaje) => {
+          setAviso(mensaje);
+          cargar(false);
+        }}
+      />
 
       {can('audit:view') && <Bitacora registros={bitacora} />}
     </div>
@@ -189,8 +197,63 @@ function Panel({ icono, titulo, insignia, accion, children }) {
   );
 }
 
+const COLUMNAS_DIA = [
+  { id: 'ENTRE_SEMANA', texto: 'Lun a jue' },
+  { id: 'FIN_DE_SEMANA', texto: 'Vie a dom' },
+];
+
+/**
+ * Las tarifas vigentes en una matriz: una fila por tipo de ronda y una columna
+ * por tipo de día. Grupo y Partida abierta casi siempre cuestan lo mismo, así
+ * que no se repite cada fila por modalidad: si el precio es igual se muestra
+ * una vez, y solo si difiere se desglosa por modalidad.
+ */
 function TarifasOficiales({ rates, tasa }) {
   const vigentes = rates.filter((r) => r.is_active);
+
+  const filas = new Map();
+  for (const r of vigentes) {
+    const clave = `${r.modality === 'PRACTICA' ? 'P' : r.holes}|${r.category}|${r.time_band}`;
+    if (!filas.has(clave)) {
+      filas.set(clave, { clave, holes: r.holes, category: r.category, band: r.time_band, practica: r.modality === 'PRACTICA', celdas: {} });
+    }
+    const fila = filas.get(clave);
+    const dias = r.day_type === 'TODOS' ? ['ENTRE_SEMANA', 'FIN_DE_SEMANA'] : [r.day_type];
+    for (const d of dias) (fila.celdas[d] ||= {})[r.modality] = Number(r.price);
+  }
+  const lista = [...filas.values()].sort(
+    (a, b) =>
+      Number(a.practica) - Number(b.practica) ||
+      a.holes - b.holes ||
+      ['ADULTO', 'LOCAL', 'INFANTIL'].indexOf(a.category) - ['ADULTO', 'LOCAL', 'INFANTIL'].indexOf(b.category) ||
+      (a.band === 'TWILIGHT') - (b.band === 'TWILIGHT'),
+  );
+
+  const nombre = (f) => {
+    if (f.practica) return 'Zona de práctica';
+    const quien = f.band === 'TWILIGHT' ? 'Twilight' : CATEGORIA[f.category] || f.category;
+    return `${f.holes} hoyos · ${quien}`;
+  };
+
+  function Celda({ celda }) {
+    if (!celda) return <span className="text-outline">—</span>;
+    const precios = Object.entries(celda);
+    const iguales = precios.every(([, v]) => v === precios[0][1]);
+    if (iguales) {
+      return (
+        <>
+          <span className="block font-mono text-body-lg text-primary">{mxn(precios[0][1])}</span>
+          {tasa ? <span className="block font-mono text-label-md text-outline">{usd(precios[0][1] / tasa)}</span> : null}
+        </>
+      );
+    }
+    return precios.map(([m, v]) => (
+      <span key={m} className="block font-mono text-body-md text-primary">
+        <span className="mr-1.5 text-label-sm uppercase tracking-wider text-outline">{MODALIDAD[m] || m}</span>
+        {mxn(v)}
+      </span>
+    ));
+  }
 
   return (
     <Panel icono="pago" titulo="Tarifas y precios oficiales" insignia="Valores base">
@@ -198,55 +261,28 @@ function TarifasOficiales({ rates, tasa }) {
         <table className="w-full text-left">
           <thead>
             <tr className="text-on-surface-variant">
-              {['Modalidad / concepto', 'Recorrido', 'Precio (MXN)', 'Equiv. USD', 'Estado'].map(
-                (c, i) => (
-                  <th
-                    key={c}
-                    className={`whitespace-nowrap pb-2 text-label-sm uppercase tracking-wider ${
-                      i === 0 ? 'w-full' : 'pl-4'
-                    } ${i >= 2 && i <= 3 ? 'text-right' : ''}`}
-                  >
-                    {c}
-                  </th>
-                ),
-              )}
+              <th className="pb-2 text-label-sm uppercase tracking-wider">Ronda</th>
+              {COLUMNAS_DIA.map((c) => (
+                <th key={c.id} className="pb-2 pl-4 text-right text-label-sm uppercase tracking-wider">
+                  {c.texto}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {vigentes.map((r) => (
-              <tr key={r.id} className="border-t border-outline-variant/30">
-                <td className="max-w-0 truncate py-2.5 pr-3 text-body-lg text-on-surface">
-                  {MODALIDAD[r.modality] || r.modality}
-                  <span className="text-outline"> · {CATEGORIA[r.category] || r.category}</span>
-                </td>
-                <td className="whitespace-nowrap py-2.5 pl-4 text-body-lg text-on-surface-variant">
-                  {recorrido(r)}
-                  {/* Sin el día, las dos tarifas del mismo recorrido se verían
-                      iguales con precios distintos. */}
-                  <span className="ml-1.5 text-label-sm uppercase tracking-wider text-outline">
-                    {r.day_type === 'FIN_DE_SEMANA'
-                      ? 'vie a dom'
-                      : r.day_type === 'ENTRE_SEMANA'
-                        ? 'lun a jue'
-                        : 'todos los días'}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap py-2.5 pl-4 text-right font-mono text-body-lg text-primary">
-                  {mxn(r.price)}
-                </td>
-                <td className="whitespace-nowrap py-2.5 pl-4 text-right font-mono text-body-lg text-outline">
-                  {tasa ? usd(Number(r.price) / tasa) : '—'}
-                </td>
-                <td className="whitespace-nowrap py-2.5 pl-4">
-                  <span className="flex items-center gap-1.5 text-label-sm uppercase tracking-wider text-estado-ok-text">
-                    <Icono nombre="check" size={14} /> Activo
-                  </span>
-                </td>
+            {lista.map((f) => (
+              <tr key={f.clave} className="border-t border-outline-variant/30 align-top">
+                <td className="py-2.5 pr-3 text-body-lg text-on-surface">{nombre(f)}</td>
+                {COLUMNAS_DIA.map((c) => (
+                  <td key={c.id} className="whitespace-nowrap py-2.5 pl-4 text-right">
+                    <Celda celda={f.celdas[c.id]} />
+                  </td>
+                ))}
               </tr>
             ))}
-            {vigentes.length === 0 && (
+            {lista.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-body-lg text-outline">
+                <td colSpan={3} className="py-8 text-center text-body-lg text-outline">
                   Sin tarifas vigentes.
                 </td>
               </tr>
@@ -255,7 +291,8 @@ function TarifasOficiales({ rates, tasa }) {
         </table>
       </div>
       <p className="mt-4 rounded bg-surface-container-low px-3.5 py-2.5 text-body-md text-outline">
-        El precio se congela en cada reserva: subir una tarifa hoy no altera lo ya vendido.
+        Precio por jugador en MXN, con su equivalente en USD debajo. Grupo y Partida abierta cuestan lo mismo salvo que
+        se indique. El precio se congela en cada reserva: subir una tarifa hoy no altera lo ya vendido.
       </p>
     </Panel>
   );
@@ -668,7 +705,7 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
 
   return (
     <Panel icono="golf" titulo="Servicios adicionales y alquileres" insignia="Precios en MXN">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5">
         {servicios.map((s) => (
           <div
             key={s.id}
@@ -676,9 +713,9 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
               s.is_active ? '' : 'opacity-70'
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <div className="min-w-0">
-                <p className="truncate text-title-md text-primary">{s.name}</p>
+                <p className="text-title-md text-primary">{s.name}</p>
                 <p className="font-mono text-label-sm text-outline">
                   {s.weekend_price
                     ? `${mxn(s.price)} lun a jue · ${mxn(s.weekend_price)} vie a dom`
@@ -733,7 +770,7 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
             )}
 
             {puedeEditar && editando?.id !== s.id && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-2.5 flex gap-2">
                 <button
                   onClick={() =>
                     setEditando({
@@ -758,7 +795,7 @@ function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
           </div>
         ))}
         {servicios.length === 0 && (
-          <p className="py-8 text-center text-body-lg text-outline sm:col-span-2">
+          <p className="py-8 text-center text-body-lg text-outline">
             Sin servicios registrados.
           </p>
         )}

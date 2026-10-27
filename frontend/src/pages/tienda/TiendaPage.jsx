@@ -3,17 +3,15 @@
  * renta de bastones. Tiene su catálogo, su inventario, su caja y sus reportes.
  * Los hoteles no la ven.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { tiendaApi } from '../../api/client';
 import Icono from '../../components/Icono';
-import { Modal } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
-import { error as avisoError, notificar } from '../../utils/avisos';
 import { fechaHora, mxn } from '../../utils/format';
 import Caja from './Caja';
-import { BOTON, BOTON_FUERTE, CAMPO, ETIQUETA, useAtiende } from './comun';
+import { CAMPO, ETIQUETA, useAtiende } from './comun';
 import Productos from './Productos';
 import Reportes from './Reportes';
 import Vender from './Vender';
@@ -35,12 +33,23 @@ export default function TiendaPage() {
   const activa = pestanas.find((p) => p.id === params.get('vista'))?.id || 'vender';
   const [atiende, setAtiende] = useAtiende();
   const [caja, setCaja] = useState(undefined); // undefined = cargando, null = cerrada
-  const [abriendo, setAbriendo] = useState(false);
+  // Datos del horario de la caja: a qué hora cierra y si ya pasó.
+  const [horario, setHorario] = useState({ cierraA: null, fuera: false });
+  // Se lee desde una ref para que el reloj de abajo no se reinicie con cada letra
+  // que se escribe en "Atiende".
+  const atiendeRef = useRef(atiende);
+  atiendeRef.current = atiende;
 
+  // La caja abre sola: pedirla en horario la deja abierta a nombre de quien
+  // atiende, así que no hay botón de abrir.
   const cargarCaja = useCallback(() => {
+    const nombre = atiendeRef.current.trim();
     tiendaApi
-      .cajaActual()
-      .then((r) => setCaja(r.corte || null))
+      .cajaActual(nombre.length >= 3 ? { atiende: nombre } : undefined)
+      .then((r) => {
+        setCaja(r.corte || null);
+        setHorario({ cierraA: r.cierra_a || null, fuera: Boolean(r.fuera_de_horario) });
+      })
       .catch(() => setCaja(null));
   }, []);
 
@@ -60,7 +69,7 @@ export default function TiendaPage() {
     cargarCaja();
     setParams(id === 'vender' ? {} : { vista: id }, { replace: true });
   };
-  const props = { caja: caja || null, atiende, onCajaCambio: cargarCaja, onAbrirCaja: () => setAbriendo(true) };
+  const props = { caja: caja || null, atiende, onCajaCambio: cargarCaja, horario };
 
   return (
     <div className="space-y-5">
@@ -79,7 +88,7 @@ export default function TiendaPage() {
               className={`${CAMPO.replace('w-full', 'w-52')} ${atiende.trim().length < 3 ? 'border-estado-pend-border bg-estado-pend-bg' : ''}`}
             />
           </label>
-          <EstadoCaja caja={caja} onAbrir={() => setAbriendo(true)} onVer={() => ir('caja')} />
+          <EstadoCaja caja={caja} horario={horario} onVer={() => ir('caja')} />
         </div>
       </header>
 
@@ -113,27 +122,20 @@ export default function TiendaPage() {
         </>
       )}
 
-      {abriendo && (
-        <AbrirCaja
-          atiende={atiende}
-          onCerrar={() => setAbriendo(false)}
-          onListo={() => {
-            setAbriendo(false);
-            cargarCaja();
-          }}
-        />
-      )}
     </div>
   );
 }
 
-function EstadoCaja({ caja, onAbrir, onVer }) {
+function EstadoCaja({ caja, horario, onVer }) {
   if (caja === undefined) return null;
   if (!caja) {
     return (
-      <button type="button" onClick={onAbrir} className={BOTON_FUERTE}>
-        <Icono nombre="llave" size={16} className="text-secondary-fixed" /> Abrir caja
-      </button>
+      <span className="flex items-center gap-2 rounded border border-outline-variant/60 bg-surface-container-low px-3 py-2 text-body-md text-outline">
+        <Icono nombre="candado" size={15} />
+        {horario?.fuera
+          ? `Caja cerrada desde las ${horario.cierraA}`
+          : 'Caja sin abrir'}
+      </span>
     );
   }
   return (
@@ -151,61 +153,5 @@ function EstadoCaja({ caja, onAbrir, onVer }) {
         </span>
       </span>
     </button>
-  );
-}
-
-function AbrirCaja({ atiende, onCerrar, onListo }) {
-  const [fondo, setFondo] = useState('');
-  const [guardando, setGuardando] = useState(false);
-
-  async function abrir(e) {
-    e?.preventDefault();
-    if (atiende.trim().length < 3) return avisoError('¿Quién abre la caja?', 'Escriba arriba su nombre en "Atiende".');
-    setGuardando(true);
-    try {
-      await tiendaApi.abrirCaja({ fondo_inicial: Number(fondo || 0), atendio: atiende.trim() });
-      notificar('Caja de tienda abierta');
-      onListo();
-    } catch (err) {
-      avisoError('No se abrió la caja', err.message);
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      title="Abrir caja de la tienda"
-      onClose={onCerrar}
-      footer={
-        <>
-          <button type="button" onClick={onCerrar} className={BOTON}>Cancelar</button>
-          <button type="button" onClick={abrir} disabled={guardando} className={BOTON_FUERTE}>
-            {guardando ? 'Abriendo…' : 'Abrir caja'}
-          </button>
-        </>
-      }
-    >
-      <form onSubmit={abrir}>
-        <p className="text-body-lg text-on-surface-variant">
-          Cuente el cambio que hay en el cajón de la tienda. Esta caja es aparte de la de green fees.
-        </p>
-        <label className="mt-4 block">
-          <span className={ETIQUETA}>Fondo de cambio</span>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={fondo}
-            onChange={(e) => setFondo(e.target.value)}
-            placeholder="0.00"
-            className={`${CAMPO} font-mono text-title-lg`}
-            autoFocus
-          />
-        </label>
-        <p className="mt-2 text-body-md text-outline">La abre: {atiende.trim() || '— (escriba su nombre arriba)'}</p>
-      </form>
-    </Modal>
   );
 }

@@ -43,11 +43,11 @@ def sin_hora_de_corte():
 
     with SessionLocal() as db:
         fila = db.execute(
-            select(SystemSetting).where(SystemSetting.key == "cash_cutoff_hour")
+            select(SystemSetting).where(SystemSetting.key == "cierre_automatico_caja")
         ).scalars().first()
         anterior = fila.value if fila else None
         if fila:
-            fila.value = "25"   # ninguna hora del día la alcanza
+            fila.value = "23:59"   # la hora de cierre más tarde posible
             db.commit()
     return anterior
 
@@ -61,7 +61,7 @@ def reponer_hora_de_corte(anterior):
 
     with SessionLocal() as db:
         fila = db.execute(
-            select(SystemSetting).where(SystemSetting.key == "cash_cutoff_hour")
+            select(SystemSetting).where(SystemSetting.key == "cierre_automatico_caja")
         ).scalars().first()
         if fila:
             fila.value = anterior

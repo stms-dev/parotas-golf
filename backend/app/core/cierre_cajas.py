@@ -31,6 +31,27 @@ def hora_de_cierre(db: Session) -> time:
     return leer_hora(SettingsService(db).get(CLAVE), respaldo=POR_DEFECTO)
 
 
+def exigir_horario_de_caja(db: Session, momento: Optional[datetime] = None) -> None:
+    """Pasada la hora de cierre ya no se abre caja ni se cobra.
+
+    Es la MISMA regla para las dos cajas y para el cobro del check-in, y se
+    mide con la hora del campo, no con la del servidor (que en la nube es UTC:
+    medida así, la caja "cerraba" a las 4 de la tarde).
+    """
+    from app.core.exceptions import BusinessRuleError
+
+    hora = hora_de_cierre(db)
+    if (momento or ahora()).time() >= hora:
+        raise BusinessRuleError(
+            f"La caja cerró a las {hora.strftime('%H:%M')} y no admite cobros hasta mañana. "
+            "Si hubo un movimiento después, regístrelo al abrir el siguiente turno."
+        )
+
+
+def en_horario_de_caja(db: Session, momento: Optional[datetime] = None) -> bool:
+    return (momento or ahora()).time() < hora_de_cierre(db)
+
+
 def _local(utc_ingenuo: datetime) -> datetime:
     """Las aperturas se guardan en UTC sin zona; se pasan a la hora del campo."""
     tz = zona()

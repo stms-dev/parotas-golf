@@ -146,7 +146,6 @@ class Settings(BaseSettings):
     DEFAULT_CURRENCY: str = "MXN"
     SECONDARY_CURRENCY: str = "USD"
     SLOT_CAPACITY: int = 4              # jugadores por franja
-    CASH_CUTOFF_HOUR: int = 22          # después de esta hora no se registran cobros
     TIMEZONE: str = "America/Mexico_City"
 
     # Horarios que ya pasaron.

@@ -423,6 +423,16 @@ de todos los días, modificarlo no.
 convenios, padrón PGA, generador de horarios, servicios y la bitácora de
 cambios, en una sola pantalla.
 
+**Cajas automáticas.** La caja de la tienda se abre sola con el primer
+movimiento del día (abrir la pantalla o vender), a nombre de quien atiende y con
+fondo en cero; el fondo de cambio se ajusta después en Caja → «cambiar fondo».
+La de green fees se abre sola con el primer cobro del check-in. Las dos se
+cierran solas a la hora de «Cierre automático de cajas» (22:00 por defecto) y
+quedan pendientes de contar. Pasada esa hora no se abre caja ni se cobra, y la
+hora se mide con la del campo, no con la del servidor. Es una sola regla para
+todo (antes el cobro del check-in usaba otra hora, `cash_cutoff_hour`, ya
+retirada).
+
 **Servicios** (en Precios & Tarifas) — quien tiene el permiso de servicios puede
 cambiar el precio (lun a jue y vie a dom) y activar o dar de baja cada servicio.
 Un servicio dado de baja deja de salir en el sitio y en las reservas nuevas; la

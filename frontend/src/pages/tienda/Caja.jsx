@@ -14,11 +14,12 @@ import { BOTON, BOTON_FUERTE, CAMPO, Cifra, ETIQUETA, TARJETA, plural } from './
 
 const DENOMINACIONES = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5];
 
-export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAdministrar }) {
+export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdministrar }) {
   const [cortes, setCortes] = useState([]);
   const [cerrando, setCerrando] = useState(false);
   const [imprimir, setImprimir] = useState(null);
   const [arqueando, setArqueando] = useState(null);
+  const [ajustandoFondo, setAjustandoFondo] = useState(false);
   const [horaCierre, setHoraCierre] = useState('22:00');
 
   useEffect(() => {
@@ -48,7 +49,11 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
               <p className="text-label-sm uppercase tracking-wider text-estado-ok-text">● Caja abierta</p>
               <h2 className="font-serif text-headline-lg text-primary">Corte #{caja.id} · {fecha(caja.fecha)}</h2>
               <p className="text-body-md text-outline">
-                La abrió {caja.abierto_por_nombre} · {fechaHora(caja.abierto_en)} · fondo {mxn(caja.fondo_inicial)}
+                Se abrió sola con {caja.abierto_por_nombre} · {fechaHora(caja.abierto_en)} · fondo {mxn(caja.fondo_inicial)}
+                {' '}
+                <button type="button" onClick={() => setAjustandoFondo(true)} className="underline underline-offset-2 hover:text-primary">
+                  cambiar fondo
+                </button>
               </p>
               <p className="mt-1 flex items-center gap-1.5 text-body-md text-on-surface-variant">
                 <Icono nombre="reloj" size={15} /> Si nadie la cierra, se cierra sola a las <strong>{horaCierre}</strong> y queda
@@ -75,14 +80,15 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
       ) : (
         <section className={`${TARJETA} flex flex-col items-center gap-3 p-10 text-center`}>
           <Icono nombre="cajaFuerte" size={40} className="text-outline" />
-          <h2 className="font-serif text-headline-lg text-primary">La caja de la tienda está cerrada</h2>
+          <h2 className="font-serif text-headline-lg text-primary">
+            {horario?.fuera ? `La caja cerró a las ${horario.cierraA}` : 'La caja de la tienda no está abierta'}
+          </h2>
           <p className="max-w-md text-body-lg text-on-surface-variant">
-            Ábrala con el fondo de cambio que hay en el cajón para empezar a vender. Es independiente de la caja de
-            green fees.
+            {horario?.fuera
+              ? 'Ya no admite ventas por hoy. Mañana se abre sola con la primera venta, a nombre de quien atienda.'
+              : 'Se abre sola con la primera venta, a nombre de quien atienda. Si acaba de entrar, espere un momento.'}{' '}
+            Es independiente de la caja de green fees.
           </p>
-          <button type="button" onClick={onAbrirCaja} className={BOTON_FUERTE}>
-            <Icono nombre="llave" size={16} className="text-secondary-fixed" /> Abrir caja
-          </button>
         </section>
       )}
 
@@ -96,6 +102,17 @@ export default function Caja({ caja, atiende, onCajaCambio, onAbrirCaja, puedeAd
             <Icono nombre="arqueo" size={16} className="text-secondary-fixed" /> Contar corte #{pendientes[pendientes.length - 1].id}
           </button>
         </section>
+      )}
+
+      {ajustandoFondo && caja && (
+        <FondoDeCambio
+          caja={caja}
+          onCerrar={() => setAjustandoFondo(false)}
+          onListo={() => {
+            setAjustandoFondo(false);
+            onCajaCambio?.();
+          }}
+        />
       )}
 
       {puedeAdministrar && (
@@ -376,5 +393,57 @@ function HojaCorte({ corte, onCerrar }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** El fondo de cambio del cajón: la caja abre en cero y aquí se pone el real. */
+function FondoDeCambio({ caja, onCerrar, onListo }) {
+  const [fondo, setFondo] = useState(String(Number(caja.fondo_inicial || 0)));
+  const [guardando, setGuardando] = useState(false);
+
+  async function guardar(e) {
+    e?.preventDefault();
+    if (fondo === '' || Number(fondo) < 0) return avisoError('Fondo inválido', 'Escriba la cantidad de cambio que hay en el cajón.');
+    setGuardando(true);
+    try {
+      await tiendaApi.fondoCaja({ fondo_inicial: Number(fondo) });
+      notificar('Fondo actualizado');
+      onListo();
+    } catch (err) {
+      avisoError('No se pudo guardar', err.message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title="Fondo de cambio"
+      onClose={onCerrar}
+      footer={
+        <>
+          <button type="button" onClick={onCerrar} className={BOTON}>Cancelar</button>
+          <button type="button" onClick={guardar} disabled={guardando} className={BOTON_FUERTE}>
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={guardar}>
+        <p className="text-body-lg text-on-surface-variant">
+          La caja se abrió sola con el fondo en cero. Cuente el cambio que hay en el cajón y escríbalo aquí para que el
+          corte cuadre.
+        </p>
+        <label className="mt-4 block">
+          <span className={ETIQUETA}>Fondo de cambio</span>
+          <input
+            type="number" min="0" step="0.5" value={fondo}
+            onChange={(e) => setFondo(e.target.value)}
+            className={`${CAMPO} font-mono text-title-lg`} autoFocus
+          />
+        </label>
+      </form>
+    </Modal>
   );
 }

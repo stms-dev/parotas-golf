@@ -244,12 +244,11 @@ class CheckInService:
         if not lines:
             return []
 
-        cutoff = self.settings.get_int("cash_cutoff_hour", settings.CASH_CUTOFF_HOUR)
-        if datetime.now().hour >= cutoff:
-            raise BusinessRuleError(
-                f"La caja no admite cobros después de las {cutoff}:00. "
-                "Registre el movimiento al abrir el siguiente turno."
-            )
+        # La misma hora de cierre que usan las cajas (Configuración → Cierre
+        # automático de cajas), medida con la hora del campo.
+        from app.core.cierre_cajas import exigir_horario_de_caja
+
+        exigir_horario_de_caja(self.db)
 
         session = self.cash.get_or_open_today(actor)
         exchange_rate = self.exchange.current_rate()

@@ -250,7 +250,6 @@ def sembrar(produccion: bool = False):
 
         # -------------------------------------------------------- parámetros
         parametros = [
-            ("cash_cutoff_hour", "22", "Hora a partir de la cual la caja no admite cobros"),
             ("same_day_cutoff", "15:00", "Hora límite para reservar el mismo día (HH:MM)"),
             ("cierre_automatico_caja", "22:00", "Hora en que las cajas (green fees y tienda) se cierran solas (HH:MM)"),
             ("course_name", "Las Parotas Club de Golf", "Nombre del campo"),

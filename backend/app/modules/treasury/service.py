@@ -65,8 +65,13 @@ class CashSessionService:
         if self.current():
             raise BusinessRuleError("Ya hay un turno de caja abierto. Ciérrelo antes de abrir otro.")
 
+        from app.core.cierre_cajas import exigir_horario_de_caja
+        from app.shared.tiempo import hoy
+
+        exigir_horario_de_caja(self.db)
+
         session = CashSession(
-            session_date=date.today(),
+            session_date=hoy(),
             opened_by_id=actor.id,
             opening_balance=money(opening_balance),
             status=CashSessionStatus.ABIERTA,

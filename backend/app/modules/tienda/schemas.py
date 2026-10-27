@@ -116,6 +116,10 @@ class AbrirCorteIn(BaseModel):
     atendio: str = Field(min_length=3, max_length=120)
 
 
+class FondoIn(BaseModel):
+    fondo_inicial: Decimal = Field(ge=0, le=1000000)
+
+
 class CerrarCorteIn(BaseModel):
     efectivo_contado: Decimal = Field(ge=0, le=10000000)
     atendio: str = Field(min_length=3, max_length=120)

@@ -3,7 +3,7 @@
  * buscador, como en los mockups del sistema.
  */
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtime, useRealtimeEvent } from '../context/RealtimeContext';
@@ -22,7 +22,9 @@ const NAV = [
   { to: '/reservas/nueva', label: 'Nueva Reserva', icono: 'add_circle', permission: 'screen:new_reservation' },
   // Partidas se quedó también con el tablero de hoteles: era la misma lista
   // de reservas contada de otra forma.
-  { to: '/reservas', label: 'Partidas & Hoteles', icono: 'historial', permission: 'screen:reservations' },
+  // /reservas/nueva cuelga de /reservas: sin `excluir`, las dos entradas se
+  // iluminaban juntas.
+  { to: '/reservas', label: 'Partidas & Hoteles', icono: 'historial', permission: 'screen:reservations', excluir: ['/reservas/nueva'] },
   // Armar los grupos revueltos es trabajo de piso: solo operaciones lo ve.
   { to: '/partidas-abiertas', label: 'Partidas abiertas', icono: 'grupo', permission: 'open_partida:manage' },
   { to: '/solicitudes', label: 'Solicitudes del día', icono: 'registro', permission: 'screen:requests' },
@@ -46,6 +48,7 @@ const NAV_ADMIN = [
 export default function AppLayout() {
   const { user, logout, can, isHotel, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const ubicacion = useLocation();
   const [rate, setRate] = useState(null);
   // El menú plegado se recuerda: quien trabaja con el tee sheet abierto no
   // quiere volver a cerrarlo en cada pantalla.
@@ -163,7 +166,9 @@ export default function AppLayout() {
         )}
 
         <nav className={`space-y-1 pb-6 ${plegado ? 'px-2 pt-3' : 'px-3'}`}>
-          {items.map((item) => (
+          {items.map((item) => {
+            const excluida = (item.excluir || []).some((ruta) => ubicacion.pathname.startsWith(ruta));
+            return (
             <NavLink
               key={item.to}
               to={item.to}
@@ -171,17 +176,20 @@ export default function AppLayout() {
               // Plegado, el nombre vive en el title: es lo único que queda
               // para saber a dónde lleva cada icono.
               title={plegado ? item.label : undefined}
-              className={({ isActive }) =>
-                `relative flex items-center gap-3 rounded py-2.5 text-body-lg transition ${
+              className={({ isActive: activa }) => {
+                const isActive = activa && !excluida;
+                return `relative flex items-center gap-3 rounded py-2.5 text-body-lg transition ${
                   plegado ? 'justify-center px-2' : 'px-3'
                 } ${
                   isActive
                     ? 'bg-primary-container text-on-primary shadow-card'
                     : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                }`
-              }
+                }`;
+              }}
             >
-              {({ isActive }) => (
+              {({ isActive: activa }) => {
+                const isActive = activa && !excluida;
+                return (
                 <>
                   <Icono
                     nombre={item.icono}
@@ -203,9 +211,11 @@ export default function AppLayout() {
                     </span>
                   )}
                 </>
-              )}
+                );
+              }}
             </NavLink>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Pie del menú: a qué hora sale la primera partida del día. */}

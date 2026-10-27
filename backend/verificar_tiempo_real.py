@@ -84,7 +84,7 @@ def hora_de_corte(valor=None):
 
     with SessionLocal() as db:
         fila = db.execute(
-            select(SystemSetting).where(SystemSetting.key == "cash_cutoff_hour")
+            select(SystemSetting).where(SystemSetting.key == "cierre_automatico_caja")
         ).scalars().first()
         if fila is None:
             return None
@@ -96,7 +96,7 @@ def hora_de_corte(valor=None):
 
 
 def main():
-    corte_original = hora_de_corte("25")   # ninguna hora del día lo alcanza
+    corte_original = hora_de_corte("23:59")   # la hora de cierre más tarde posible
     servidor = uvicorn.Server(
         uvicorn.Config("app.main:app", host="127.0.0.1", port=8901, log_level="error")
     )

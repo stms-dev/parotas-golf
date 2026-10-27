@@ -2,6 +2,7 @@
  * Piezas compartidas de la tienda: estilos, cifras, el ticket imprimible.
  */
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 import Icono from '../../components/Icono';
 import { fechaHora, mxn, usd } from '../../utils/format';
@@ -26,11 +27,13 @@ export const plural = (n, palabra) => `${n} ${palabra}${Number(n) === 1 ? '' : '
 
 /** Quién está atendiendo: la cuenta la comparten los turnos. */
 export function useAtiende() {
+  // Si nadie ha escrito otro nombre, atiende quien inició sesión.
+  const { user } = useAuth();
   const [atiende, setAtiende] = useState(() => {
     try {
-      return localStorage.getItem('ultimo_atendio') || '';
+      return localStorage.getItem('ultimo_atendio') || user?.full_name || '';
     } catch {
-      return '';
+      return user?.full_name || '';
     }
   });
   useEffect(() => {

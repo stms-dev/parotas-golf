@@ -375,9 +375,28 @@ class CajaTienda:
             })
         return base
 
-    def abrir(self, fondo: Decimal, atendio: str, actor: User) -> TiendaCorte:
+    def abierto_o_abrir(self, actor: User, atendio: Optional[str] = None) -> TiendaCorte:
+        """La caja de la tienda abre sola con el primer movimiento del día.
+
+        Se abre a nombre de quien atiende (o de la cuenta, si no se dijo) y con
+        fondo en cero; el fondo de cambio se ajusta después desde Caja. Pasada
+        la hora de cierre no se abre: eso levantaría una caja que se quedaría
+        abierta hasta el día siguiente.
+        """
+        corte = self.abierto()
+        if corte:
+            return corte
+        nombre = (atendio or "").strip()
+        if len(nombre) < 3:
+            nombre = (actor.full_name or "").strip() or actor.email
+        return self.abrir(ZERO, nombre, actor, automatica=True)
+
+    def abrir(self, fondo: Decimal, atendio: str, actor: User, automatica: bool = False) -> TiendaCorte:
         if self.abierto():
             raise BusinessRuleError("Ya hay una caja de tienda abierta. Ciérrela antes de abrir otra.")
+        from app.core.cierre_cajas import exigir_horario_de_caja
+
+        exigir_horario_de_caja(self.db)
         corte = TiendaCorte(
             fecha=hoy(), estado="ABIERTO", abierto_en=datetime.utcnow(),
             abierto_por_id=actor.id, abierto_por_nombre=atendio.strip(), fondo_inicial=money(fondo),
@@ -387,7 +406,26 @@ class CajaTienda:
         self.audit.log(
             user=actor, action=AuditAction.CREAR, module=MODULO, entity="TiendaCorte", entity_id=corte.id,
             new_value=str(corte.fondo_inicial),
-            description=f"Apertura de caja de tienda · fondo ${corte.fondo_inicial} · {atendio.strip()}",
+            description=(
+                f"Apertura {'automática ' if automatica else ''}de caja de tienda · "
+                f"fondo ${corte.fondo_inicial} · {atendio.strip()}"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(corte)
+        return corte
+
+    def cambiar_fondo(self, fondo: Decimal, actor: User) -> TiendaCorte:
+        """Ajusta el fondo de cambio de la caja abierta (la abrió sola, en cero)."""
+        corte = self.abierto()
+        if not corte:
+            raise BusinessRuleError("No hay caja de tienda abierta")
+        anterior = money(corte.fondo_inicial)
+        corte.fondo_inicial = money(fondo)
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module=MODULO, entity="TiendaCorte",
+            entity_id=corte.id, old_value=str(anterior), new_value=str(corte.fondo_inicial),
+            description=f"Fondo de caja de tienda #{corte.id}: ${anterior} → ${corte.fondo_inicial}",
         )
         self.db.commit()
         self.db.refresh(corte)
@@ -521,9 +559,7 @@ class VentasTienda:
 
     # ------------------------------------------------------------------ vender
     def vender(self, datos, actor: User) -> TiendaVenta:
-        corte = self.caja.abierto()
-        if not corte:
-            raise BusinessRuleError("Abra la caja de la tienda antes de vender")
+        corte = self.caja.abierto_o_abrir(actor, datos.atendio)
 
         # Juntar renglones repetidos: el mismo producto escaneado dos veces.
         cantidades = defaultdict(int)

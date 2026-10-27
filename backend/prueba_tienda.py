@@ -50,7 +50,9 @@ check("Los productos importados traen precio y piezas de muestra", res["sin_prec
 p0 = productos[0]
 r = c.post("/api/tienda/ventas", json={"lineas": [{"producto_id": p0["id"], "cantidad": 1}],
            "pagos": [{"metodo": "EFECTIVO", "monto": 100}], "atendio": A}, headers=rec)
-check("Sin caja abierta no se vende", r.status_code == 409, r.json().get("detail", "")[:60] if r.status_code != 201 else "")
+# La caja abre sola con el primer movimiento: ya no hay un "sin caja no se vende".
+# Aquí el cobro se rechaza por insuficiente (100 no alcanza), no por falta de caja.
+check("Un cobro insuficiente se rechaza", r.status_code in (400, 409, 422), f"{r.status_code}")
 r = c.post("/api/tienda/productos/precio-por-margen", json={"margen_pct": 80, "redondear_a": 10, "solo_sin_precio": False}, headers=rec)
 check("Precio por margen a todos (80%)", r.status_code == 200 and r.json()["actualizados"] == res["productos"], str(r.json()))
 r = c.post("/api/tienda/productos/precio-por-margen", json={"margen_pct": 60, "redondear_a": 10, "solo_sin_precio": False}, headers=rec)
@@ -100,8 +102,11 @@ r = c.get(f"/api/tienda/productos/codigo/{p0['codigo']}", headers=rec)
 check("Búsqueda exacta por código de barras", r.status_code == 200 and r.json()["id"] == p0["id"])
 
 print("\n4. Caja")
-r = c.post("/api/tienda/caja/abrir", json={"fondo_inicial": 500, "atendio": A}, headers=rec)
-check("Abre caja con fondo $500", r.status_code == 200 and r.json()["estado"] == "ABIERTO")
+# La caja ya se abrió sola con el intento de venta; el fondo real se ajusta.
+r = c.get("/api/tienda/caja/actual", headers=rec)
+check("La caja ya está abierta sola", r.json()["abierta"] is True)
+r = c.put("/api/tienda/caja/fondo", json={"fondo_inicial": 500}, headers=rec)
+check("Abre caja con fondo $500", r.status_code == 200 and r.json()["estado"] == "ABIERTO" and float(r.json()["fondo_inicial"]) == 500)
 r = c.post("/api/tienda/caja/abrir", json={"fondo_inicial": 0, "atendio": A}, headers=rec)
 check("No se abren dos cajas", r.status_code == 409)
 
@@ -187,8 +192,8 @@ check("Antes de la hora no cierra nada", cerrar_vencidas(db, ahora() - timedelta
 res_auto = cerrar_vencidas(db, ahora() + timedelta(days=1))
 db.close()
 check("Pasada la hora se cierran las dos", res_auto == {"green_fees": 1, "tienda": 1}, str(res_auto))
-r = c.get("/api/tienda/caja/actual", headers=rec).json()
-check("La tienda queda sin caja abierta", r["abierta"] is False)
+# (Pedir la caja ya no la deja "sin abrir": en horario se abre sola; se revisa el corte.)
+check("El corte de la tienda quedó cerrado", c.get(f"/api/tienda/caja/cortes/{corte_auto}", headers=rec).json()["estado"] == "CERRADO")
 corte = c.get(f"/api/tienda/caja/cortes/{corte_auto}", headers=rec).json()
 check("El corte queda pendiente de arqueo", corte["pendiente_arqueo"] and corte["cerrado_por_nombre"] == "Cierre automático")
 r = c.post(f"/api/tienda/caja/cortes/{corte_auto}/arqueo", json={"efectivo_contado": 300, "atendio": A}, headers=rec)

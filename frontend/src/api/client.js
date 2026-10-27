@@ -328,7 +328,9 @@ export const tiendaApi = {
   mover: (id, body) => api.post(`/tienda/productos/${id}/movimientos`, body),
   conteo: (body) => api.post('/tienda/productos/conteo', body),
   movimientos: (params) => api.get('/tienda/movimientos', params),
-  cajaActual: () => api.get('/tienda/caja/actual'),
+  // `atiende`: nombre que quedará como quien abrió la caja si se abre sola.
+  cajaActual: (params) => api.get('/tienda/caja/actual', params),
+  fondoCaja: (body) => api.put('/tienda/caja/fondo', body),
   abrirCaja: (body) => api.post('/tienda/caja/abrir', body),
   cerrarCaja: (body) => api.post('/tienda/caja/cerrar', body),
   cortes: () => api.get('/tienda/caja/cortes'),

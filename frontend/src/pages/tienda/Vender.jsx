@@ -16,7 +16,7 @@ import { confirmar, error as avisoError, notificar } from '../../utils/avisos';
 import { mxn, usd } from '../../utils/format';
 import { BOTON, BOTON_FUERTE, CAMPO, ETIQUETA, Existencia, METODOS, Ticket } from './comun';
 
-export default function Vender({ caja, atiende, onCajaCambio, onAbrirCaja }) {
+export default function Vender({ caja, atiende, onCajaCambio, horario }) {
   const [productos, setProductos] = useState([]);
   const [categoria, setCategoria] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -167,7 +167,13 @@ export default function Vender({ caja, atiende, onCajaCambio, onAbrirCaja }) {
 
   function intentarCobrar() {
     if (!caja) {
-      onAbrirCaja();
+      // La caja abre sola; si no hay, es que ya pasó la hora de cierre.
+      setAviso(
+        horario?.fuera
+          ? `La caja cerró a las ${horario.cierraA} y vuelve a abrir mañana con la primera venta.`
+          : 'La caja todavía no está lista. Espere un momento y vuelva a intentar.',
+      );
+      onCajaCambio?.();
       return;
     }
     if (conDescuento && montoDescuento > 0 && motivoDescuento.trim().length < 3) {
@@ -401,7 +407,7 @@ export default function Vender({ caja, atiende, onCajaCambio, onAbrirCaja }) {
               className="mt-4 flex w-full items-center justify-center gap-2 rounded bg-secondary-fixed px-5 py-4 text-title-lg font-semibold text-primary shadow-card transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Icono nombre="pago" size={20} />
-              {caja ? `Cobrar ${mxn(total)}` : 'Abrir caja para cobrar'}
+              {caja ? `Cobrar ${mxn(total)}` : 'Caja cerrada'}
               {caja && <span className="ml-1 rounded border border-primary/30 px-1.5 font-mono text-label-sm">F9</span>}
             </button>
           </div>
