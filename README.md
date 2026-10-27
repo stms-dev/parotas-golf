@@ -126,6 +126,7 @@ cd backend
 python verificar.py               # flujo operativo completo
 python verificar_tiempo_real.py   # difusión por WebSocket
 python verificar_roles.py         # alcance de cada perfil
+python prueba_configuracion.py  # validación de la llave al arrancar
 ```
 
 El primero recorre el flujo contra la API: login de los cuatro roles,
@@ -719,7 +720,7 @@ npm run build     # genera dist/, servible desde cualquier CDN o Nginx
 
 **Antes de salir a producción**
 
-- [ ] `SECRET_KEY` nueva: `openssl rand -hex 32`
+- [ ] `SECRET_KEY` nueva: `openssl rand -hex 32` (en producción el servidor no arranca sin ella)
 - [ ] `DEBUG=false` y `ENVIRONMENT=production`
 - [ ] `CORS_ORIGINS` con el dominio real
 - [ ] Cambiar las contraseñas sembradas

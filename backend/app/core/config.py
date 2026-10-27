@@ -7,6 +7,13 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
+# La llave que viene escrita en el código. Es pública (está en el repositorio):
+# cualquiera que la conozca puede fabricar un token de administrador. Por eso
+# en producción el servidor se niega a arrancar con ella.
+LLAVE_DE_EJEMPLO = "CAMBIAR-ESTA-LLAVE-EN-PRODUCCION-openssl-rand-hex-32"
+LARGO_MINIMO_DE_LLAVE = 32
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -86,7 +93,7 @@ class Settings(BaseSettings):
     PUBLICO_INTENTOS_POR_HORA: int = 12
 
     # --- Seguridad ---
-    SECRET_KEY: str = "CAMBIAR-ESTA-LLAVE-EN-PRODUCCION-openssl-rand-hex-32"
+    SECRET_KEY: str = LLAVE_DE_EJEMPLO
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # jornada operativa
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -186,9 +193,38 @@ class Settings(BaseSettings):
     SEED_ADMIN_PASSWORD: str = ""
 
 
+def exigir_configuracion_segura(config: Settings) -> None:
+    """En producción, no se arranca con una llave que cualquiera conoce.
+
+    Se hace aquí y no con un validador de pydantic a propósito: cuando un
+    validador de pydantic falla, su mensaje de error imprime los valores que
+    recibió, y entre ellos va la URL de la base con su contraseña. Un error de
+    arranque no debe dejar secretos escritos en los registros del servidor.
+    Este mensaje solo dice qué variable está mal, nunca su valor.
+    """
+    if config.ENVIRONMENT.strip().lower() != "production":
+        return
+
+    llave = (config.SECRET_KEY or "").strip()
+    if llave == LLAVE_DE_EJEMPLO or llave.upper().startswith("CAMBIAR"):
+        motivo = "es la llave de ejemplo que viene en el código"
+    elif len(llave) < LARGO_MINIMO_DE_LLAVE:
+        motivo = f"mide menos de {LARGO_MINIMO_DE_LLAVE} caracteres"
+    else:
+        return
+
+    raise RuntimeError(
+        "No se puede arrancar en producción: la variable SECRET_KEY "
+        f"{motivo}. Genere una nueva con `openssl rand -hex 32`, guárdela "
+        "en las variables del servidor y vuelva a desplegar."
+    )
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    config = Settings()
+    exigir_configuracion_segura(config)
+    return config
 
 
 settings = get_settings()

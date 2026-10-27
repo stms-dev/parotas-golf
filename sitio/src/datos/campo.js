@@ -222,7 +222,7 @@ export const PAQUETES = [
 ];
 
 export const CONTACTO = {
-  telefono: '+52 5527219345',
+  telefono: '+52 958 583 0000',
   correo: 'reservas@parotasgolf.com',
   domicilio: 'Bahías de Huatulco, Oaxaca',
   // El sistema de reservas: hoteles con convenio y personal del club. Cuelga

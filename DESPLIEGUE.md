@@ -63,6 +63,13 @@ cuando la URL es PostgreSQL. No hay que hacer nada más.
 > como JSON *antes* de que corra el validador y la aplicación ni arranca:
 > `error parsing value for field "CORS_ORIGINS"`.
 
+> **`SECRET_KEY` es obligatoria en producción.** Con `ENVIRONMENT=production`, el
+> servidor se niega a arrancar si la llave es la de ejemplo que viene en el
+> código o si mide menos de 32 caracteres, y el mensaje de error dice cuál es el
+> problema sin escribir ningún valor. Genérela con `openssl rand -hex 32`. Si el
+> despliegue falla por esto, Railway conserva el anterior: ajuste la variable y
+> vuelva a desplegar. Cambiar la llave cierra las sesiones abiertas.
+
 El esquema **se aplica solo al arrancar** (`MIGRAR_AL_ARRANCAR=true`). No hace
 falta abrir una terminal: Alembic aplica lo que falte en cada despliegue, y si
 la base está en blanco se siembran catálogos, tarifas, inventario y la cuenta
