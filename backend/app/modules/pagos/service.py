@@ -142,6 +142,20 @@ class ReservaPublicaService:
         return len(vencidas)
 
     # ---------------------------------------------------------- el catálogo
+    # Lo que el sitio muestra si nadie ha escrito otra cosa en Configuración.
+    CONTACTO_BASE = {
+        "telefono": "+52 55 2721 9345",
+        "correo": "reservas@parotasgolf.com",
+        "domicilio": "Bahías de Huatulco, Oaxaca",
+    }
+
+    def contacto(self) -> dict:
+        """Teléfono, correo y domicilio del club, editables desde el sistema."""
+        return {
+            campo: (self.ajustes.get(f"contacto_{campo}") or base).strip()
+            for campo, base in self.CONTACTO_BASE.items()
+        }
+
     def campo(self) -> dict:
         """Todo lo que el sitio necesita para pintar sus pantallas, de un jalón.
 
@@ -193,6 +207,7 @@ class ReservaPublicaService:
             "extras": extras,
             "paquetes": self.paquetes(),
             "practica": self._precio_practica(),
+            "contacto": self.contacto(),
             "minimo_grupo": self.PAQUETES[BookingModality.GRUPO]["minimo"],
             "cupo_partida_abierta": self.PAQUETES[BookingModality.PARTIDA_ABIERTA]["maximo"],
             "apartado_minutos": settings.APARTADO_MINUTOS,

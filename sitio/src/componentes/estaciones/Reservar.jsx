@@ -585,20 +585,27 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                     />
                     </>
                     )}
-                    <Alternador
-                      opciones={[
-                        { valor: '', texto: t('reservar.traeBastones') },
-                        { valor: 'DIESTRO', texto: t('reservar.diestro') },
-                        { valor: 'ZURDO', texto: t('reservar.zurdo') },
-                      ]}
-                      valor={j.bastones}
-                      onElegir={(v) => cambiar(i, 'bastones', v)}
-                    />
-                    {j.bastones && (
-                      <span className="font-texto text-menudo tabular-nums text-arena/80">
-                        {t('reservar.renta', { precio: pesos(precioBastones) })}
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="font-texto text-[0.7rem] font-semibold uppercase tracking-wider text-arena/75">
+                        {t('reservar.bastonesTitulo')}
                       </span>
-                    )}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <Alternador
+                          opciones={[
+                            { valor: '', texto: t('reservar.traeBastones') },
+                            { valor: 'DIESTRO', texto: t('reservar.diestro') },
+                            { valor: 'ZURDO', texto: t('reservar.zurdo') },
+                          ]}
+                          valor={j.bastones}
+                          onElegir={(v) => cambiar(i, 'bastones', v)}
+                        />
+                        {j.bastones && (
+                          <span className="font-texto text-menudo tabular-nums text-arena/80">
+                            {t('reservar.renta', { precio: pesos(precioBastones) })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     {practica && !esPractica && (
                       <Alternador
                         opciones={[
@@ -795,7 +802,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             {falta ||
               (cotizacion
                 ? t('reservar.total.usd', {
-                    usd: enDolares(Number(cotizacion.total)),
+                    usd: enDolares(Number(cotizacion.total), campo?.tipo_de_cambio),
                     n: jugadores.length,
                     es: jugadores.length > 1 ? t('plural.jugador') : '',
                     stripe:

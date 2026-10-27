@@ -235,7 +235,85 @@ export const CONTACTO = {
 /** 1 USD = X MXN. En el sitio conectado sale de /api/catalog/exchange-rate. */
 export const TIPO_CAMBIO = 17.2;
 
-export const enDolares = (mxn) => Math.round(mxn / TIPO_CAMBIO);
+/** `tasa` es la del sistema (campo.tipo_de_cambio); sin ella, la de respaldo. */
+export const enDolares = (mxn, tasa = TIPO_CAMBIO) => {
+  const t = Number(tasa);
+  return Math.round(mxn / (t > 0 ? t : TIPO_CAMBIO));
+};
+
+/**
+ * Teléfono, correo y domicilio vigentes: los que el club escribió en el
+ * sistema (Configuración → Datos de contacto) y, si el sistema no contesta,
+ * los de respaldo de CONTACTO. Siempre devuelve los tres.
+ */
+export const contactoDe = (campo) => ({
+  ...CONTACTO,
+  ...Object.fromEntries(
+    Object.entries(campo?.contacto ?? {}).filter(([, v]) => typeof v === 'string' && v.trim()),
+  ),
+});
+
+/**
+ * Enlace que abre WhatsApp con ese número. wa.me hace lo correcto solo: en el
+ * celular abre la app de WhatsApp y en la computadora abre WhatsApp Web (o la
+ * aplicación de escritorio), pidiendo que se inicie sesión si hace falta.
+ */
+export const enlaceWhatsApp = (telefono) => `https://wa.me/${String(telefono).replace(/\D/g, '')}`;
+
+/**
+ * La tabla de green fees, tal como la tiene el sistema.
+ *
+ * Con el sistema contestando, MANDA el sistema: una tarifa que el club dio de
+ * baja desaparece de la tabla en vez de quedarse con el precio viejo de este
+ * archivo. Los valores de TARIFAS solo se usan si no hubo respuesta.
+ * Grupo y partida abierta cuestan igual; se lee Grupo y, si falta, la otra.
+ */
+export function tarifasDe(campo) {
+  const lista = campo?.tarifas;
+  if (!Array.isArray(lista) || lista.length === 0) return TARIFAS;
+
+  const buscar = (hoyos, categoria, franja, dia) => {
+    const aptas = lista.filter(
+      (x) =>
+        Number(x.hoyos) === hoyos &&
+        x.categoria === categoria &&
+        x.franja === franja &&
+        (x.dia === dia || x.dia === 'TODOS'),
+    );
+    // La del día exacto gana sobre la «de todos los días».
+    const mejor =
+      aptas.find((x) => x.dia === dia && x.modalidad === 'GRUPO') ??
+      aptas.find((x) => x.dia === dia) ??
+      aptas.find((x) => x.modalidad === 'GRUPO') ??
+      aptas[0];
+    return mejor ? Number(mejor.precio) : null;
+  };
+  const fila = (hoyos, categoria, franja = 'TODAS') => {
+    const semana = buscar(hoyos, categoria, franja, 'ENTRE_SEMANA');
+    const fin = buscar(hoyos, categoria, franja, 'FIN_DE_SEMANA');
+    if (semana == null && fin == null) return null;
+    return { semana: semana ?? fin, fin: fin ?? null };
+  };
+  return {
+    adulto18: fila(18, 'ADULTO'),
+    adulto9: fila(9, 'ADULTO'),
+    menor18: fila(18, 'INFANTIL'),
+    twilight18: fila(18, 'ADULTO', 'TWILIGHT'),
+    local18: fila(18, 'LOCAL'),
+  };
+}
+
+/** Los extras con su precio vigente (los del sistema, o el respaldo). */
+export function extrasDe(campo) {
+  if (!Array.isArray(campo?.extras) || campo.extras.length === 0) return EXTRAS;
+  return campo.extras.map((e) => ({
+    code: e.code,
+    nombre: e.nombre,
+    precio: Number(e.precio),
+    precioFin: e.precio_fin != null ? Number(e.precio_fin) : undefined,
+    pagoDirecto: Boolean(e.pago_directo),
+  }));
+}
 
 export const pesos = (n) =>
   new Intl.NumberFormat('es-MX', {

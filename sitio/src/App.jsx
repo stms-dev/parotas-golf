@@ -18,7 +18,7 @@ import Tarifas from './componentes/estaciones/Tarifas';
 import Reservar from './componentes/estaciones/Reservar';
 import CasaClub from './componentes/estaciones/CasaClub';
 import { api } from './datos/api';
-import { CONTACTO, ESTACIONES, fotoDelHoyo } from './datos/campo';
+import { CONTACTO, ESTACIONES, contactoDe, enlaceWhatsApp, fotoDelHoyo } from './datos/campo';
 import { useIdioma } from './datos/idioma';
 import logo from './assets/logo-las-parotas-claro.png';
 
@@ -49,6 +49,7 @@ export default function App() {
   // null y las pantallas usan los datos de campo.js: la presentación no se
   // cae porque el backend esté dormido, solo se apaga el formulario.
   const [campo, setCampo] = useState(null);
+  const contacto = contactoDe(campo);
   // Se vuelve de Stripe con ?reserva=LP-1234&pago=listo. Se lee una sola vez,
   // al abrir, y se limpia la dirección para que recargar no reviva la pantalla
   // de confirmación de una reserva vieja.
@@ -103,7 +104,7 @@ export default function App() {
 
   const paneles = {
     salida: <Salida />,
-    tarifas: <Tarifas onIr={irA} />,
+    tarifas: <Tarifas onIr={irA} campo={campo} />,
     reservar: (
       <Reservar
         campo={campo}
@@ -111,7 +112,7 @@ export default function App() {
         onLimpiarLlegada={() => setLlegada(null)}
       />
     ),
-    casa: <CasaClub />,
+    casa: <CasaClub campo={campo} />,
   };
 
 
@@ -218,12 +219,12 @@ export default function App() {
               {' · '}
               {t('pie.lugar')}
               {' · '}
-              <a href={`mailto:${CONTACTO.correo}`} className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
-                {CONTACTO.correo}
+              <a href={`mailto:${contacto.correo}`} className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
+                {contacto.correo}
               </a>
               {' · '}
-              <a href={`https://wa.me/${CONTACTO.telefono.replace(/[\s+]/g, '')}`} className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
-                {CONTACTO.telefono}
+              <a href={enlaceWhatsApp(contacto.telefono)} target="_blank" rel="noopener noreferrer" className="underline decoration-arena/25 underline-offset-4 transition hover:text-hoja">
+                {contacto.telefono}
               </a>
             </p>
 

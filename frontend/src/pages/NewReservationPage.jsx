@@ -1082,7 +1082,7 @@ export default function NewReservationPage() {
                   />
                 </Field>
                 )}
-                <Field label="Bastones" hint="Primero propios o renta">
+                <Field label="Bastones propios · renta" hint="Primero si trae los suyos o renta">
                   <Bastones
                     valor={form.holder_club_hand}
                     onCambio={(v) => setForm({ ...form, holder_club_hand: v })}
@@ -1814,9 +1814,9 @@ function JugadorFila({
         />
         </>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-1">
           <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
-            Bastones
+            Bastones propios · renta
           </span>
           <Bastones valor={player.club_hand} onCambio={(v) => onChange('club_hand', v)} />
         </div>

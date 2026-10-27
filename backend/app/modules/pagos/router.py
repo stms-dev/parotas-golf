@@ -64,6 +64,12 @@ class PracticaOut(BaseModel):
     descripcion: Optional[str] = None
 
 
+class ContactoOut(BaseModel):
+    telefono: str
+    correo: str
+    domicilio: str
+
+
 class CampoOut(BaseModel):
     primera_salida: Optional[time] = None
     ultima_salida: Optional[time] = None
@@ -87,6 +93,8 @@ class CampoOut(BaseModel):
     pasarela: Optional[str] = None
     # Precio del paquete Práctica (zona de práctica), por persona.
     practica: Optional[PracticaOut] = None
+    # Teléfono, correo y domicilio que el sitio muestra; se editan en Configuración.
+    contacto: Optional[ContactoOut] = None
 
 
 class SalidaOut(BaseModel):

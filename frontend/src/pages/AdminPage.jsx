@@ -231,6 +231,8 @@ export default function AdminPage() {
 
       <CarritosYCaddies />
 
+      <ContactoDelSitio />
+
       <Correos />
 
       <Comisiones hoteles={hoteles} onCambio={() => cargarTodo(false)} />
@@ -982,6 +984,82 @@ function CarritosYCaddies() {
               </button>
             </div>
             <p className="mt-1.5 text-body-md text-outline">{pie}</p>
+          </div>
+        ))}
+      </div>
+    </Tarjeta>
+  );
+}
+
+/* ------------------------------------------------- contacto del sitio */
+
+/**
+ * Teléfono, correo y domicilio que el sitio público muestra en el pie de
+ * página y en «Casa club». Lo que se guarde aquí se ve en el sitio al
+ * recargarlo; no hay que tocar código.
+ */
+function ContactoDelSitio() {
+  const CLAVES = [
+    ['contacto_telefono', 'Teléfono / WhatsApp', 'tel', '+52 55 2721 9345', 'También es el número al que abre WhatsApp'],
+    ['contacto_correo', 'Correo de reservas', 'email', 'reservas@parotasgolf.com', 'Aparece como enlace de correo en el sitio'],
+    ['contacto_domicilio', 'Domicilio', 'text', 'Bahías de Huatulco, Oaxaca', 'Se muestra en «Casa club»'],
+  ];
+  const [valores, setValores] = useState({});
+  const [guardados, setGuardados] = useState({});
+  const [guardando, setGuardando] = useState(null);
+
+  function cargar() {
+    catalogApi
+      .settings()
+      .then((lista) => {
+        const datos = {};
+        for (const [k, , , defecto] of CLAVES) {
+          datos[k] = lista.find((x) => x.key === k)?.value || defecto;
+        }
+        setGuardados(datos);
+        setValores(datos);
+      })
+      .catch(() => {});
+  }
+  useEffect(cargar, []);
+
+  async function guardar(clave, etiqueta) {
+    setGuardando(clave);
+    try {
+      await catalogApi.updateSetting(clave, String(valores[clave] || '').trim());
+      await exito(`${etiqueta} actualizado`, 'El sitio ya lo muestra al recargar la página.');
+      cargar();
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+    } finally {
+      setGuardando(null);
+    }
+  }
+
+  return (
+    <Tarjeta icono="correo" titulo="Datos de contacto del sitio">
+      <div className="grid gap-3 lg:grid-cols-3">
+        {CLAVES.map(([clave, etiqueta, tipo, ejemplo, pie]) => (
+          <div key={clave} className="rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
+            <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">{etiqueta}</p>
+            <input
+              type={tipo}
+              maxLength={200}
+              placeholder={ejemplo}
+              value={valores[clave] ?? ''}
+              onChange={(e) => setValores({ ...valores, [clave]: e.target.value })}
+              className={`${CAMPO} mt-1.5 w-full`}
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-body-md text-outline">{pie}</p>
+              <button
+                onClick={() => guardar(clave, etiqueta)}
+                disabled={guardando === clave || valores[clave] === guardados[clave]}
+                className={`${BOTON} shrink-0 disabled:opacity-50`}
+              >
+                {guardando === clave ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
           </div>
         ))}
       </div>

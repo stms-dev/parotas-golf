@@ -423,6 +423,14 @@ de todos los días, modificarlo no.
 convenios, padrón PGA, generador de horarios, servicios y la bitácora de
 cambios, en una sola pantalla.
 
+**Datos de contacto del sitio** (en Configuración) — teléfono, correo y
+domicilio que el sitio público muestra en el pie y en «Casa club». Se editan
+ahí y el sitio los toma de `/api/public/campo` (`contacto`); no hay que tocar
+código. Las tarifas, la zona de práctica, los extras y el tipo de cambio que
+muestra la tabla de green fees del sitio también salen de esa misma llamada, así
+que cambiarlos en el sistema los cambia en el sitio. El teléfono es además el
+número al que abre WhatsApp (`wa.me`).
+
 ### 9. Cada perfil ve solo lo suyo, y eso se valida en el servidor
 
 | Perfil | Pantallas |

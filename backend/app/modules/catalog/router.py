@@ -1,8 +1,9 @@
 """Endpoints del catálogo (Administración)."""
+import re
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, TypeAdapter
 
 from app.core.exceptions import ValidationError
 from sqlalchemy.orm import Session
@@ -280,6 +281,10 @@ AJUSTES_EDITABLES = {
     "carritos_totales": "Carritos de golf del club",
     "personas_por_carrito": "Personas que caben en cada carrito",
     "caddies_totales": "Caddies disponibles en el campo",
+    # Datos que el sitio público muestra (pie de página y «Casa club»).
+    "contacto_telefono": "Teléfono del club que muestra el sitio",
+    "contacto_correo": "Correo del club que muestra el sitio",
+    "contacto_domicilio": "Domicilio del club que muestra el sitio",
 }
 
 NUMERICOS = {"carritos_totales", "personas_por_carrito", "caddies_totales"}
@@ -309,4 +314,16 @@ def update_setting(
         if not valor.isdigit() or int(valor) < 1:
             raise ValidationError("Escriba un número entero mayor que cero")
         valor = str(int(valor))
+    if key == "contacto_telefono":
+        digitos = re.sub(r"\D", "", valor)
+        if not re.fullmatch(r"[\d\s+()\-.]{7,25}", valor) or not 10 <= len(digitos) <= 15:
+            raise ValidationError("Escriba un teléfono válido, por ejemplo +52 55 2721 9345")
+    if key == "contacto_correo":
+        try:
+            valor = str(TypeAdapter(EmailStr).validate_python(valor))
+        except Exception:
+            raise ValidationError("Escriba un correo válido") from None
+    if key == "contacto_domicilio":
+        if not 3 <= len(valor) <= 200 or any(c in valor for c in "<>"):
+            raise ValidationError("El domicilio debe tener entre 3 y 200 caracteres y sin < >")
     return SettingsService(db).set(key, valor, actor, description=AJUSTES_EDITABLES[key])

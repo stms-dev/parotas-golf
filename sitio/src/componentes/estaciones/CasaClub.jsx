@@ -12,11 +12,12 @@
  * el concierge lo tiene en favoritos desde el primer día y no necesita un
  * botón en la portada.
  */
-import { CONTACTO } from '../../datos/campo';
+import { CONTACTO as CONTACTO_BASE, contactoDe, enlaceWhatsApp } from '../../datos/campo';
 import { useIdioma } from '../../datos/idioma';
 
-export default function CasaClub() {
+export default function CasaClub({ campo = null }) {
   const { t } = useIdioma();
+  const contacto = contactoDe(campo);
 
   return (
     <div>
@@ -33,21 +34,23 @@ export default function CasaClub() {
       <dl className="mt-8 space-y-5">
         <Renglon termino={t('evento.telefono')}>
           <a
-            href={`tel:${CONTACTO.telefono.replace(/\s/g, '')}`}
+            href={enlaceWhatsApp(contacto.telefono)}
+            target="_blank"
+            rel="noopener noreferrer"
             className="underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-hoja"
           >
-            {CONTACTO.telefono}
+            {contacto.telefono}
           </a>
         </Renglon>
         <Renglon termino={t('evento.correo')}>
           <a
-            href={`mailto:${CONTACTO.correo}`}
+            href={`mailto:${contacto.correo}`}
             className="underline decoration-copa decoration-2 underline-offset-[6px] transition hover:text-hoja"
           >
-            {CONTACTO.correo}
+            {contacto.correo}
           </a>
         </Renglon>
-        <Renglon termino={t('evento.donde')}>{CONTACTO.domicilio}</Renglon>
+        <Renglon termino={t('evento.donde')}>{contacto.domicilio}</Renglon>
       </dl>
 
       <div className="mt-10 border-t border-arena/15 pt-5">
@@ -56,7 +59,7 @@ export default function CasaClub() {
         <p className="font-texto text-menudo text-arena/80">
           {t('evento.acceso').split('{enlace}')[0]}
           <a
-            href={CONTACTO.acceso}
+            href={CONTACTO_BASE.acceso}
             className="font-semibold text-arena underline decoration-arena/30 underline-offset-4 transition hover:text-hoja"
           >
             {t('evento.acceso.enlace')}

@@ -13,20 +13,39 @@
  * El extra se busca por su `code` —`extra.CADDIE`—, que es el mismo que usa el
  * sistema, así que agregar un extra en el catálogo solo pide su par de frases.
  */
-import { EXTRAS, INCLUIDO, TARIFAS, enDolares, enLista, pesos } from '../../datos/campo';
+import { INCLUIDO, enDolares, enLista, extrasDe, pesos, tarifasDe } from '../../datos/campo';
 import { useIdioma } from '../../datos/idioma';
 
-const FILAS = [
-  { hoyos: 18, quien: 'tarifas.adulto', precios: TARIFAS.adulto18 },
-  { hoyos: 9, quien: 'tarifas.adulto', precios: TARIFAS.adulto9 },
-  { hoyos: 18, quien: 'tarifas.twilight', precios: TARIFAS.twilight18 },
-  { hoyos: 18, quien: 'tarifas.menores', precios: TARIFAS.menor18 },
-  // La tarifa local (18 hoyos) ya no sale con precio en la tabla: se trata por
-  // evento/residentes. Arriba hay un aviso que lleva a pedir información.
-].filter((fila) => fila.precios);
+/**
+ * Las filas salen de lo que el sistema tiene vigente (`campo`). La zona de
+ * práctica va justo debajo de 18 hoyos, como pidió el club.
+ */
+function filasDe(campo) {
+  const tarifas = tarifasDe(campo);
+  const practica = extrasDe(campo).find((e) => e.code === 'PRACTICA');
+  const filas = [
+    { clave: '18-adulto', hoyos: 18, quien: 'tarifas.adulto', precios: tarifas.adulto18 },
+    practica && {
+      clave: 'practica',
+      titulo: 'extra.PRACTICA',
+      quien: 'tarifas.practicaDetalle',
+      precios: { semana: practica.precio, fin: practica.precioFin ?? practica.precio },
+    },
+    { clave: '9-adulto', hoyos: 9, quien: 'tarifas.adulto', precios: tarifas.adulto9 },
+    { clave: '18-twilight', hoyos: 18, quien: 'tarifas.twilight', precios: tarifas.twilight18 },
+    { clave: '18-menores', hoyos: 18, quien: 'tarifas.menores', precios: tarifas.menor18 },
+    // La tarifa local (18 hoyos) no sale con precio en la tabla: se trata por
+    // evento/residentes. Arriba hay un aviso que lleva a pedir información.
+  ];
+  return filas.filter((fila) => fila && fila.precios);
+}
 
-export default function Tarifas({ onIr }) {
+export default function Tarifas({ onIr, campo = null }) {
   const { t } = useIdioma();
+  const filas = filasDe(campo);
+  const tasa = campo?.tipo_de_cambio;
+  // La zona de práctica ya va en la tabla; aquí quedan los demás extras.
+  const extras = extrasDe(campo).filter((e) => e.code !== 'PRACTICA');
 
   // Lo que el green fee incluye, en el idioma de quien lee y unido con la
   // conjunción que toca.
@@ -79,11 +98,11 @@ export default function Tarifas({ onIr }) {
           </tr>
         </thead>
         <tbody>
-          {FILAS.map((fila) => (
-            <tr key={`${fila.hoyos}-${fila.quien}`} className="border-b border-arena/10">
+          {filas.map((fila) => (
+            <tr key={fila.clave} className="border-b border-arena/10">
               <td className="py-2.5 lg:py-3 corta:py-1.5">
                 <span className="block font-texto text-[0.95rem] font-semibold text-arena">
-                  {t('tarifas.hoyos', { n: fila.hoyos })}
+                  {fila.titulo ? t(fila.titulo) : t('tarifas.hoyos', { n: fila.hoyos })}
                 </span>
                 <span className="font-texto text-menudo text-arena/80">{t(fila.quien)}</span>
               </td>
@@ -92,7 +111,7 @@ export default function Tarifas({ onIr }) {
                   {pesos(fila.precios.semana)}
                 </span>
                 <span className="mt-0.5 block font-texto text-menudo text-arena/75">
-                  ≈ {enDolares(fila.precios.semana)} USD
+                  ≈ {enDolares(fila.precios.semana, tasa)} USD
                 </span>
               </td>
               <td className="py-2.5 text-right lg:py-3 corta:py-1.5">
@@ -106,7 +125,7 @@ export default function Tarifas({ onIr }) {
                       {pesos(fila.precios.fin)}
                     </span>
                     <span className="mt-0.5 block font-texto text-menudo text-arena/75">
-                      ≈ {enDolares(fila.precios.fin)} USD
+                      ≈ {enDolares(fila.precios.fin, tasa)} USD
                     </span>
                   </>
                 )}
@@ -119,7 +138,7 @@ export default function Tarifas({ onIr }) {
       <div className="mt-5 corta:mt-3">
         <p className="font-texto text-cifra uppercase text-arena/75">{t('tarifas.aparte')}</p>
         <ul className="mt-2.5 space-y-2 corta:mt-2 corta:space-y-1">
-          {EXTRAS.map((extra) => (
+          {extras.map((extra) => (
             <li key={extra.code} className="flex items-baseline justify-between gap-5">
               <span className="font-texto text-[0.95rem] text-arena">
                 {t(`extra.${extra.code}`)}
