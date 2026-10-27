@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 
 from app.core.config import settings
 
@@ -46,7 +47,18 @@ def create_refresh_token(subject: str | int) -> str:
 
 
 def decode_token(token: str) -> Optional[dict[str, Any]]:
+    """Valida firma y vencimiento. Devuelve None ante cualquier problema.
+
+    El algoritmo va fijo en la lista (nunca se toma del encabezado del token) y
+    se exige que traiga vencimiento y sujeto: un token sin `exp` no caduca
+    nunca, y no hay razón para aceptarlo.
+    """
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["exp", "sub"]},
+        )
+    except PyJWTError:
         return None

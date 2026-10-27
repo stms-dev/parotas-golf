@@ -30,7 +30,7 @@ class IdentityService:
         # Mismo mensaje en ambos casos: no se le dice a un atacante si el correo existe.
         if not user or not verify_password(password, user.hashed_password):
             raise AuthenticationError("Correo o contraseña incorrectos")
-        if not user.is_active:
+        if not user.is_active or str(user.role) == UserRole.SISTEMA.value:
             raise AuthenticationError("Usuario inactivo. Contacte al administrador.")
 
         user.last_login_at = datetime.utcnow()
@@ -50,6 +50,8 @@ class IdentityService:
 
     # ----------------------------------------------------------------- users
     def create_user(self, data: UserCreate, actor: Optional[User] = None) -> User:
+        if data.role == UserRole.SISTEMA:
+            raise ValidationError("Ese rol es de una cuenta interna y no se asigna a personas")
         if self.repo.exists_email(data.email):
             raise ConflictError(f"Ya existe un usuario con el correo {data.email}")
 
@@ -80,6 +82,8 @@ class IdentityService:
         user = self.repo.get(user_id)
         if not user:
             raise NotFoundError(f"Usuario {user_id} no encontrado")
+        if str(user.role) == UserRole.SISTEMA.value or data.role == UserRole.SISTEMA:
+            raise ValidationError("Es una cuenta interna del sistema: no se modifica desde aquí")
 
         changes: list[str] = []
         payload = data.model_dump(exclude_unset=True)

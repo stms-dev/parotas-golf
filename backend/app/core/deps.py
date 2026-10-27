@@ -28,7 +28,10 @@ def get_current_user(
     if user_id is None:
         raise AuthenticationError("Token sin sujeto")
 
-    user = db.get(User, int(user_id))
+    try:
+        user = db.get(User, int(user_id))
+    except (TypeError, ValueError):
+        raise AuthenticationError("Token inválido o expirado") from None
     if user is None:
         raise AuthenticationError("Usuario no encontrado")
     if not user.is_active:

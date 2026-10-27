@@ -212,6 +212,8 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
     UserRole.ADMIN_OPERACIONES: _ADMIN_OPERACIONES,
     UserRole.RECEPCION: _RECEPCION,
     UserRole.HOTEL: _HOTEL,
+    # Sin un solo permiso a propósito: es una firma, no un usuario.
+    UserRole.SISTEMA: set(),
 }
 
 

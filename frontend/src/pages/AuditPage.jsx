@@ -15,9 +15,10 @@ const ACCIONES = {
   CIERRE_CAJA: 'Cierre de caja',
   VALIDAR_PGA: 'Validación PGA',
   LOGIN: 'Inicio de sesión',
+  REENVIAR: 'Reenvío de correo',
 };
 
-const MODULOS = ['identity', 'catalog', 'booking', 'checkin', 'billing', 'treasury', 'events'];
+const MODULOS = ['identity', 'catalog', 'booking', 'checkin', 'billing', 'treasury', 'events', 'mailing'];
 
 export default function AuditPage() {
   const [filters, setFilters] = useState({ module: '', action: '' });

@@ -80,9 +80,11 @@ class ReservaPublicaService:
     def cuenta_del_sitio(self) -> User:
         """La cuenta a cuyo nombre quedan las reservas del sitio.
 
-        Tiene perfil de recepción porque hace lo mismo que recepción: levantar
-        a quien llega sin hotel. Y está desactivada, así que nadie puede
-        iniciar sesión con ella aunque adivinara la contraseña.
+        Levanta reservas como lo hace recepción (a quien llega sin hotel), pero
+        su rol es SISTEMA: no tiene permiso para nada. Y está desactivada, así
+        que nadie puede iniciar sesión con ella aunque adivinara la contraseña.
+        Si alguien la reactivara o le cambiara el rol por error, aquí mismo se
+        corrige en la siguiente reserva.
 
         Se da de alta sola la primera vez que alguien reserva. El sembrado
         también la crea, pero el sembrado solo corre con la base en blanco: en
@@ -95,6 +97,10 @@ class ReservaPublicaService:
             select(User).where(User.email == CUENTA_DEL_SITIO)
         ).scalars().first()
         if cuenta is not None:
+            if cuenta.is_active or str(cuenta.role) != UserRole.SISTEMA.value:
+                cuenta.is_active = False
+                cuenta.role = UserRole.SISTEMA
+                self.db.flush()
             return cuenta
 
         from app.core.security import hash_password
@@ -103,7 +109,7 @@ class ReservaPublicaService:
             email=CUENTA_DEL_SITIO,
             full_name="Reservas en línea",
             hashed_password=hash_password(secrets.token_urlsafe(32)),
-            role=UserRole.RECEPCION,
+            role=UserRole.SISTEMA,
             is_active=False,
         )
         self.db.add(cuenta)

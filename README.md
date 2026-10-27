@@ -127,6 +127,8 @@ python verificar.py               # flujo operativo completo
 python verificar_tiempo_real.py   # difusión por WebSocket
 python verificar_roles.py         # alcance de cada perfil
 python prueba_configuracion.py  # validación de la llave al arrancar
+python prueba_reenvio_y_cuenta_interna.py   # reenvío de pases y cuenta interna del sitio
+python prueba_tokens.py   # tokens de sesión (JWT)
 ```
 
 El primero recorre el flujo contra la API: login de los cuatro roles,

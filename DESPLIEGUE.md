@@ -72,6 +72,10 @@ cuando la URL es PostgreSQL. No hay que hacer nada más.
 
 > **Token público de la reserva.** Desde esta versión, las rutas que el sitio usa para consultar, pagar o soltar un apartado piden, además del folio, un token que el sistema entrega al apartar (cabecera `X-Reserva-Token`). La migración `b3d5f7a9c1e2` agrega la columna sola al arrancar. Las reservas anteriores no tienen token y ya no se consultan desde el sitio; un enlace de regreso de Stripe generado antes de actualizar mostrará «No encontramos esa reserva» aunque el pago sí quedó registrado (lo confirma el webhook).
 
+> **Reenvío de pases y cuenta del sitio.** El reenvío manual de pase o recibo ahora valida el correo de destino, queda en la bitácora (módulo `mailing`, acción «Reenvío de correo») y tiene un tope por hora: 5 por reserva y 20 por usuario. La migración `c4e6a8b0d2f3` pasa la cuenta interna `sitio@parotasgolf.com` al rol `SISTEMA`, que no tiene permisos; sigue desactivada y no aparece como opción al crear usuarios.
+
+> **Librería de tokens.** Se cambió `python-jose` por `PyJWT` (`requirements.txt`). El formato del token no cambia: con la misma `SECRET_KEY`, las sesiones abiertas siguen valiendo. Ahora se rechaza también un token sin vencimiento o sin sujeto. Railway reconstruye la imagen sola al subir el cambio.
+
 El esquema **se aplica solo al arrancar** (`MIGRAR_AL_ARRANCAR=true`). No hace
 falta abrir una terminal: Alembic aplica lo que falte en cada despliegue, y si
 la base está en blanco se siembran catálogos, tarifas, inventario y la cuenta

@@ -22,18 +22,20 @@ from __future__ import annotations
 import base64
 import logging
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from typing import List, Optional
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import BusinessRuleError
+from app.modules.audit.models import AuditLog
 from app.modules.booking.models import Reservation
 from app.modules.mailing.models import OutboxEmail
-from app.shared.enums import EmailKind, EmailStatus
+from app.shared.enums import AuditAction, EmailKind, EmailStatus
 from app.workers.notifications import cuerpo_pase, cuerpo_recibo, generar_qr_png
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,13 @@ logger = logging.getLogger(__name__)
 # mal escrito, reintentar mil veces no lo va a componer. Queda en la bandeja
 # como fallido y con un botón para reenviar a mano.
 MAX_INTENTOS = 3
+
+# Topes de reenvío a mano, por hora. Una reserva no necesita más de un puñado de
+# reenvíos; quien manda decenas está abusando del correo del club o alguien le
+# robó la cuenta. Se cuentan en la base, no en memoria, para que valgan igual
+# con uno o con varios servidores.
+MAX_REENVIOS_POR_RESERVA = 5
+MAX_REENVIOS_POR_USUARIO = 20
 
 RESEND_URL = "https://api.resend.com/emails"
 
@@ -57,6 +66,40 @@ CID_QR = "pase-qr"
 class MailingService:
     def __init__(self, db: Session):
         self.db = db
+
+    # ------------------------------------------------- tope de reenvíos a mano
+    def revisar_tope_de_reenvios(self, reservation_id: int, user_id: Optional[int]) -> None:
+        """Frena el reenvío si ya se hicieron demasiados en la última hora."""
+        desde = datetime.utcnow() - timedelta(hours=1)
+
+        de_la_reserva = self.db.execute(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.module == "mailing",
+                AuditLog.action == AuditAction.REENVIAR,
+                AuditLog.entity_id == reservation_id,
+                AuditLog.created_at >= desde,
+            )
+        ).scalar_one()
+        if de_la_reserva >= MAX_REENVIOS_POR_RESERVA:
+            raise BusinessRuleError(
+                "Esta reserva ya se reenvió varias veces en la última hora. "
+                "Si el correo no llega, revise la bandeja en Control del sistema."
+            )
+
+        if user_id is not None:
+            del_usuario = self.db.execute(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.module == "mailing",
+                    AuditLog.action == AuditAction.REENVIAR,
+                    AuditLog.user_id == user_id,
+                    AuditLog.created_at >= desde,
+                )
+            ).scalar_one()
+            if del_usuario >= MAX_REENVIOS_POR_USUARIO:
+                raise BusinessRuleError(
+                    "Se hicieron demasiados reenvíos desde esta cuenta en la última "
+                    "hora. Espere un rato o avise a la Administración."
+                )
 
     # ------------------------------------------------------------- encolar
     def encolar(

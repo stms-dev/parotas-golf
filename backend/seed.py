@@ -353,7 +353,7 @@ def sembrar(produccion: bool = False):
                 email=CUENTA_DEL_SITIO,
                 full_name="Reservas en línea",
                 hashed_password=hash_password(secrets.token_urlsafe(32)),
-                role=UserRole.RECEPCION,
+                role=UserRole.SISTEMA,
                 is_active=False,
             )
         )

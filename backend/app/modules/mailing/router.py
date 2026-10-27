@@ -3,19 +3,65 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, TypeAdapter
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.exceptions import BusinessRuleError, ValidationError
 from app.core.deps import RequirePermission, get_current_user, get_hotel_scope
 from app.core.permissions import Permission
+from app.modules.audit.service import AuditService
 from app.modules.booking.service import ReservationService_
 from app.modules.identity.models import User
 from app.modules.mailing.service import MailingService
-from app.shared.enums import EmailKind
+from app.shared.enums import AuditAction, EmailKind
 from app.workers.notifications import generar_qr_png
 
 router = APIRouter(prefix="/correos", tags=["Correos"])
+
+_CORREO = TypeAdapter(EmailStr)
+
+
+def _destino_valido(destino: Optional[str]) -> Optional[str]:
+    """El correo a donde reenviar, o None para usar el del titular.
+
+    Antes se aceptaba cualquier texto. Ahora tiene que ser un correo bien
+    formado, de un solo destinatario.
+    """
+    if destino is None or not destino.strip():
+        return None
+    try:
+        return str(_CORREO.validate_python(destino.strip()))
+    except Exception:
+        raise ValidationError("El correo de destino no es válido") from None
+
+
+def _reenviar(db: Session, kind: EmailKind, reservation, destino: Optional[str], actor: User):
+    """Reenvío a mano: valida, respeta el tope, deja rastro y manda."""
+    destino = _destino_valido(destino)
+    servicio = MailingService(db)
+    servicio.revisar_tope_de_reenvios(reservation.id, actor.id)
+
+    correo = servicio.encolar(kind=kind, reservation=reservation, destino=destino)
+    if correo is None:
+        raise BusinessRuleError(
+            "La reserva no tiene correo del titular. Escriba el correo de destino."
+        )
+
+    titular = (reservation.holder_email or "").strip().lower()
+    distinto = correo.to_email.strip().lower() != titular
+    AuditService(db).log(
+        user=actor, action=AuditAction.REENVIAR, module="mailing",
+        entity="Reservation", entity_id=reservation.id,
+        description=(
+            f"{'Pase' if kind == EmailKind.PASE else 'Recibo'} reenviado a {correo.to_email}"
+            + (" (distinto al correo del titular)" if distinto else "")
+        ),
+    )
+    db.commit()
+    servicio.procesar_pendientes(limite=3)
+    db.refresh(correo)
+    return _salida(correo)
 
 
 class CorreoOut(BaseModel):
@@ -66,17 +112,15 @@ def reenviar_pase(
     reservation_id: int,
     destino: Optional[str] = None,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    actor: User = Depends(get_current_user),
     scope: Optional[int] = Depends(get_hotel_scope),
 ):
-    """Vuelve a mandar el pase, al titular o a otro correo."""
+    """Vuelve a mandar el pase, al titular o a otro correo.
+
+    Queda en la bitácora con el correo de destino y tiene un tope por hora.
+    """
     reservation = ReservationService_(db, hotel_scope=scope).get(reservation_id)
-    servicio = MailingService(db)
-    correo = servicio.encolar(kind=EmailKind.PASE, reservation=reservation, destino=destino)
-    db.commit()
-    servicio.procesar_pendientes(limite=3)
-    db.refresh(correo)
-    return _salida(correo)
+    return _reenviar(db, EmailKind.PASE, reservation, destino, actor)
 
 
 @router.post("/reserva/{reservation_id}/recibo", response_model=CorreoOut)
@@ -84,15 +128,10 @@ def reenviar_recibo(
     reservation_id: int,
     destino: Optional[str] = None,
     db: Session = Depends(get_db),
-    _: User = Depends(RequirePermission(Permission.CHECKIN_PERFORM)),
+    actor: User = Depends(RequirePermission(Permission.CHECKIN_PERFORM)),
 ):
     reservation = ReservationService_(db).get(reservation_id)
-    servicio = MailingService(db)
-    correo = servicio.encolar(kind=EmailKind.RECIBO, reservation=reservation, destino=destino)
-    db.commit()
-    servicio.procesar_pendientes(limite=3)
-    db.refresh(correo)
-    return _salida(correo)
+    return _reenviar(db, EmailKind.RECIBO, reservation, destino, actor)
 
 
 @router.post("/{correo_id}/reintentar", response_model=CorreoOut)

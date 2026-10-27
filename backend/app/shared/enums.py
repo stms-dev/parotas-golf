@@ -7,6 +7,9 @@ class UserRole(str, Enum):
     ADMIN_OPERACIONES = "ADMIN_OPERACIONES"
     RECEPCION = "RECEPCION"
     HOTEL = "HOTEL"
+    # Cuenta interna a cuyo nombre quedan las reservas del sitio. No es una
+    # persona ni entra al sistema: no tiene permiso para nada.
+    SISTEMA = "SISTEMA"
 
 
 class ReservationStatus(str, Enum):
@@ -169,6 +172,7 @@ class AuditAction(str, Enum):
     CIERRE_CAJA = "CIERRE_CAJA"
     VALIDAR_PGA = "VALIDAR_PGA"
     LOGIN = "LOGIN"
+    REENVIAR = "REENVIAR"
 
 
 class ServiceUnit(str, Enum):

@@ -40,9 +40,14 @@ def _resolver_identidad(token: str) -> Optional[dict]:
     if user_id is None:
         return None
 
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+
     db: Session = SessionLocal()
     try:
-        user = db.get(User, int(user_id))
+        user = db.get(User, user_id)
         if not user or not user.is_active:
             return None
         return {

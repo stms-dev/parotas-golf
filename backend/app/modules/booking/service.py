@@ -492,8 +492,8 @@ class ReservationService_:
         # recepción solo para el público general.
         if actor.role == UserRole.HOTEL:
             hotel_id = actor.hotel_id
-        elif actor.role == UserRole.RECEPCION:
-            # Recepción atiende al que llega sin hotel. Colgarle una reserva a
+        elif actor.role in (UserRole.RECEPCION, UserRole.SISTEMA):
+            # Recepción (y la cuenta del sitio, que levanta lo mismo) atiende al que llega sin hotel. Colgarle una reserva a
             # un hotel con convenio le genera comisión a ese hotel, y eso lo
             # decide operaciones, no el mostrador.
             directo = self.hotels.venta_directa()
@@ -1329,7 +1329,7 @@ class ReservationService_:
         # de todos modos no le puede colgar la reserva.
         if actor.role == UserRole.HOTEL:
             hotel_id = actor.hotel_id
-        elif actor.role == UserRole.RECEPCION:
+        elif actor.role in (UserRole.RECEPCION, UserRole.SISTEMA):
             hotel_id = self.hotels.venta_directa().id
         else:
             hotel_id = data.hotel_id
