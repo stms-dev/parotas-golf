@@ -23,7 +23,7 @@ subprocess.run([sys.executable, "seed.py"], check=True, capture_output=True)
 
 from fastapi.testclient import TestClient            # noqa: E402
 from app.core.config import settings                 # noqa: E402
-from app.core.security import create_access_token, create_refresh_token, decode_token  # noqa: E402
+from app.core.security import create_access_token, decode_token  # noqa: E402
 from app.main import app                             # noqa: E402
 
 FALLOS = []
@@ -60,8 +60,8 @@ check("Un token recién emitido se lee", p is not None)
 check("Trae el sujeto como texto", p["sub"] == "7" and isinstance(p["sub"], str))
 check("Trae el tipo, el rol y el vencimiento", p["type"] == "access" and p["role"] == "RECEPCION" and p["exp"] > ahora)
 vence_en_h = (p["exp"] - ahora) / 3600
-check("Dura la jornada configurada", abs(vence_en_h - settings.ACCESS_TOKEN_EXPIRE_MINUTES / 60) < 0.01, f"{vence_en_h:.1f} h")
-check("El de renovación se distingue", decode_token(create_refresh_token(7))["type"] == "refresh")
+check("Dura lo configurado (15 minutos sin uso)", abs(vence_en_h * 60 - 15) < 0.5, f"{vence_en_h * 60:.0f} min")
+check("Ya no existe un token de renovación de larga vida", not hasattr(__import__("app.core.security", fromlist=["x"]), "create_refresh_token"))
 
 print("\n2. Los tokens de antes siguen valiendo (nadie pierde su sesión al actualizar)")
 viejo = firmar_a_mano({"sub": "1", "exp": ahora + 600, "type": "access", "role": "SUPER_ADMIN", "hotel_id": None})
@@ -90,7 +90,7 @@ print("\n4. Casos raros que antes podían romper el servidor")
 raro = firmar_a_mano({"sub": "no-es-un-numero", "exp": ahora + 600, "type": "access"})
 r = c.get("/api/auth/me", headers={"Authorization": f"Bearer {raro}"})
 check("Un sujeto que no es número da 401, no error del servidor", r.status_code == 401, f"HTTP {r.status_code}")
-r = c.get("/api/auth/me", headers={"Authorization": f"Bearer {create_refresh_token(1)}"})
+r = c.get("/api/auth/me", headers={"Authorization": "Bearer " + firmar_a_mano({"sub": "1", "exp": ahora + 600, "type": "refresh"})})
 check("El token de renovación no sirve como token de acceso", r.status_code == 401, f"HTTP {r.status_code}")
 
 print("\n5. El inicio de sesión real")

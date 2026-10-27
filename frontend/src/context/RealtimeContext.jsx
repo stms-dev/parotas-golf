@@ -11,7 +11,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { tokenStore } from '../api/client';
+import { EVENTO_TOKEN_RENOVADO, tokenStore } from '../api/client';
 import { RELEVANTES, describir } from '../utils/notificaciones';
 import { useAuth } from './AuthContext';
 
@@ -175,8 +175,14 @@ export function RealtimeProvider({ children }) {
         setEstado(ESTADOS.DESCONECTADO);
         return;
       }
-      // 4001 = token inválido. Reintentar no sirve de nada.
+      // 4001 = token inválido o vencido. Reintentar con el mismo no sirve de
+      // nada; si mientras tanto la sesión se renovó, se abre con el nuevo.
       if (evento.code === 4001) {
+        const actual = tokenStore.get();
+        if (actual && actual !== token) {
+          reconexionRef.current = setTimeout(conectar, 500);
+          return;
+        }
         setEstado(ESTADOS.DESCONECTADO);
         return;
       }
@@ -190,6 +196,19 @@ export function RealtimeProvider({ children }) {
       // El cierre se maneja en onclose; aquí no hace falta nada más.
     };
   }, [repartir]);
+
+  // Cada vez que el panel renueva la sesión, el canal abierto recibe el token
+  // nuevo; sin esto se cerraría a los 15 minutos aunque la persona esté
+  // trabajando.
+  useEffect(() => {
+    const enviar = () => {
+      const socket = socketRef.current;
+      const token = tokenStore.get();
+      if (socket && socket.readyState === WebSocket.OPEN && token) socket.send(`token:${token}`);
+    };
+    window.addEventListener(EVENTO_TOKEN_RENOVADO, enviar);
+    return () => window.removeEventListener(EVENTO_TOKEN_RENOVADO, enviar);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {

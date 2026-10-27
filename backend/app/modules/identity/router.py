@@ -11,6 +11,7 @@ from app.modules.identity.models import User
 from app.modules.identity.schemas import (
     LoginRequest,
     MeResponse,
+    RenovacionOut,
     TokenResponse,
     UserCreate,
     UserOut,
@@ -71,11 +72,27 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     limites.limpiar(clave)
     return TokenResponse(
         access_token=result["access_token"],
-        refresh_token=result["refresh_token"],
         user=_to_out(result["user"]),
         permissions=result["permissions"],
         home_route=home_route_for(result["user"].role),
     )
+
+
+@router.post("/refresh", response_model=RenovacionOut)
+def refresh(current: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Renueva la sesión de quien sigue trabajando.
+
+    Pide un token todavía vigente: quien estuvo parado más del tiempo de sesión
+    ya no puede renovar y tiene que entrar otra vez. El panel la llama (como
+    mucho una vez por minuto) mientras detecta actividad.
+    """
+    return RenovacionOut(access_token=IdentityService(db).emitir_token(current))
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_all(current: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Cierra todas las sesiones de quien lo pide, en todos sus equipos."""
+    IdentityService(db).cerrar_sesiones(current.id, actor=current, motivo="a petición del usuario")
 
 
 @router.get("/me", response_model=MeResponse)
@@ -119,6 +136,16 @@ def get_user(
     _: User = Depends(RequirePermission(Permission.USER_MANAGE)),
 ):
     return _to_out(IdentityService(db).get_user(user_id))
+
+
+@users_router.post("/{user_id}/revoke-sessions", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_sessions(
+    user_id: int,
+    db: Session = Depends(get_db),
+    actor: User = Depends(RequirePermission(Permission.USER_MANAGE)),
+):
+    """La Administración cierra las sesiones abiertas de una cuenta."""
+    IdentityService(db).cerrar_sesiones(user_id, actor=actor, motivo="por la Administración")
 
 
 @users_router.patch("/{user_id}", response_model=UserOut)

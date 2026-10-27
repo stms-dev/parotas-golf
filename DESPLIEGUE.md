@@ -76,6 +76,8 @@ cuando la URL es PostgreSQL. No hay que hacer nada más.
 
 > **Librería de tokens.** Se cambió `python-jose` por `PyJWT` (`requirements.txt`). El formato del token no cambia: con la misma `SECRET_KEY`, las sesiones abiertas siguen valiendo. Ahora se rechaza también un token sin vencimiento o sin sujeto. Railway reconstruye la imagen sola al subir el cambio.
 
+> **Sesión de 15 minutos sin uso.** El token dura `ACCESS_TOKEN_EXPIRE_MINUTES` (15 por defecto) y el panel lo renueva solo, como mucho una vez por minuto, mientras detecta actividad (ratón, teclado, toque). Si pasan 15 minutos sin tocar nada, la sesión se cierra y la pantalla de acceso avisa por qué. Ya no hay token de 7 días. La migración `d5f7b9c1e3a4` agrega `users.token_version`: cambiar contraseña, rol, baja, «cerrar mis sesiones» (`POST /auth/logout-all`) o «Cerrar sesiones» desde Cuentas (`POST /users/{id}/revoke-sessions`) invalida los tokens anteriores. Las sesiones abiertas al actualizar siguen valiendo hasta que venzan. **Ojo con las pantallas fijas** (tee sheet en pared, mostrador): pedirán entrar de nuevo tras 15 minutos sin que nadie las toque; el tiempo real por sí solo no cuenta como uso.
+
 El esquema **se aplica solo al arrancar** (`MIGRAR_AL_ARRANCAR=true`). No hace
 falta abrir una terminal: Alembic aplica lo que falte en cada despliegue, y si
 la base está en blanco se siembran catálogos, tarifas, inventario y la cuenta

@@ -1377,6 +1377,22 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
     }
   }
 
+  async function cerrarSesiones(u) {
+    const ok = await confirmar({
+      titulo: `Cerrar las sesiones de ${u.full_name}`,
+      texto: 'Tendrá que iniciar sesión de nuevo en todos sus equipos. Su cuenta y su historial no cambian.',
+      confirmar: 'Sí, cerrar sesiones',
+      icono: 'question',
+    });
+    if (!ok) return;
+    try {
+      await usersApi.cerrarSesiones(u.id);
+      await exito('Sesiones cerradas', `${u.email} deberá entrar de nuevo.`);
+    } catch (err) {
+      await avisoError('No se pudieron cerrar', err.message);
+    }
+  }
+
   async function cambiarClave(u, nueva) {
     if (!nueva || nueva.length < 8) {
       await avisoError('Contraseña muy corta', 'Necesita al menos 8 caracteres.');
@@ -1430,7 +1446,7 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
             </tr>
           </thead>
           <tbody>
-            {cuentas.map((u) => (
+            {cuentas.filter((u) => u.role !== 'SISTEMA').map((u) => (
               <tr
                 key={u.id}
                 className={`border-t border-outline-variant/30 ${u.is_active ? '' : 'opacity-50'}`}
@@ -1481,6 +1497,11 @@ function Cuentas({ cuentas, hoteles, onCambio }) {
                       <button onClick={() => setClave(u.id)} className={BOTON}>
                         Contraseña
                       </button>
+                      {u.is_active && (
+                        <button onClick={() => cerrarSesiones(u)} className={BOTON}>
+                          Cerrar sesiones
+                        </button>
+                      )}
                       <button onClick={() => alternarActiva(u)} className={BOTON}>
                         {u.is_active ? 'Dar de baja' : 'Reactivar'}
                       </button>

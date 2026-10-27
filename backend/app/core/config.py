@@ -95,7 +95,10 @@ class Settings(BaseSettings):
     # --- Seguridad ---
     SECRET_KEY: str = LLAVE_DE_EJEMPLO
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # jornada operativa
+    # Minutos que dura la sesión SIN USO. El panel la renueva mientras la
+    # persona trabaja (cada minuto, si hubo actividad); si pasan estos minutos
+    # sin tocar nada, el token vence y hay que volver a entrar.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # --- CORS ---

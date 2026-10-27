@@ -9,6 +9,11 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'las_parotas_token';
 const USER_KEY = 'las_parotas_user';
 
+/** Aviso que la pantalla de acceso muestra después de que la sesión se cerró sola. */
+export const AVISO_DE_SESION = 'las_parotas_aviso_de_sesion';
+/** Evento que avisa al resto de la app que el token se renovó (lo oye el tiempo real). */
+export const EVENTO_TOKEN_RENOVADO = 'las-parotas:token-renovado';
+
 export const tokenStore = {
   get: () => localStorage.getItem(TOKEN_KEY),
   set: (token) => localStorage.setItem(TOKEN_KEY, token),
@@ -142,8 +147,14 @@ async function request(path, { method = 'GET', body, params, auth = true } = {})
   }
 
   if (response.status === 401 && auth) {
+    if (tokenStore.get()) {
+      try {
+        sessionStorage.setItem(AVISO_DE_SESION, 'Su sesión terminó. Inicie sesión de nuevo para continuar.');
+      } catch { /* sin almacenamiento: solo se pierde el aviso */ }
+    }
     tokenStore.clear();
-    window.location.href = '/login';
+    // El panel vive bajo /sistema: sin el prefijo caería en el sitio público.
+    window.location.href = `${import.meta.env.BASE_URL}login`;
     throw new ApiError('Sesión expirada', 401, 'NO_AUTENTICADO');
   }
 
@@ -190,6 +201,10 @@ export const api = {
 export const authApi = {
   login: (email, password) => api.post('/auth/login', { email, password }, { auth: false }),
   me: () => api.get('/auth/me'),
+  /** Renueva la sesión de quien sigue trabajando. */
+  refresh: () => api.post('/auth/refresh'),
+  /** Cierra todas las sesiones de quien lo pide, en todos sus equipos. */
+  cerrarTodas: () => api.post('/auth/logout-all'),
 };
 
 export const catalogApi = {
@@ -338,6 +353,8 @@ export const usersApi = {
   list: (params) => api.get('/users', params),
   create: (body) => api.post('/users', body),
   update: (id, body) => api.patch(`/users/${id}`, body),
+  /** La Administración cierra las sesiones abiertas de una cuenta. */
+  cerrarSesiones: (id) => api.post(`/users/${id}/revoke-sessions`),
 };
 
 /** Correos que manda el club: el pase con QR y el recibo del cobro. */

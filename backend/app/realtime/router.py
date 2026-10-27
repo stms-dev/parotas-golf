@@ -4,7 +4,9 @@ La autenticación va por query string y no por cabecera porque el WebSocket del
 navegador no permite mandar cabeceras personalizadas. El token es el mismo JWT
 de la API y se valida igual; si no es válido, se cierra antes de aceptar.
 """
+import asyncio
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
@@ -39,6 +41,7 @@ def _resolver_identidad(token: str) -> Optional[dict]:
     user_id = payload.get("sub")
     if user_id is None:
         return None
+    vence = payload.get("exp")
 
     try:
         user_id = int(user_id)
@@ -50,7 +53,11 @@ def _resolver_identidad(token: str) -> Optional[dict]:
         user = db.get(User, user_id)
         if not user or not user.is_active:
             return None
+        # Una sesión cerrada (cambio de contraseña, "cerrar sesiones") no entra.
+        if int(payload.get("tv", 0) or 0) != (user.token_version or 0):
+            return None
         return {
+            "_vence": float(vence) if vence else 0.0,
             "user_id": user.id,
             "full_name": user.full_name,
             "role": user.role,
@@ -73,16 +80,34 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         await websocket.close(code=CODIGO_NO_AUTENTICADO, reason="Token inválido o expirado")
         return
 
+    # La conexión vale mientras vale el token con el que se abrió. El panel
+    # manda un token nuevo (`token:<jwt>`) cada vez que renueva la sesión; si
+    # nadie lo renueva, el canal se cierra solo al vencer.
+    vence = identidad.pop("_vence")
     subscriber = Subscriber(websocket=websocket, **identidad)
     await manager.connect(subscriber)
 
     try:
         while True:
-            mensaje = await websocket.receive_text()
+            restante = vence - time.time()
+            if restante <= 0:
+                await websocket.close(code=CODIGO_NO_AUTENTICADO, reason="Sesión vencida")
+                manager.disconnect(websocket)
+                return
+            try:
+                mensaje = await asyncio.wait_for(websocket.receive_text(), timeout=restante)
+            except asyncio.TimeoutError:
+                continue          # llegó la hora de vencer: el ciclo la cierra
+
             if mensaje == "ping":
                 await websocket.send_json(
                     RealtimeEvent(type=EventType.PONG, payload={}).to_message()
                 )
+            elif mensaje.startswith("token:"):
+                nueva = _resolver_identidad(mensaje[len("token:"):])
+                # Solo vale renovar con un token de la misma persona.
+                if nueva and nueva["user_id"] == identidad["user_id"]:
+                    vence = nueva["_vence"]
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as exc:  # pragma: no cover

@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { AVISO_DE_SESION } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
 import { Alert, Button, Field, Input } from '../components/ui';
@@ -25,6 +26,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Si la sesión se cerró sola (inactividad o vencimiento), se dice por qué.
+  const [aviso, setAviso] = useState(() => {
+    try {
+      const texto = sessionStorage.getItem(AVISO_DE_SESION);
+      sessionStorage.removeItem(AVISO_DE_SESION);
+      return texto;
+    } catch {
+      return null;
+    }
+  });
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -56,6 +67,11 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-lg border border-outline-variant/50 bg-white p-6 shadow-sm"
         >
+          {aviso && !error && (
+            <Alert tone="info" onClose={() => setAviso(null)}>
+              {aviso}
+            </Alert>
+          )}
           {error && (
             <Alert tone="error" onClose={() => setError(null)}>
               {error}

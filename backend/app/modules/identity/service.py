@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthenticationError, ConflictError, NotFoundError, ValidationError
 from app.core.permissions import permissions_for
-from app.core.security import create_access_token, create_refresh_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, verify_password
 from app.modules.audit.service import AuditService
 from app.modules.identity.models import User
 from app.modules.identity.repository import UserRepository
@@ -41,12 +41,31 @@ class IdentityService:
         self.db.commit()
 
         return {
-            "access_token": create_access_token(user.id, {"role": user.role, "hotel_id": user.hotel_id}),
-            "refresh_token": create_refresh_token(user.id),
+            "access_token": self.emitir_token(user),
             "token_type": "bearer",
             "user": user,
             "permissions": permissions_for(user.role),
         }
+
+    def emitir_token(self, user: User) -> str:
+        """Un token nuevo, con la versión de sesión actual del usuario."""
+        return create_access_token(
+            user.id,
+            {"role": user.role, "hotel_id": user.hotel_id, "tv": user.token_version or 0},
+        )
+
+    def cerrar_sesiones(self, user_id: int, actor: Optional[User] = None, motivo: str = "") -> None:
+        """Invalida todos los tokens que el usuario tenga abiertos."""
+        user = self.repo.get(user_id)
+        if not user:
+            raise NotFoundError(f"Usuario {user_id} no encontrado")
+        user.token_version = (user.token_version or 0) + 1
+        self.audit.log(
+            user=actor, action=AuditAction.MODIFICAR, module="identity",
+            entity="User", entity_id=user.id,
+            description=f"Sesiones cerradas{f' ({motivo})' if motivo else ''}: {user.email}",
+        )
+        self.db.commit()
 
     # ----------------------------------------------------------------- users
     def create_user(self, data: UserCreate, actor: Optional[User] = None) -> User:
@@ -90,6 +109,8 @@ class IdentityService:
 
         if "password" in payload and payload["password"]:
             user.hashed_password = hash_password(payload.pop("password"))
+            # Cambiar la contraseña cierra las sesiones abiertas con la vieja.
+            user.token_version = (user.token_version or 0) + 1
             changes.append("password")
         payload.pop("password", None)
 
@@ -98,6 +119,9 @@ class IdentityService:
             if old != value:
                 setattr(user, field, value)
                 changes.append(f"{field}: {old} → {value}")
+                if field in ("role", "hotel_id", "is_active"):
+                    # Otro rol o alcance: lo que la sesión vieja podía hacer ya no aplica.
+                    user.token_version = (user.token_version or 0) + 1
 
         role = payload.get("role", user.role)
         hotel_id = payload.get("hotel_id", user.hotel_id)

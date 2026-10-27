@@ -1,5 +1,9 @@
 """Hash de contraseñas y emisión/verificación de tokens JWT.
 
+Hay un solo tipo de token, de vida corta, que el panel renueva mientras la
+persona trabaja. No hay token de renovación de larga vida: uno de 7 días
+habría permitido volver a entrar después de estar horas sin usar el sistema.
+
 Se usa `bcrypt` directo en vez de passlib: passlib 1.7 rompe contra bcrypt 4.x
 y el proyecto no gana nada quedando atado a esa combinación de versiones.
 """
@@ -37,12 +41,6 @@ def create_access_token(subject: str | int, extra: Optional[dict[str, Any]] = No
     payload: dict[str, Any] = {"sub": str(subject), "exp": expire, "type": "access"}
     if extra:
         payload.update(extra)
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-
-def create_refresh_token(subject: str | int) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": str(subject), "exp": expire, "type": "refresh"}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

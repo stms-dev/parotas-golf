@@ -151,9 +151,11 @@ with SessionLocal() as s:
           f"{cuenta.role} · activa={cuenta.is_active}")
 
 print("\n8. La migración arregla una base que ya tenía la cuenta como Recepción")
-alembic("downgrade", "-1")
+alembic("downgrade", "b3d5f7a9c1e2")      # justo antes de la migración de la cuenta del sitio
+from sqlalchemy import text                          # noqa: E402
 with SessionLocal() as s:
-    antes = str(s.query(User).filter(User.id == cuenta_id).first().role)
+    # SQL directo: con la base "vieja" el modelo actual ya no coincide con las columnas.
+    antes = s.execute(text("SELECT role FROM users WHERE id = :i"), {"i": cuenta_id}).scalar_one()
 alembic("upgrade", "head")
 with SessionLocal() as s:
     cuenta = s.query(User).filter(User.id == cuenta_id).first()

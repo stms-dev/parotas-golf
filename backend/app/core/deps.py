@@ -36,6 +36,10 @@ def get_current_user(
         raise AuthenticationError("Usuario no encontrado")
     if not user.is_active:
         raise AuthenticationError("Usuario inactivo")
+    # Los tokens emitidos antes de que existiera el contador no lo traen: se
+    # leen como 0, igual que el valor inicial de todos los usuarios.
+    if int(payload.get("tv", 0) or 0) != (user.token_version or 0):
+        raise AuthenticationError("La sesión se cerró. Vuelva a iniciar sesión.")
     return user
 
 
