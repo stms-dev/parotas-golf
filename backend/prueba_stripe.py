@@ -79,7 +79,8 @@ stripe_gateway.devolver = _devolver
 stripe_gateway.leer_evento = _leer_evento
 
 from app.main import app                             # noqa: E402
-c = TestClient(app)
+from _cliente_publico import ClienteDelSitio  # noqa: E402
+c = ClienteDelSitio(app)
 FALLOS = []
 
 def check(etiqueta, ok, extra=""):
@@ -127,6 +128,8 @@ enviado = SESIONES[-1]
 check("Va el total de la reserva, no el del navegador",
       str(enviado["total"]) == str(total), f"${enviado['total']} = ${total}")
 check("Viaja el folio para saber qué confirmar", enviado["folio"] == folio)
+check("Viaja el token para poder volver a SU reserva",
+      enviado.get("token") == ap["token"] and len(ap["token"]) >= 32)
 # Con time.time(), no con utcnow().timestamp(): lo segundo interpreta una
 # fecha sin zona como hora local, y este contenedor corre en hora de México.
 # Comparar así daría seis horas de diferencia y escondería el error de verdad.

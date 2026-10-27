@@ -56,7 +56,7 @@ export default function App() {
     const q = new URLSearchParams(window.location.search);
     const folio = q.get('reserva');
     if (!folio) return null;
-    return { folio, cancelado: q.get('pago') === 'cancelado' };
+    return { folio, token: q.get('t') || '', cancelado: q.get('pago') === 'cancelado' };
   });
   // El hoyo que mira el mapa. Normalmente es el de la estación, pero el
   // visitante puede tocar cualquier hoyo de la tarjeta y la bola va para allá

@@ -21,7 +21,8 @@ from app.core.config import settings
 settings.PAGOS_SIMULADOS = True
 from app.main import app
 
-c = TestClient(app)
+from _cliente_publico import ClienteDelSitio
+c = ClienteDelSitio(app)
 manana = (date.today() + timedelta(days=3)).isoformat()
 
 
@@ -259,6 +260,53 @@ with SessionLocal() as s:
 r = c.post("/api/auth/login", json={"email": CUENTA_DEL_SITIO, "password": "cualquiera"})
 print("  intento de entrar con ella →", r.status_code)
 assert r.status_code in (401, 403)
+
+print("\n12. El folio solo no abre nada: hace falta el token")
+# Las secciones anteriores agotaron el tope de intentos a propósito: se vacía
+# para que esta mida el token y no el freno.
+from app.modules.pagos.router import _INTENTOS
+_INTENTOS.clear()
+anonimo = TestClient(app)        # un curioso: sin token, como un script que recorre folios
+assert len(ap["token"]) >= 32, "el token debe ser largo"
+print("  token entregado al apartar:", len(ap["token"]), "caracteres ✓")
+r_ok = anonimo.get(f"/api/public/reservas/{folio}", headers={"X-Reserva-Token": ap["token"]})
+assert r_ok.status_code == 200, r_ok.text
+assert "token" not in r_ok.json() and "qr" not in str(r_ok.json()).lower(), "el estado no debe devolver token ni QR"
+print("  con el token correcto → 200 ✓")
+r_sin = anonimo.get(f"/api/public/reservas/{folio}")
+r_mal = anonimo.get(f"/api/public/reservas/{folio}", headers={"X-Reserva-Token": "x" * 32})
+r_no = anonimo.get("/api/public/reservas/LP-0000", headers={"X-Reserva-Token": ap["token"]})
+assert r_sin.status_code == r_mal.status_code == r_no.status_code == 404, (r_sin.status_code, r_mal.status_code, r_no.status_code)
+assert r_sin.json() == r_mal.json() == r_no.json(), "sin token, con token malo y folio inexistente deben contestar igual"
+print("  sin token / token malo / folio inexistente → 404 idéntico ✓")
+
+sexta = next(s for s in c.get(f"/api/public/disponibilidad?fecha={manana}").json()["salidas"] if s["libres"] >= 2)
+ajeno = c.post("/api/public/reservas", json=cuerpo_de(
+    sexta["id"], modalidad="PARTIDA_ABIERTA", cuantos=2, correo="victima@ejemplo.com")).json()
+for etiqueta, resp in (
+    ("soltar sin token", anonimo.post(f"/api/public/reservas/{ajeno['folio']}/soltar")),
+    ("soltar con token de otra reserva", anonimo.post(
+        f"/api/public/reservas/{ajeno['folio']}/soltar", headers={"X-Reserva-Token": ap["token"]})),
+    ("checkout sin token", anonimo.post(f"/api/public/reservas/{ajeno['folio']}/checkout")),
+    ("pago simulado sin token", anonimo.post(f"/api/public/reservas/{ajeno['folio']}/pago", json=buena)),
+):
+    assert resp.status_code == 404, (etiqueta, resp.status_code, resp.text)
+    print(f"  {etiqueta} → 404 ✓")
+assert c.get(f"/api/public/reservas/{ajeno['folio']}").json()["estado"] == "PENDIENTE", \
+    "el apartado ajeno debe seguir en pie"
+print("  el apartado ajeno sigue en pie ✓")
+r = anonimo.post(f"/api/public/reservas/{ajeno['folio']}/soltar", headers={"X-Reserva-Token": ajeno["token"]})
+assert r.status_code == 200 and r.json()["estado"] == "CANCELADA"
+print("  su dueño, con su token, sí puede soltarlo ✓")
+
+# Una reserva anterior a esta versión (sin token en la base) no se abre ni con token vacío.
+with SessionLocal() as s:
+    vieja = s.query(Reservation).filter(Reservation.folio == folio).first()
+    vieja.public_token = None
+    s.commit()
+for cab in ({}, {"X-Reserva-Token": ""}, {"X-Reserva-Token": "None"}):
+    assert anonimo.get(f"/api/public/reservas/{folio}", headers=cab).status_code == 404
+print("  una reserva sin token en la base nunca se abre desde el sitio ✓")
 
 print("\n" + "="*58)
 print("  EL FLUJO PÚBLICO FUNCIONA DE PUNTA A PUNTA")

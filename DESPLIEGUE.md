@@ -70,6 +70,8 @@ cuando la URL es PostgreSQL. No hay que hacer nada más.
 > despliegue falla por esto, Railway conserva el anterior: ajuste la variable y
 > vuelva a desplegar. Cambiar la llave cierra las sesiones abiertas.
 
+> **Token público de la reserva.** Desde esta versión, las rutas que el sitio usa para consultar, pagar o soltar un apartado piden, además del folio, un token que el sistema entrega al apartar (cabecera `X-Reserva-Token`). La migración `b3d5f7a9c1e2` agrega la columna sola al arrancar. Las reservas anteriores no tienen token y ya no se consultan desde el sitio; un enlace de regreso de Stripe generado antes de actualizar mostrará «No encontramos esa reserva» aunque el pago sí quedó registrado (lo confirma el webhook).
+
 El esquema **se aplica solo al arrancar** (`MIGRAR_AL_ARRANCAR=true`). No hace
 falta abrir una terminal: Alembic aplica lo que falte en cada despliegue, y si
 la base está en blanco se siembran catálogos, tarifas, inventario y la cuenta

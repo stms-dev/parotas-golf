@@ -156,6 +156,11 @@ class Reservation(Base):
     qr_token: Mapped[Optional[str]] = mapped_column(String(64), unique=True, index=True, nullable=True)
     qr_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+    # --- Llave del huésped en el sitio público ---
+    # Solo las reservas que nacen en el sitio la tienen. El folio es corto y se
+    # adivina; este token no. Las rutas públicas piden los dos.
+    public_token: Mapped[Optional[str]] = mapped_column(String(64), unique=True, index=True, nullable=True)
+
     # --- Facturación (bandera simple; CFDI queda preparado, no implementado) ---
     invoice_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     invoice_contact_email: Mapped[Optional[str]] = mapped_column(String(180), nullable=True)

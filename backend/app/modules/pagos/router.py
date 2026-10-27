@@ -16,7 +16,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
@@ -169,6 +169,9 @@ class ApartarIn(BaseModel):
 
 class ApartadoOut(BaseModel):
     folio: str
+    # La llave del huésped: se entrega aquí, una sola vez, y las rutas públicas
+    # la piden en la cabecera X-Reserva-Token junto con el folio.
+    token: str
     total: Decimal
     vence: Optional[datetime] = None
     modalidad: str
@@ -240,6 +243,11 @@ def _frenar(request: Request, cuantos: int) -> None:
     _INTENTOS[quien].append(ahora)
 
 
+def _token(x_reserva_token: Optional[str] = Header(default=None, max_length=128)) -> Optional[str]:
+    """El token que el sitio guardó al apartar, tomado de la cabecera."""
+    return x_reserva_token
+
+
 # ---------------------------------------------------------------- endpoints
 @router.get("/campo", response_model=CampoOut)
 def campo(db: Session = Depends(get_db)):
@@ -284,6 +292,7 @@ def apartar(payload: ApartarIn, request: Request, db: Session = Depends(get_db))
     slot = reserva.tee_slot
     return ApartadoOut(
         folio=reserva.folio,
+        token=reserva.public_token,
         total=reserva.total,
         vence=reserva.hold_expires_at,
         modalidad=reserva.modality,
@@ -294,14 +303,14 @@ def apartar(payload: ApartarIn, request: Request, db: Session = Depends(get_db))
 
 
 @router.post("/reservas/{folio}/checkout", response_model=CheckoutOut)
-def checkout(folio: str, request: Request, db: Session = Depends(get_db)):
+def checkout(folio: str, request: Request, db: Session = Depends(get_db), token: Optional[str] = Depends(_token)):
     """Abre la página de pago de Stripe y devuelve a dónde mandar al huésped.
 
     El monto lo calcula el servidor a partir de la reserva. Nada de lo que
     mande el navegador toca el precio.
     """
     _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA * 3)
-    return ReservaPublicaService(db).iniciar_cobro(folio)
+    return ReservaPublicaService(db).iniciar_cobro(folio, token)
 
 
 def _como_diccionario(objeto) -> dict:
@@ -322,20 +331,19 @@ def _como_diccionario(objeto) -> dict:
 
 
 @router.post("/reservas/{folio}/soltar", response_model=EstadoOut)
-def soltar(folio: str, request: Request, db: Session = Depends(get_db)):
+def soltar(folio: str, request: Request, db: Session = Depends(get_db), token: Optional[str] = Depends(_token)):
     """Suelta un apartado que nunca se pagó.
 
     La llama el sitio cuando el huésped vuelve de Stripe sin haber pagado. No
     hace falta que nadie se identifique: lo único que esta ruta puede hacer es
-    cancelar un apartado en espera de pago, y adivinar un folio ajeno para
-    cancelarlo no deja nada a quien lo intente —el horario vuelve a la venta
-    para todos, incluido el dueño del folio, que puede reservarlo otra vez—.
-    El tope de intentos por conexión sigue aplicando.
+    cancelar un apartado en espera de pago, y solo con el token que se entregó
+    al apartar: con el folio solo, cualquiera podría cancelar apartados
+    ajenos. El tope de intentos por conexión sigue aplicando.
     """
     _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA * 3)
     servicio = ReservaPublicaService(db)
-    servicio.soltar(folio)
-    return servicio.estado(folio)
+    servicio.soltar(folio, token)
+    return servicio.estado(folio, token)
 
 
 @router.post("/stripe/webhook", include_in_schema=False)
@@ -387,16 +395,25 @@ async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/reservas/{folio}/pago", response_model=CobroOut)
-def pagar_simulado(folio: str, tarjeta: TarjetaIn, request: Request, db: Session = Depends(get_db)):
+def pagar_simulado(
+    folio: str, tarjeta: TarjetaIn, request: Request, db: Session = Depends(get_db),
+    token: Optional[str] = Depends(_token),
+):
     """El cobro de mentiras, para desarrollar sin tocar Stripe.
 
     Con Stripe configurado esta ruta se niega: el camino bueno es /checkout.
     """
     _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA * 3)
-    return ReservaPublicaService(db).cobrar_simulado(folio, tarjeta)
+    return ReservaPublicaService(db).cobrar_simulado(folio, tarjeta, token)
 
 
 @router.get("/reservas/{folio}", response_model=EstadoOut)
-def estado(folio: str, db: Session = Depends(get_db)):
-    """Cómo va una reserva. Sin el QR ni los datos de los demás jugadores."""
-    return ReservaPublicaService(db).estado(folio)
+def estado(folio: str, request: Request, db: Session = Depends(get_db), token: Optional[str] = Depends(_token)):
+    """Cómo va una reserva. Sin el QR ni los datos de los demás jugadores.
+
+    Pide el token de la reserva; sin él, o con uno equivocado, contesta igual
+    que si el folio no existiera. También cuenta intentos: es la ruta que un
+    script usaría para probar tokens.
+    """
+    _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA * 6)
+    return ReservaPublicaService(db).estado(folio, token)

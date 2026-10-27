@@ -160,6 +160,7 @@ def crear_sesion(
     descripcion: str,
     correo: Optional[str],
     vence_en: int,
+    token: Optional[str] = None,
 ) -> dict:
     """Abre la página de pago de Stripe para una reserva ya apartada.
 
@@ -195,8 +196,11 @@ def crear_sesion(
             customer_email=correo or None,
             expires_at=vence_en,
             locale="es",
-            success_url=f"{sitio}/?reserva={folio}&pago=listo",
-            cancel_url=f"{sitio}/?reserva={folio}&pago=cancelado",
+            # El token del huésped viaja de ida y vuelta por la dirección: es
+            # la única forma de que el sitio, al volver de Stripe, pueda
+            # consultar o soltar SU reserva y no la de otro.
+            success_url=f"{sitio}/?reserva={folio}&t={token or ''}&pago=listo",
+            cancel_url=f"{sitio}/?reserva={folio}&t={token or ''}&pago=cancelado",
         )
     except stripe.error.StripeError as error:
         raise _traducir(error, f"abrir la página de pago de {folio}") from error

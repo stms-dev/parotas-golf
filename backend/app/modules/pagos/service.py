@@ -513,6 +513,8 @@ class ReservaPublicaService:
         reserva.hold_expires_at = datetime.utcnow() + timedelta(
             minutes=settings.APARTADO_MINUTOS
         )
+        # La llave del huésped. El folio solo no alcanza: se adivina.
+        reserva.public_token = secrets.token_urlsafe(24)
         self.db.commit()
         self.db.refresh(reserva)
         return reserva
@@ -524,6 +526,23 @@ class ReservaPublicaService:
             select(Reservation).where(Reservation.folio == folio.upper().strip())
         ).scalars().first()
         if reserva is None:
+            raise NotFoundError("No encontramos esa reserva")
+        return reserva
+
+    def _reserva_del_huesped(self, folio: str, token: Optional[str]) -> Reservation:
+        """La reserva, pero solo si quien pregunta trae su token.
+
+        Folio inexistente, token ausente y token equivocado contestan lo mismo:
+        así nadie puede recorrer folios para ver cuáles existen. La comparación
+        es de tiempo constante.
+        """
+        reserva = self.db.execute(
+            select(Reservation).where(Reservation.folio == folio.upper().strip())
+        ).scalars().first()
+        guardado = getattr(reserva, "public_token", None) if reserva else None
+        if not guardado or not token or not secrets.compare_digest(
+            guardado.encode(), token.strip().encode()
+        ):
             raise NotFoundError("No encontramos esa reserva")
         return reserva
 
@@ -550,7 +569,7 @@ class ReservaPublicaService:
                 "Vuelva a elegir un horario."
             )
 
-    def soltar(self, folio: str) -> dict:
+    def soltar(self, folio: str, token: Optional[str]) -> dict:
         """Deshace un apartado que nunca se pagó.
 
         Es lo que pasa cuando el huésped le da para atrás en la página de
@@ -563,7 +582,7 @@ class ReservaPublicaService:
         no se tocan desde aquí, aunque alguien teclee su folio. Y es seguro
         llamarla dos veces, porque la segunda ya la encuentra cancelada.
         """
-        reserva = self._reserva(folio)
+        reserva = self._reserva_del_huesped(folio, token)
         estado = ReservationStatus(str(reserva.status))
 
         if estado == ReservationStatus.CANCELADA:
@@ -582,13 +601,13 @@ class ReservaPublicaService:
         )
         return {"estado": "CANCELADA", "folio": reserva.folio}
 
-    def iniciar_cobro(self, folio: str) -> dict:
+    def iniciar_cobro(self, folio: str, token: Optional[str]) -> dict:
         """Abre la página de pago de Stripe para una reserva apartada.
 
         Devuelve la dirección a la que hay que mandar al huésped. El monto sale
         de la reserva, nunca de lo que mande el navegador.
         """
-        reserva = self._reserva(folio)
+        reserva = self._reserva_del_huesped(folio, token)
         self._apartado_vigente(reserva)
 
         if not stripe_gateway.disponible():
@@ -619,6 +638,7 @@ class ReservaPublicaService:
             correo=reserva.holder_email,
             # La sesión de pago caduca junto con el apartado de la salida.
             vence_en=int(reserva.hold_expires_at.replace(tzinfo=timezone.utc).timestamp()),
+            token=reserva.public_token,
         )
         reserva.stripe_session_id = sesion["id"]
         self.db.commit()
@@ -708,7 +728,7 @@ class ReservaPublicaService:
         self.db.refresh(reserva)
         return {"estado": "confirmada", "folio": reserva.folio}
 
-    def cobrar_simulado(self, folio: str, tarjeta) -> dict:
+    def cobrar_simulado(self, folio: str, tarjeta, token: Optional[str]) -> dict:
         """El cobro de mentiras, para desarrollar sin tocar Stripe.
 
         Solo corre si Stripe NO está configurado y el simulador está prendido a
@@ -720,7 +740,7 @@ class ReservaPublicaService:
                 "El cobro simulado no está disponible."
             )
 
-        reserva = self._reserva(folio)
+        reserva = self._reserva_del_huesped(folio, token)
         self._apartado_vigente(reserva)
 
         resultado = simulador.cobrar(
@@ -757,18 +777,16 @@ class ReservaPublicaService:
         }
 
     # ------------------------------------------------------- consulta final
-    def estado(self, folio: str) -> dict:
+    def estado(self, folio: str, token: Optional[str]) -> dict:
         """Lo que el huésped puede ver de su propia reserva.
 
         Deliberadamente corto: folio, día, hora, cuántos y cuánto. Ni el QR ni
         los datos de los demás, porque un folio se adivina más fácil que un
-        token y esta ruta no pide sesión.
+        token y esta ruta no pide sesión. Por eso se exige el token que se
+        entregó al apartar: sin él la respuesta es la misma que si el folio no
+        existiera.
         """
-        reserva = self.db.execute(
-            select(Reservation).where(Reservation.folio == folio.upper().strip())
-        ).scalars().first()
-        if reserva is None:
-            raise NotFoundError("No encontramos esa reserva")
+        reserva = self._reserva_del_huesped(folio, token)
 
         slot = reserva.tee_slot
         # SQLAlchemy devuelve la columna como texto, no como el enum.

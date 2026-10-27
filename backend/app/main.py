@@ -186,7 +186,7 @@ app.add_middleware(
     allow_credentials=True,
     # Solo lo que la aplicación usa de verdad.
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Reserva-Token"],
     expose_headers=["X-Request-Id"],
 )
 

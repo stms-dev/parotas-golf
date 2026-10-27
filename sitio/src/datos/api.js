@@ -58,6 +58,14 @@ async function pedir(ruta, opciones = {}) {
   return cuerpo;
 }
 
+/**
+ * El folio solo no basta: se adivina. Al apartar, el sistema entrega un token y
+ * las rutas de una reserva lo piden en esta cabecera.
+ */
+function conToken(token) {
+  return { 'Content-Type': 'application/json', 'X-Reserva-Token': token || '' };
+}
+
 export const api = {
   /** Horario, tarifas, servicios y reglas. Se pide una vez al abrir. */
   campo: () => pedir('/public/campo'),
@@ -83,21 +91,23 @@ export const api = {
     pedir('/public/reservas', { method: 'POST', body: JSON.stringify(cuerpo) }),
 
   /** Abre la página de pago de Stripe. Devuelve a dónde mandar al huésped. */
-  checkout: (folio) =>
-    pedir(`/public/reservas/${folio}/checkout`, { method: 'POST' }),
+  checkout: (folio, token) =>
+    pedir(`/public/reservas/${folio}/checkout`, { method: 'POST', headers: conToken(token) }),
 
   /** El cobro de mentiras, solo para desarrollar sin Stripe configurado. */
-  pagarSimulado: (folio, tarjeta) =>
+  pagarSimulado: (folio, tarjeta, token) =>
     pedir(`/public/reservas/${folio}/pago`, {
       method: 'POST',
+      headers: conToken(token),
       body: JSON.stringify(tarjeta),
     }),
 
   /** Suelta un apartado que nunca se pagó: el huésped se arrepintió. */
-  soltar: (folio) =>
-    pedir(`/public/reservas/${folio}/soltar`, { method: 'POST' }),
+  soltar: (folio, token) =>
+    pedir(`/public/reservas/${folio}/soltar`, { method: 'POST', headers: conToken(token) }),
 
-  estado: (folio) => pedir(`/public/reservas/${folio}`),
+  estado: (folio, token) =>
+    pedir(`/public/reservas/${folio}`, { headers: conToken(token) }),
 };
 
 export { ErrorDelSistema };

@@ -129,7 +129,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
 
     if (llegada.cancelado) {
       api
-        .soltar(llegada.folio)
+        .soltar(llegada.folio, llegada.token)
         .catch(() => {})
         .finally(() => {
           if (!vigente) return;
@@ -142,7 +142,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     }
 
     api
-      .estado(llegada.folio)
+      .estado(llegada.folio, llegada.token)
       .then((r) => {
         if (!vigente) return;
         // Puede volver antes de que llegue el aviso de Stripe. Si está
@@ -325,13 +325,13 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       if (campo?.pasarela === 'stripe') {
         // A pagar a la página de Stripe. Ningún número de tarjeta pasa por
         // aquí, y de allá se vuelve con el folio en la dirección.
-        const { url } = await api.checkout(apartado.folio);
+        const { url } = await api.checkout(apartado.folio, apartado.token);
         window.location.href = url;
         return;
       }
 
       // Sin pasarela configurada la salida queda apartada y el club llama.
-      setListo(await api.estado(apartado.folio));
+      setListo(await api.estado(apartado.folio, apartado.token));
     } catch (e) {
       setAviso(e.message);
     } finally {
