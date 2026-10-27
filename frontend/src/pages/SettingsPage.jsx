@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 
 import { auditApi, catalogApi } from '../api/client';
+import { confirmar, error as avisoError, exito } from '../utils/avisos';
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
@@ -47,7 +48,8 @@ export default function SettingsPage() {
         catalogApi.rates(),
         catalogApi.exchangeRate(),
         catalogApi.schedule(),
-        catalogApi.services(),
+        // También los dados de baja: si no, no habría forma de reactivarlos.
+        catalogApi.services({ active_only: false }),
       ]);
       setRates(tarifas);
       setTc(cambio);
@@ -152,7 +154,12 @@ export default function SettingsPage() {
           }}
         />
 
-        <Servicios servicios={servicios} tasa={tasa} />
+        <Servicios
+          servicios={servicios}
+          tasa={tasa}
+          puedeEditar={can('catalog:manage_services')}
+          onCambio={() => cargar(false)}
+        />
       </div>
 
       {can('audit:view') && <Bitacora registros={bitacora} />}
@@ -609,32 +616,145 @@ function HorarioMaestro({ horario, editable, onCambio }) {
   );
 }
 
-function Servicios({ servicios, tasa }) {
+function Servicios({ servicios, tasa, puedeEditar = false, onCambio }) {
+  const [ocupado, setOcupado] = useState(null);
+  const [editando, setEditando] = useState(null); // { id, price, weekend }
+
+  async function guardar(s, cambios, titulo, texto) {
+    const ok = await confirmar({ titulo, texto, confirmar: 'Sí, guardar' });
+    if (!ok) return false;
+    setOcupado(s.id);
+    try {
+      await catalogApi.updateService(s.id, cambios);
+      await exito('Guardado', 'El sitio y el sistema ya usan el cambio.');
+      onCambio?.();
+      return true;
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+      return false;
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  function alternar(s) {
+    return guardar(
+      s,
+      { is_active: !s.is_active },
+      s.is_active ? `Dar de baja «${s.name}»` : `Activar «${s.name}»`,
+      s.is_active
+        ? 'Dejará de ofrecerse en el sitio y en las reservas nuevas.'
+        : 'Volverá a ofrecerse en el sitio y en las reservas nuevas.',
+    );
+  }
+
+  async function guardarPrecio(s) {
+    const precio = Number(editando.price);
+    const fin = editando.weekend === '' ? null : Number(editando.weekend);
+    if (!(precio >= 0) || editando.price === '' || (fin !== null && !(fin >= 0))) {
+      await avisoError('Precio inválido', 'Escriba cantidades en pesos, sin letras.');
+      return;
+    }
+    const cambios = { price: precio.toFixed(2) };
+    if (s.weekend_price != null || fin !== null) cambios.weekend_price = fin === null ? null : fin.toFixed(2);
+    const listo = await guardar(
+      s,
+      cambios,
+      `Cambiar el precio de «${s.name}»`,
+      `Quedará en <b>${mxn(precio)}</b>${fin !== null ? ` y <b>${mxn(fin)}</b> de viernes a domingo` : ''}.`,
+    );
+    if (listo) setEditando(null);
+  }
+
   return (
     <Panel icono="golf" titulo="Servicios adicionales y alquileres" insignia="Precios en MXN">
       <div className="grid gap-3 sm:grid-cols-2">
         {servicios.map((s) => (
           <div
             key={s.id}
-            className="flex items-start justify-between gap-3 rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3"
+            className={`rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3 ${
+              s.is_active ? '' : 'opacity-70'
+            }`}
           >
-            <div className="min-w-0">
-              <p className="truncate text-title-md text-primary">{s.name}</p>
-              <p className="font-mono text-label-sm text-outline">
-                {s.weekend_price
-                  ? `${mxn(s.price)} lun a jue · ${mxn(s.weekend_price)} vie a dom`
-                  : `${mxn(s.price)} ${tasa ? `(${usd(Number(s.price) / tasa)})` : ''}`}
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-title-md text-primary">{s.name}</p>
+                <p className="font-mono text-label-sm text-outline">
+                  {s.weekend_price
+                    ? `${mxn(s.price)} lun a jue · ${mxn(s.weekend_price)} vie a dom`
+                    : `${mxn(s.price)} ${tasa ? `(${usd(Number(s.price) / tasa)})` : ''}`}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded px-2 py-0.5 text-label-sm uppercase tracking-wider ${
+                  s.is_active
+                    ? 'bg-estado-ok-bg text-estado-ok-text'
+                    : 'bg-surface-container-high text-outline'
+                }`}
+              >
+                {s.is_active ? 'Activo' : 'Baja'}
+              </span>
             </div>
-            <span
-              className={`shrink-0 rounded px-2 py-0.5 text-label-sm uppercase tracking-wider ${
-                s.is_active
-                  ? 'bg-estado-ok-bg text-estado-ok-text'
-                  : 'bg-surface-container-high text-outline'
-              }`}
-            >
-              {s.is_active ? 'Activo' : 'Baja'}
-            </span>
+
+            {puedeEditar && editando?.id === s.id && (
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <label className="text-label-sm uppercase tracking-wider text-on-surface-variant">
+                  Lun a jue
+                  <input
+                    type="number" min="0" step="1" value={editando.price}
+                    onChange={(e) => setEditando({ ...editando, price: e.target.value })}
+                    className="mt-1 block w-28 rounded border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-right font-mono"
+                  />
+                </label>
+                {(s.weekend_price != null || s.code === 'PRACTICA') && (
+                  <label className="text-label-sm uppercase tracking-wider text-on-surface-variant">
+                    Vie a dom
+                    <input
+                      type="number" min="0" step="1" value={editando.weekend}
+                      onChange={(e) => setEditando({ ...editando, weekend: e.target.value })}
+                      className="mt-1 block w-28 rounded border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-right font-mono"
+                    />
+                  </label>
+                )}
+                <button
+                  onClick={() => guardarPrecio(s)}
+                  disabled={ocupado === s.id}
+                  className="rounded border border-outline-variant px-3 py-1.5 text-label-sm uppercase tracking-wider text-primary hover:bg-surface-container-high disabled:opacity-50"
+                >
+                  Guardar
+                </button>
+                <button
+                  onClick={() => setEditando(null)}
+                  className="px-2 py-1.5 text-label-sm uppercase tracking-wider text-outline hover:text-primary"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
+            {puedeEditar && editando?.id !== s.id && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() =>
+                    setEditando({
+                      id: s.id,
+                      price: String(Number(s.price)),
+                      weekend: s.weekend_price == null ? '' : String(Number(s.weekend_price)),
+                    })
+                  }
+                  className="rounded border border-outline-variant px-3 py-1 text-label-sm uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high"
+                >
+                  Cambiar precio
+                </button>
+                <button
+                  onClick={() => alternar(s)}
+                  disabled={ocupado === s.id}
+                  className="rounded border border-outline-variant px-3 py-1 text-label-sm uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
+                >
+                  {s.is_active ? 'Dar de baja' : 'Activar'}
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {servicios.length === 0 && (

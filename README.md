@@ -423,6 +423,11 @@ de todos los días, modificarlo no.
 convenios, padrón PGA, generador de horarios, servicios y la bitácora de
 cambios, en una sola pantalla.
 
+**Servicios** (en Precios & Tarifas) — quien tiene el permiso de servicios puede
+cambiar el precio (lun a jue y vie a dom) y activar o dar de baja cada servicio.
+Un servicio dado de baja deja de salir en el sitio y en las reservas nuevas; la
+tarjeta sigue ahí para poder reactivarlo.
+
 **Datos de contacto del sitio** (en Configuración) — teléfono, correo y
 domicilio que el sitio público muestra en el pie y en «Casa club». Se editan
 ahí y el sitio los toma de `/api/public/campo` (`contacto`); no hay que tocar
