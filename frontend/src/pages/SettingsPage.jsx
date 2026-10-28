@@ -209,6 +209,9 @@ const COLUMNAS_DIA = [
  * una vez, y solo si difiere se desglosa por modalidad.
  */
 function TarifasOficiales({ rates, tasa }) {
+  // Por defecto se ve cada modalidad (Individual, Grupo, Partida abierta) con su
+  // precio; si el usuario quiere la vista corta, se juntan las que cuestan igual.
+  const [desglosar, setDesglosar] = useState(true);
   const vigentes = rates.filter((r) => r.is_active);
 
   const filas = new Map();
@@ -237,9 +240,12 @@ function TarifasOficiales({ rates, tasa }) {
 
   function Celda({ celda }) {
     if (!celda) return <span className="text-outline">—</span>;
-    const precios = Object.entries(celda);
+    const orden = ['INDIVIDUAL', 'GRUPO', 'PARTIDA_ABIERTA'];
+    const precios = Object.entries(celda).sort(
+      ([a], [b]) => (orden.indexOf(a) + 1 || 9) - (orden.indexOf(b) + 1 || 9),
+    );
     const iguales = precios.every(([, v]) => v === precios[0][1]);
-    if (iguales) {
+    if (iguales && (!desglosar || precios.length === 1)) {
       return (
         <>
           <span className="block font-mono text-body-lg text-primary">{mxn(precios[0][1])}</span>
@@ -248,15 +254,20 @@ function TarifasOficiales({ rates, tasa }) {
       );
     }
     return precios.map(([m, v]) => (
-      <span key={m} className="block font-mono text-body-md text-primary">
-        <span className="mr-1.5 text-label-sm uppercase tracking-wider text-outline">{MODALIDAD[m] || m}</span>
+      <span key={m} className="block py-0.5 font-mono text-body-md text-primary">
+        <span className="mr-2 font-sans text-label-sm uppercase tracking-wider text-outline">{MODALIDAD[m] || m}</span>
         {mxn(v)}
+        {tasa ? <span className="ml-2 text-label-sm text-outline">{usd(v / tasa)}</span> : null}
       </span>
     ));
   }
 
   return (
     <Panel icono="pago" titulo="Tarifas y precios oficiales" insignia="Valores base">
+      <label className="mb-3 flex w-fit cursor-pointer items-center gap-2 text-body-md text-on-surface-variant">
+        <input type="checkbox" checked={desglosar} onChange={(e) => setDesglosar(e.target.checked)} />
+        Ver cada modalidad (Individual, Grupo, Partida abierta)
+      </label>
       <div className="caja-lineas overflow-x-auto">
         <table className="tabla-lineas text-left">
           <thead>
@@ -291,8 +302,8 @@ function TarifasOficiales({ rates, tasa }) {
         </table>
       </div>
       <p className="mt-4 rounded bg-surface-container-low px-3.5 py-2.5 text-body-md text-outline">
-        Precio por jugador en MXN, con su equivalente en USD debajo. Grupo y Partida abierta cuestan lo mismo salvo que
-        se indique. El precio se congela en cada reserva: subir una tarifa hoy no altera lo ya vendido.
+        Precio por jugador en MXN, con su equivalente en USD debajo. Con la vista corta, las modalidades que cuestan lo mismo
+        se juntan en un solo precio. El precio se congela en cada reserva: subir una tarifa hoy no altera lo ya vendido.
       </p>
     </Panel>
   );

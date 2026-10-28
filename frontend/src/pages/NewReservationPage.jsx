@@ -30,6 +30,11 @@ import { esFinDeSemana, tarifaDelDia } from '../utils/tarifas';
 // Individual ya no se vende: una salida se toma como grupo o se comparte en
 // partida abierta. Las reservas viejas que la usaron se siguen leyendo, pero
 // aquí no se ofrece.
+// Práctica es su propio paquete (uno o varios jugadores, con o sin acompañantes).
+// Por eso, al reservar Grupo o Partida abierta no se ofrece el interruptor de
+// «Zona de práctica» por jugador. Poner en true para volver a ofrecerlo.
+const PRACTICA_EN_RONDA = false;
+
 const PAQUETES = [
   {
     value: 'GRUPO',
@@ -614,7 +619,7 @@ export default function NewReservationPage() {
                       apagado ? 'cursor-not-allowed opacity-50' : ''
                     }`}
                   >
-                    <div className="mb-2 flex items-start justify-between gap-2">
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5">
                       <span
                         className={`flex items-center gap-1.5 whitespace-nowrap text-title-lg ${
                           on ? 'text-on-primary' : 'text-primary'
@@ -1096,7 +1101,7 @@ export default function NewReservationPage() {
                   />
                 </Field>
                 )}
-                {practica && !esPractica && (
+                {PRACTICA_EN_RONDA && practica && !esPractica && (
                   <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 180 pelotas`}>
                     <SiNo
                       valor={form.holder_practica}
@@ -1143,7 +1148,7 @@ export default function NewReservationPage() {
                       numero={index + 2}
                       player={player}
                       precio={precioJugador(player)}
-                      conPractica={Boolean(practica) && !esPractica}
+                      conPractica={PRACTICA_EN_RONDA && Boolean(practica) && !esPractica}
                       soloPractica={esPractica}
                       puedeQuitar={extras.length > minExtras}
                       onQuitar={() => setExtras(extras.filter((_, i) => i !== index))}
@@ -1581,7 +1586,7 @@ function Bastones({ valor, onCambio }) {
   const renta = valor === 'DIESTRO' || valor === 'ZURDO';
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <div className="flex rounded border border-outline-variant p-0.5">
+      <div className="flex w-fit rounded border border-outline-variant p-0.5">
         <Pastilla activa={!renta} onClick={() => onCambio('')}>
           Trae los suyos
         </Pastilla>
@@ -1608,7 +1613,7 @@ const AYUDA_LOCAL = 'Vive en Huatulco · presenta credencial en el mostrador';
 /** Un sí o no, con las mismas pastillas que los bastones. */
 function SiNo({ valor, onCambio }) {
   return (
-    <div className="flex rounded border border-outline-variant p-0.5">
+    <div className="flex w-fit rounded border border-outline-variant p-0.5">
       <Pastilla activa={!valor} onClick={() => onCambio(false)}>
         No
       </Pastilla>
