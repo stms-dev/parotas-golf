@@ -794,3 +794,7 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Sitio**: Partida abierta y Práctica arrancan con 1 jugador (Grupo, 4); la fecha usa el día del campo (`campo.hoy`) y permite hoy hasta la hora límite; la partida abierta ofrece solo salidas con lugar suficiente; bastones propios/renta con diestro/zurdo; leyenda con teléfono si no llega la reserva.
 - **Partida abierta en el sitio**: las salidas con una partida ya iniciada se pueden elegir aunque no estén completas y salen marcadas con ● (campo `abierta` en `/public/disponibilidad`). El sitio ahora manda la modalidad al pedir salidas (antes solo la práctica).
 - **Corte del día de recepción**: `GET /treasury/my-day` (permiso `payment:register`) devuelve solo lo que cobró el usuario hoy. En `/sistema/ventas` recepción ve "Mi corte del día"; administración y operaciones ven el total del campo.
+
+## Cambios v15
+
+- **Nueva reserva (todos los perfiles)**: pantalla más limpia, sin quitar funciones. Encabezado y pasos compactos, caddie en una línea, horarios que ya pasaron solo con la hora tachada, el detalle de tarifas y bastones plegado ("Ver detalle…"), políticas del club plegables, y se eliminó el bloque duplicado de "Cupos y aforo" (el resumen lateral ya lo muestra).

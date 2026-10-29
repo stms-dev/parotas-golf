@@ -525,18 +525,11 @@ export default function NewReservationPage() {
       {/* ------------------------------------------------------- Encabezado */}
       <header className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-label-sm uppercase tracking-widest text-outline">
-            {isHotel ? 'Portal hotel' : 'Mostrador'} <span className="text-outline-variant">›</span>{' '}
-            {isHotel ? user?.hotel_name : ventaDirecta ? 'Sin hotel' : nombreDelHotel}{' '}
-            <span className="text-outline-variant">›</span> Nueva solicitud
-          </p>
           <h1 className="font-serif text-display-lg leading-tight text-primary">
             {ventaDirecta ? 'Nueva Reserva en Mostrador' : 'Nueva Solicitud de Reserva'}
           </h1>
-          <p className="text-body-lg text-outline">
-            {ventaDirecta
-              ? 'Alta de un huésped que llegó por su cuenta al campo, sin hotel de por medio.'
-              : 'Despacho de tee times y asignación de salidas para huéspedes asociados.'}
+          <p className="text-body-md text-outline">
+            {isHotel ? user?.hotel_name : ventaDirecta ? 'Huésped que llegó al campo' : nombreDelHotel}
           </p>
         </div>
         <span className="shrink-0 self-start rounded bg-secondary-fixed px-3 py-1.5 text-label-sm uppercase tracking-wider text-on-secondary-fixed-variant xl:self-auto">
@@ -545,31 +538,26 @@ export default function NewReservationPage() {
       </header>
 
       {/* ---------------------------------------------------------- Pasos */}
-      <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-md">
         {PASOS.map((paso, i) => {
           const n = i + 1;
           const hecho = n < pasoActual;
           const activo = n === pasoActual;
           return (
-            <li
-              key={paso.n}
-              className={`rounded border px-4 py-3 ${
-                activo
-                  ? 'border-primary-container bg-surface-container-lowest shadow-card'
-                  : hecho
-                    ? 'border-estado-ok-border bg-estado-ok-bg'
-                    : 'border-outline-variant/50 bg-surface-container-low'
-              }`}
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-label-sm uppercase tracking-wider text-outline">
-                  Paso {paso.n}
-                </span>
-                {hecho && <Icono nombre="check" size={15} className="text-estado-ok-text" />}
-              </span>
+            <li key={paso.n} className="flex items-center gap-2">
+              {i > 0 && <span className="text-outline-variant">›</span>}
               <span
-                className={`block text-title-md ${activo || hecho ? 'text-primary' : 'text-on-surface-variant'}`}
+                className={`flex h-5 w-5 items-center justify-center rounded-full font-mono text-label-sm ${
+                  activo
+                    ? 'bg-primary-container text-on-primary'
+                    : hecho
+                      ? 'bg-estado-ok-bg text-estado-ok-text'
+                      : 'bg-surface-container text-outline'
+                }`}
               >
+                {hecho ? '✓' : n}
+              </span>
+              <span className={activo ? 'text-primary' : hecho ? 'text-on-surface-variant' : 'text-outline'}>
                 {paso.titulo}
               </span>
             </li>
@@ -591,13 +579,13 @@ export default function NewReservationPage() {
       {/* Quién está levantando la reserva. Va antes que todo porque la cuenta
           no lo dice: la comparten los turnos, y cuando una reserva sale mal
           capturada hay que saber a quién preguntarle. */}
-      <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-5 shadow-card">
+      <section className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[280px] flex-1">
             <Field
               label={isHotel ? '¿Quién de la conserjería levanta la reserva?' : '¿Quién atiende?'}
               required
-              hint="Su nombre queda en la reserva. La cuenta la comparten varios turnos, así que es lo único que dice quién la hizo."
+              hint="Queda registrado en la reserva."
             >
               <Input
                 value={form.booked_by_name}
@@ -606,12 +594,6 @@ export default function NewReservationPage() {
               />
             </Field>
           </div>
-          {form.booked_by_name.trim().length >= 3 && (
-            <p className="pb-2 text-body-md text-outline">
-              Esta reserva va a quedar a nombre de{' '}
-              <span className="text-on-surface">{form.booked_by_name.trim()}</span>.
-            </p>
-          )}
         </div>
       </section>
 
@@ -728,7 +710,7 @@ export default function NewReservationPage() {
                 <div className="min-w-[280px]">
                   <Field
                     label="¿Quién manda al huésped?"
-                    hint="Recepción levanta solo al huésped que llega por su cuenta. Si viene de un hotel con convenio, la reserva la registra operaciones."
+                    hint="Si viene de un hotel con convenio, la reserva la registra operaciones."
                   >
                     <div className="rounded border border-outline-variant/60 bg-surface-container-low px-3 py-2.5 text-body-lg text-on-surface">
                       Sin hotel · huésped que llegó al campo
@@ -771,47 +753,22 @@ export default function NewReservationPage() {
                 huésped le paga directo. Lo que sí hace falta es que la
                 conserjería sepa cuánto vale para poder decírselo. */}
             {caddie && !esPractica && (
-              <div className="mt-5 rounded border border-outline-variant/60 bg-surface-container-low">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/50 px-4 py-2.5">
-                  <span className="flex items-center gap-2 text-title-md text-primary">
-                    <Icono nombre="registro" size={18} className="text-secondary" />
-                    {caddie.name}
-                  </span>
-                  <span className="font-mono text-label-md text-secondary">
-                    {mxn(precioCaddie)} por caddie / ronda
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5">
-                  <div className="min-w-[240px] flex-1">
-                    <p className="text-title-md text-on-surface">
-                      Se asigna uno por carrito, no se elige
-                    </p>
-                    <p className="text-body-md text-on-surface-variant">
-                      El caddie <strong>lo paga el huésped directo al caddie</strong>: no entra en
-                      el total de esta reserva ni lo cobra el mostrador. Dígale al huésped cuánto
-                      es para que llegue preparado.
-                    </p>
-                    <p className="mt-1 text-body-md text-outline">
-                      {!recursos
-                        ? ''
-                        : caddiesAsignados > 0
-                          ? `Esta partida lleva ${caddiesAsignados} caddie${
-                              caddiesAsignados === 1 ? '' : 's'
-                            } · el huésped paga ${mxn(costoCaddiesInformativo)} en el campo. Quedan ${caddiesLibres} de ${recursos.caddies_totales} ese día.`
-                          : 'Los caddies del campo ya están asignados ese día, así que esta partida sale sin caddie. Se liberan cuando la partida que los tiene se finaliza.'}
-                    </p>
-                  </div>
-
-                  <div className="rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-right">
-                    <p className="text-label-sm uppercase tracking-wider text-outline">
-                      Le paga al caddie
-                    </p>
-                    <p className="font-serif text-title-lg text-primary">
-                      {mxn(costoCaddiesInformativo)}
-                    </p>
-                    <p className="text-label-sm text-outline">No entra en el total</p>
-                  </div>
+              <div className="mt-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-1 rounded border border-outline-variant/50 bg-surface-container-low px-4 py-3">
+                <div className="min-w-[240px] flex-1">
+                  <p className="text-title-md text-primary">
+                    {caddie.name} · {mxn(precioCaddie)} por caddie / ronda
+                  </p>
+                  <p className="text-body-md text-on-surface-variant">
+                    Se asigna uno por carrito. El huésped le paga directo al caddie; no entra en el
+                    total de la reserva.{' '}
+                    {!recursos
+                      ? ''
+                      : caddiesAsignados > 0
+                        ? `Esta partida lleva ${caddiesAsignados} caddie${
+                            caddiesAsignados === 1 ? '' : 's'
+                          } (${mxn(costoCaddiesInformativo)} en el campo). Quedan ${caddiesLibres} de ${recursos.caddies_totales} ese día.`
+                        : 'Los caddies de ese día ya están asignados: la partida sale sin caddie.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -827,17 +784,15 @@ export default function NewReservationPage() {
                 alcanza a terminar 18 hoyos y eso es justo lo que se vende en
                 twilight. Se dice aquí para que nadie prometa lo que no cabe. */}
             {jornada.cierre && (
-              <p className="mb-3 rounded border border-outline-variant/50 bg-surface-container-low px-3 py-2 text-body-md text-outline">
+              <p className="mb-3 text-body-md text-outline">
                 El campo cierra a las <span className="text-on-surface">{hora(jornada.cierre)}</span>
                 {jornada.twilight && (
                   <>
-                    {' '}· desde las{' '}
-                    <span className="text-on-surface">{hora(jornada.twilight)}</span> la salida es
-                    twilight
+                    {' '}· twilight desde las{' '}
+                    <span className="text-on-surface">{hora(jornada.twilight)}</span>
                   </>
                 )}
-                . Una salida tardía puede no alcanzar a terminar los 18 hoyos; conviene decírselo al
-                huésped.
+                . Una salida tardía puede no alcanzar a terminar 18 hoyos.
               </p>
             )}
 
@@ -906,18 +861,9 @@ export default function NewReservationPage() {
               })}
             </div>
 
-            <p className="mb-4 text-label-sm text-outline">
+            <p className="mb-5 text-label-sm text-outline">
               Se puede agendar hasta {LIMITE_MESES} meses adelante.
             </p>
-
-            <div className="mb-4 rounded border border-primary-container bg-primary-container px-4 py-3">
-              <p className="text-title-md text-on-primary">
-                {config?.label || 'Horarios de salida'}
-              </p>
-              <p className="text-body-md text-primary-fixed">
-                Campo Las Parotas · una salida por partida
-              </p>
-            </div>
 
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-label-sm uppercase tracking-wider text-on-surface-variant">
@@ -937,9 +883,8 @@ export default function NewReservationPage() {
             </div>
 
             {/* Los horarios se abren de uno en uno, en orden. */}
-            <p className="mb-3 flex items-start gap-2 rounded border border-outline-variant/50 bg-surface-container-low px-3.5 py-2.5 text-body-md text-on-surface-variant">
-              <Icono nombre="escudo" size={15} className="mt-0.5 shrink-0 text-secondary" />
-              Los horarios se abren en orden: al llenarse uno —o al pasar su hora— se abre el
+            <p className="mb-3 text-body-md text-outline">
+              Los horarios se abren en orden: al llenarse uno, o al pasar su hora, se abre el
               siguiente.
               {recursos && recursos.carritos_libres <= 0 && (
                 <span className="text-estado-pend-text">
@@ -987,13 +932,17 @@ export default function NewReservationPage() {
                       </span>
                       {on && <span className="text-secondary-fixed">✓</span>}
                     </span>
-                    <span
-                      className={`text-label-sm font-bold uppercase tracking-wider ${
-                        on ? 'text-secondary-fixed' : libre ? 'text-estado-ok-text' : 'text-outline'
-                      }`}
-                    >
-                      {etiqueta}
-                    </span>
+                    {/* Las salidas que ya pasaron no repiten su motivo: la hora
+                        tachada basta. */}
+                    {slot.cerrada_por !== 'vencida' && (
+                      <span
+                        className={`text-label-sm font-bold uppercase tracking-wider ${
+                          on ? 'text-secondary-fixed' : libre ? 'text-estado-ok-text' : 'text-outline'
+                        }`}
+                      >
+                        {etiqueta}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -1016,9 +965,6 @@ export default function NewReservationPage() {
                   </span>
                   Titular de la reserva
                 </p>
-                <span className="rounded bg-primary-container px-2.5 py-0.5 text-label-sm uppercase tracking-wider text-on-primary">
-                  Jugador 1 · cuenta para el cupo
-                </span>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -1110,7 +1056,7 @@ export default function NewReservationPage() {
                   />
                 </Field>
                 )}
-                <div className="self-end">
+                <div className="self-end sm:col-span-3">
                   <Bastones
                     valor={form.holder_club_hand}
                     onCambio={(v) => setForm({ ...form, holder_club_hand: v })}
@@ -1192,38 +1138,14 @@ export default function NewReservationPage() {
               </div>
             )}
 
-            {/* --- 3c. Cupos y aforo --- */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-outline-variant/40 bg-surface-container-low px-4 py-3">
-              <div>
-                <p className="text-title-md text-on-surface">Cupos y aforo de la salida</p>
-                <p className="text-body-md text-on-surface-variant">
-                  {paquete.sinTope
-                    ? 'El grupo toma la salida completa, sin tope de jugadores.'
-                    : `Los jugadores computan en el límite de partida (máx ${paquete.max} pax).`}{' '}
-                  Los acompañantes no ocupan cupo y pagan {mxn(precioAcompanante)} cada uno.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <span className="rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-center">
-                  <span className="block whitespace-nowrap text-title-md text-primary">
-                    {jugadores.length} {jugadores.length === 1 ? 'jugador' : 'jugadores'}
-                  </span>
-                  <span className="block text-label-sm uppercase tracking-wider text-outline">
-                    Ocupan cupo
-                  </span>
-                </span>
-                <span className="rounded border border-secondary-fixed-dim bg-secondary-fixed/40 px-3 py-1.5 text-center">
-                  <span className="block whitespace-nowrap text-title-md text-on-secondary-fixed-variant">
-                    {companions.length}{' '}
-                    {companions.length === 1 ? 'acompañante' : 'acompañantes'}
-                  </span>
-                  <span className="block text-label-sm uppercase tracking-wider text-on-secondary-container">
-                    Sin cupo · {mxn(precioAcompanante)} c/u
-                  </span>
-                </span>
-              </div>
-            </div>
-
+            {/* --- 3d/3e. Tarifas y bastones: el detalle de cuentas, plegado. El
+                total y su desglose siempre están en el resumen lateral. --- */}
+            <details className="group mt-5 rounded border border-outline-variant/50 bg-surface-container-low">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-title-md text-on-surface">
+                <span>Ver detalle de tarifas y bastones</span>
+                <span className="text-outline transition group-open:rotate-90">›</span>
+              </summary>
+              <div className="px-4 pb-4">
             {/* --- 3d. Tarifas de green fee --- */}
             <p className="mb-2 mt-5 flex items-center justify-between text-label-sm uppercase tracking-wider text-on-surface-variant">
               <span>Categorías de tarifa de green fee</span>
@@ -1294,14 +1216,15 @@ export default function NewReservationPage() {
               </>
             )}
 
+              </div>
+            </details>
+
             {/* --- 3f. Resumen del grupo --- */}
             <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-title-md text-on-surface">
-                  Resumen del grupo (jugadores y acompañantes)
-                </p>
+                <p className="text-title-md text-on-surface">Resumen del grupo</p>
                 <p className="text-body-md text-on-surface-variant">
-                  Identificación, equipamiento asignado y rol en el tee time.
+                  Los acompañantes no juegan ni ocupan cupo; pagan {mxn(precioAcompanante)} cada uno.
                 </p>
               </div>
               <button
@@ -1547,11 +1470,11 @@ export default function NewReservationPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-5 shadow-card">
-            <p className="mb-3 flex items-center gap-2 text-label-sm uppercase tracking-wider text-primary">
+          <details className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 text-label-sm uppercase tracking-wider text-primary">
               <Icono nombre="gavel" size={16} className="text-secondary" /> Políticas del club
-            </p>
-            <ul className="space-y-3 text-body-md text-on-surface-variant">
+            </summary>
+            <ul className="mt-3 space-y-3 text-body-md text-on-surface-variant">
               <li>
                 <span className="block text-title-md text-on-surface">Confirmación</span>
                 La Dirección Deportiva valida la solicitud; el cambio de estado se ve en su panel en
@@ -1573,7 +1496,7 @@ export default function NewReservationPage() {
                 dejan de ofrecerse.
               </li>
             </ul>
-          </section>
+          </details>
         </aside>
       </div>
     </div>
@@ -1584,8 +1507,8 @@ export default function NewReservationPage() {
 
 function Bloque({ numero, titulo, nota, children }) {
   return (
-    <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest shadow-card">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/40 px-5 py-3.5">
+    <section className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest">
+      <header className="flex flex-wrap items-center justify-between gap-2 px-5 pb-1 pt-4">
         <h2 className="flex items-center gap-3 font-serif text-headline-md text-primary">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-container font-sans text-label-md text-on-primary">
             {numero}
