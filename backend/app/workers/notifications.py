@@ -235,7 +235,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
         + ("Su reserva ya está pagada: en recepción solo registramos su llegada."
            if pago else
            ("El cobro se hace en recepción." if practica
-            else "El cobro y la validación de credenciales PGA se hacen en recepción."))
+            else "El cobro se hace en recepción."))
     )
 
     html = _marco(f"""

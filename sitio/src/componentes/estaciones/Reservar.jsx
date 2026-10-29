@@ -36,11 +36,25 @@ import {
 } from '../../datos/campo';
 import { useIdioma } from '../../datos/idioma';
 
-/** El día de mañana: lo mínimo razonable para reservar en línea. */
-function manana() {
+/**
+ * La fecha de hoy en la zona del equipo, escrita AAAA-MM-DD.
+ *
+ * Antes se usaba `toISOString()`, que cuenta en UTC: a partir de las 6 pm en
+ * México ya era "mañana" y el calendario no dejaba elegir hoy. Se prefiere el
+ * día del campo que manda el servidor (`campo.hoy`); esto es solo el respaldo.
+ */
+function hoyLocal() {
   const d = new Date();
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+}
+
+/** El día siguiente a una fecha AAAA-MM-DD. */
+function diaSiguiente(iso) {
+  const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  const dos = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
 }
 
 /**
@@ -93,7 +107,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
 
   const [paquete, setPaquete] = useState('GRUPO');
   const [hoyos, setHoyos] = useState(18);
-  const [fecha, setFecha] = useState(manana());
+  const [fecha, setFecha] = useState(campo?.hoy || hoyLocal());
+  // Mientras el visitante no toque el calendario, el sitio puede moverle la fecha
+  // al primer día que sí se pueda reservar.
+  const [fechaTocada, setFechaTocada] = useState(false);
+  const hoyDelCampo = campo?.hoy || hoyLocal();
+  const pgaActivo = Boolean(campo?.pga_activo);
   const [slot, setSlot] = useState(null);
   const [jugadores, setJugadores] = useState([jugadorNuevo()]);
   const [contacto, setContacto] = useState({ correo: '', telefono: '' });
@@ -156,7 +175,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   }, [llegada]);
 
   // ------------------------------------------------------- disponibilidad
-  useEffect(() => setSlot(null), [fecha, paquete === 'PRACTICA']);
+  useEffect(() => setSlot(null), [fecha, paquete]);
 
   useEffect(() => {
     if (listo) return undefined;
@@ -175,7 +194,20 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       vigente = false;
     };
     // La práctica consulta horas de llegada, no salidas de golf.
-  }, [fecha, listo, paquete === 'PRACTICA']);
+  }, [fecha, listo, paquete]);
+
+  // Si el campo ya no recibe reservas para hoy (pasó la hora límite) y el
+  // visitante no ha elegido fecha, se le pone la de mañana.
+  useEffect(() => {
+    if (!fechaTocada && dia?.dia_cerrado && fecha === hoyDelCampo) {
+      setFecha(diaSiguiente(fecha));
+    }
+  }, [dia, fechaTocada, fecha, hoyDelCampo]);
+
+  // Cuando llega el día del campo y nadie ha tocado el calendario, se usa ese.
+  useEffect(() => {
+    if (!fechaTocada && campo?.hoy && fecha < campo.hoy) setFecha(campo.hoy);
+  }, [campo?.hoy]);
 
   // El campo puede cerrar la partida abierta por día completo. Si estaba
   // elegida y el día no la admite, se cambia a Grupo y se avisa, en vez de
@@ -199,6 +231,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         ];
       }
       if (actuales.length > topes.maximo) return actuales.slice(0, topes.maximo);
+      // Partida abierta y práctica arrancan con un solo jugador: si los
+      // renglones de más están vacíos (venían de Grupo, que pide cuatro), se
+      // quitan. Si ya tienen nombre, no se tocan.
+      if (
+        topes.minimo === 1 &&
+        actuales.length > 1 &&
+        actuales.slice(1).every((j) => !j.nombre.trim() && !j.edad)
+      ) {
+        return actuales.slice(0, 1);
+      }
       return actuales;
     });
   }, [paquete, topes?.minimo, topes?.maximo]);
@@ -272,6 +314,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         : 0),
   );
 
+  const telefonoClub = campo?.contacto?.telefono || '';
   const sinSistema = dia === null && !cargando && !listo;
 
   /** Qué falta para poder avanzar de cada paso. Null = puede pasar. */
@@ -343,6 +386,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     return (
       <Listo
         reserva={listo}
+        telefono={campo?.contacto?.telefono || ''}
         t={t}
         idioma={idioma}
         onOtra={() => {
@@ -413,7 +457,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       </span>
                     </span>
                     <span className="mt-1.5 font-texto text-menudo leading-relaxed text-arena/85">
-                      {t(`paquete.${p.modalidad}.detalle`)}
+                      {limites.descripcion || t(`paquete.${p.modalidad}.detalle`)}
                     </span>
                   </button>
                 );
@@ -458,8 +502,11 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               <input
                 type="date"
                 value={fecha}
-                min={manana()}
-                onChange={(e) => setFecha(e.target.value)}
+                min={hoyDelCampo}
+                onChange={(e) => {
+                  setFechaTocada(true);
+                  setFecha(e.target.value);
+                }}
                 className={`${entrada} w-full [color-scheme:dark] sm:max-w-[16rem]`}
               />
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
@@ -492,22 +539,32 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         onClick={() => setSlot(s.id)}
                         disabled={lleno}
                         aria-pressed={elegida}
-                        title={lleno ? t('reservar.sinLugares') : undefined}
+                        title={lleno ? t('reservar.sinLugares') : s.abierta ? t('reservar.abiertaTitulo', { n: s.libres }) : undefined}
                         className={`rounded-sm border py-1.5 text-center font-texto text-menudo font-semibold tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote ${
                           elegida
                             ? 'border-hoja bg-hoja text-sombra-honda'
                             : lleno
                               ? 'cursor-not-allowed border-arena/10 text-arena/70 line-through'
-                              : s.twilight
-                                ? 'border-copa/40 bg-copa/10 text-copa hover:border-copa'
-                                : 'border-arena/20 bg-arena/[0.055] text-arena hover:border-copa/60'
+                              : s.abierta
+                                ? 'border-hoja/70 bg-hoja/15 text-arena hover:border-hoja'
+                                : s.twilight
+                                  ? 'border-copa/40 bg-copa/10 text-copa hover:border-copa'
+                                  : 'border-arena/20 bg-arena/[0.055] text-arena hover:border-copa/60'
                         }`}
                       >
                         {hhmm(s.hora)}
+                        {s.abierta && !lleno && (
+                          <span className="ml-1 text-[0.65rem] font-bold text-hoja" aria-hidden="true">●</span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
+              )}
+              {(dia?.salidas || []).some((s) => s.abierta) && (
+                <p className="mt-1.5 font-texto text-menudo text-arena/80">
+                  <span className="font-bold text-hoja">●</span> {t('reservar.abiertaLeyenda')}
+                </p>
               )}
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
                 {t('reservar.twilight', {
@@ -577,48 +634,41 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       placeholder={t('reservar.handicap')}
                       className={`${entrada} w-[9.5rem]`}
                     />
-                    <input
-                      value={j.pga}
-                      onChange={(e) => cambiar(i, 'pga', e.target.value)}
-                      placeholder={t('reservar.pga')}
-                      className={`${entrada} w-[9.5rem]`}
-                    />
+                    {pgaActivo && (
+                      <input
+                        value={j.pga}
+                        onChange={(e) => cambiar(i, 'pga', e.target.value)}
+                        placeholder={t('reservar.pga')}
+                        className={`${entrada} w-[9.5rem]`}
+                      />
+                    )}
                     </>
                     )}
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="font-texto text-[0.7rem] font-semibold uppercase tracking-wider text-arena/75">
-                        {t('reservar.bastonesTitulo')}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                        <Alternador
-                          opciones={[
-                            { valor: '', texto: t('reservar.traeBastones') },
-                            { valor: 'DIESTRO', texto: t('reservar.diestro') },
-                            { valor: 'ZURDO', texto: t('reservar.zurdo') },
-                          ]}
-                          valor={j.bastones}
-                          onElegir={(v) => cambiar(i, 'bastones', v)}
-                        />
-                        {j.bastones && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <Alternador
+                        opciones={[
+                          { valor: false, texto: t('reservar.traeBastones') },
+                          { valor: true, texto: t('reservar.rentaBastones') },
+                        ]}
+                        valor={Boolean(j.bastones)}
+                        onElegir={(v) => cambiar(i, 'bastones', v ? j.bastones || 'DIESTRO' : '')}
+                      />
+                      {j.bastones && (
+                        <>
+                          <Alternador
+                            opciones={[
+                              { valor: 'DIESTRO', texto: t('reservar.diestro') },
+                              { valor: 'ZURDO', texto: t('reservar.zurdo') },
+                            ]}
+                            valor={j.bastones}
+                            onElegir={(v) => cambiar(i, 'bastones', v)}
+                          />
                           <span className="font-texto text-menudo tabular-nums text-arena/80">
                             {t('reservar.renta', { precio: pesos(precioBastones) })}
                           </span>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
-                    {practica && !esPractica && (
-                      <Alternador
-                        opciones={[
-                          { valor: false, texto: t('reservar.sinPractica') },
-                          {
-                            valor: true,
-                            texto: t('reservar.conPractica', { precio: pesos(precioPractica) }),
-                          },
-                        ]}
-                        valor={Boolean(j.practica)}
-                        onElegir={(v) => cambiar(i, 'practica', v)}
-                      />
-                    )}
                   </div>
                 </li>
               ))}
@@ -642,6 +692,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   className={`${entrada} w-full`}
                 />
               </div>
+              <p className="mt-2 font-texto text-menudo text-arena/80">
+                {t('reservar.noLlego', { telefono: telefonoClub })}
+              </p>
             </Campo>
           </Paso>
         )}
@@ -860,7 +913,8 @@ function aCuerpo(jugadores) {
     bastones: j.bastones || null,
     // Un junior paga junior aunque sea local: no se manda.
     local: Boolean(j.local) && !esJunior(j.edad),
-    practica: Boolean(j.practica),
+    // La zona de práctica va incluida en el green fee: no se cobra aparte.
+    practica: false,
   }));
 }
 
@@ -1013,7 +1067,7 @@ function Tarjeta() {
   );
 }
 
-function Listo({ reserva, onOtra, t, idioma }) {
+function Listo({ reserva, onOtra, t, idioma, telefono }) {
   const pagada = reserva.estado === 'CONFIRMADA';
   const cancelada = reserva.estado === 'CANCELADA';
 
@@ -1054,6 +1108,12 @@ function Listo({ reserva, onOtra, t, idioma }) {
           nos lo confirman. Decirle «le llamamos para confirmarla», como decía
           antes, lo deja creyendo que algo salió mal. */}
       {!pagada && !cancelada && <Aviso>{t('listo.entrando')}</Aviso>}
+
+      {!cancelada && telefono && (
+        <p className="mt-4 max-w-lectura font-texto text-menudo text-arena/85">
+          {t('reservar.noLlego', { telefono })}
+        </p>
+      )}
 
       <button
         onClick={onOtra}

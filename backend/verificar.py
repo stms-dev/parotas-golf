@@ -82,6 +82,8 @@ ops = token("operaciones@lasparotas.mx")
 recepcion = token("recepcion@lasparotas.mx")
 admin = token("admin@lasparotas.mx")
 check("Login de los 4 roles", True)
+# El descuento PGA viene apagado de fábrica; este flujo lo prueba, así que se enciende.
+client.put("/api/catalog/settings/pga_activo", json={"value": "true"}, headers=admin)
 
 bad = client.post("/api/auth/login", json={"email": "concierge@celeste.mx", "password": "mala"})
 check("Contraseña incorrecta rechazada", bad.status_code == 401)
@@ -423,6 +425,12 @@ check("La reserva conserva su TC original",
       Decimal(despues["exchange_rate_applied"]) == Decimal("17.2000"), "sigue en 17.20 con TC nuevo de 19.50")
 pago_usd = next(p for p in despues.get("payments", []) if True) if despues.get("payments") else None
 check("El total no se recalculó", Decimal(despues["total"]) == TOTAL_PGA)
+r = client.get(f"/api/checkin/lookup?qr_token={reserva['qr_token']}", headers=recepcion)
+check("La cuenta ya pagada conserva el TC con el que se cobró (17.20, no el nuevo 19.50)",
+      Decimal(r.json()["exchange_rate"]) == Decimal("17.2000"), f"TC {r.json().get('exchange_rate')}")
+check("Su equivalente en dólares no se movió",
+      Decimal(r.json()["total_usd_equivalent"]) == (Decimal(despues["total"]) / Decimal("17.2000")).quantize(Decimal("0.01")),
+      f"{r.json().get('total_usd_equivalent')}")
 
 # ------------------------------------------------------------ 8. salida y cierre
 print("\n8. Salida del campo: replay y finalizar")

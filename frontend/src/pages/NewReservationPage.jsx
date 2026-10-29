@@ -41,7 +41,8 @@ const PAQUETES = [
     nombre: 'En Grupo',
     etiqueta: 'Desde 4',
     icono: 'groups',
-    detalle: 'El titular organiza su propio grupo en una salida exclusiva.',
+    detalle:
+      'Salida exclusiva para su grupo, a partir de cuatro jugadores. El titular organiza al grupo y reserva para todos.',
     min: 4,
     // Sin techo: el grupo toma la salida completa, así que el cupo de la
     // franja no lo limita. 24 es solo un tope de captura para que un dedazo
@@ -54,7 +55,8 @@ const PAQUETES = [
     nombre: 'Partida Abierta',
     etiqueta: 'Multihotel',
     icono: 'hub',
-    detalle: 'Sale con los que se junten, hasta llegar a 4, aunque vengan de hoteles distintos.',
+    detalle:
+      'Para quien reserva solo o con pocas personas: se le empareja con otros jugadores hasta completar cuatro, aunque se hospeden en hoteles distintos.',
     min: 1,
     max: 4,
   },
@@ -63,7 +65,8 @@ const PAQUETES = [
     nombre: 'Práctica',
     etiqueta: 'Zona de práctica',
     icono: 'golf',
-    detalle: 'Solo zona de práctica: no sale al campo ni toma la salida. La hora es la de llegada.',
+    detalle:
+      'Acceso a la zona de práctica, sin salir al campo. Puede reservar uno o varios jugadores, con o sin acompañantes.',
     min: 1,
     max: 8,
   },
@@ -165,6 +168,9 @@ export default function NewReservationPage() {
 
   /** Solo los jugadores ADICIONALES al titular. */
   const [extras, setExtras] = useState([]);
+  // El descuento PGA y las descripciones de los paquetes se configuran en Precios.
+  const [pgaActivo, setPgaActivo] = useState(false);
+  const [detalles, setDetalles] = useState({});
   const [companions, setCompanions] = useState([]);
 
   const [error, setError] = useState(null);
@@ -187,6 +193,18 @@ export default function NewReservationPage() {
         setTarifas(rates);
         setConfig(configs[0] || null);
         setServicios(serviceList);
+        catalogApi
+          .settings()
+          .then((lista) => {
+            const v = (k) => lista.find((x) => x.key === k)?.value;
+            setPgaActivo(String(v('pga_activo') || 'false').toLowerCase() === 'true');
+            setDetalles({
+              GRUPO: v('paquete_GRUPO_detalle'),
+              PARTIDA_ABIERTA: v('paquete_PARTIDA_ABIERTA_detalle'),
+              PRACTICA: v('paquete_PRACTICA_detalle'),
+            });
+          })
+          .catch(() => {});
         catalogApi
           .services({ active_only: false })
           .then((todos) => setServicioPractica(todos.find((x) => x.code === 'PRACTICA') || null))
@@ -261,6 +279,11 @@ export default function NewReservationPage() {
       let next = [...current];
       while (next.length < minExtras) next.push(jugadorVacio());
       if (next.length > maxExtras) next = next.slice(0, maxExtras);
+      // Partida abierta y práctica arrancan con un solo jugador: los renglones
+      // vacíos que venían de Grupo (que pide cuatro) se quitan.
+      if (minExtras === 0 && next.every((j) => !String(j.full_name || '').trim() && !j.age)) {
+        next = [];
+      }
       return next;
     });
     setForm((prev) => {
@@ -647,7 +670,7 @@ export default function NewReservationPage() {
                         on ? 'text-primary-fixed' : 'text-on-surface-variant'
                       }`}
                     >
-                      {item.detalle}
+                      {detalles[item.value] || item.detalle}
                     </span>
                     {precio !== null && (
                       <span
@@ -1016,10 +1039,10 @@ export default function NewReservationPage() {
                 {/* El aviso aparece al salir del campo, no mientras se teclea:
                     marcar en rojo un correo a medio escribir es molesto. */}
                 <Field
-                  label="Correo electrónico del titular"
+                  label="Correo electrónico para envío de su reserva"
                   required
                   error={tocado.holder_email ? fallaCorreo : null}
-                  hint="A este correo llega la confirmación y el pase de la partida."
+                  hint="A este correo llega la confirmación y el pase de la reserva."
                 >
                   <Input
                     type="email"
@@ -1062,7 +1085,7 @@ export default function NewReservationPage() {
                     onChange={(e) => setForm({ ...form, holder_age: e.target.value })}
                   />
                 </Field>
-                {!esPractica && (
+                {!esPractica && pgaActivo && (
                 <Field label="Identificador PGA" hint="Opcional · lo valida recepción">
                   <Input
                     value={form.holder_pga}
@@ -1087,12 +1110,12 @@ export default function NewReservationPage() {
                   />
                 </Field>
                 )}
-                <Field label="Bastones propios · renta" hint="Primero si trae los suyos o renta">
+                <div className="self-end">
                   <Bastones
                     valor={form.holder_club_hand}
                     onCambio={(v) => setForm({ ...form, holder_club_hand: v })}
                   />
-                </Field>
+                </div>
                 {!esPractica && (
                 <Field label="¿Es local?" hint={AYUDA_LOCAL}>
                   <SiNo
@@ -1102,7 +1125,7 @@ export default function NewReservationPage() {
                 </Field>
                 )}
                 {PRACTICA_EN_RONDA && practica && !esPractica && (
-                  <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 180 pelotas`}>
+                  <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 120 pelotas`}>
                     <SiNo
                       valor={form.holder_practica}
                       onCambio={(v) => setForm({ ...form, holder_practica: v })}
@@ -1150,6 +1173,7 @@ export default function NewReservationPage() {
                       precio={precioJugador(player)}
                       conPractica={PRACTICA_EN_RONDA && Boolean(practica) && !esPractica}
                       soloPractica={esPractica}
+                      mostrarPga={pgaActivo}
                       puedeQuitar={extras.length > minExtras}
                       onQuitar={() => setExtras(extras.filter((_, i) => i !== index))}
                       onChange={(campo, valor) => {
@@ -1588,7 +1612,7 @@ function Bastones({ valor, onCambio }) {
     <div className="flex flex-wrap items-center gap-1.5">
       <div className="flex w-fit rounded border border-outline-variant p-0.5">
         <Pastilla activa={!renta} onClick={() => onCambio('')}>
-          Trae los suyos
+          Bastones propios
         </Pastilla>
         <Pastilla activa={renta} onClick={() => onCambio(valor || 'DIESTRO')}>
           Renta
@@ -1754,7 +1778,7 @@ function FilaResumen({ numero, nombre, rol, tonoRol, detalle, monto }) {
 }
 
 function JugadorFila({
-  numero, player, precio, conPractica, soloPractica = false, puedeQuitar, onQuitar, onChange,
+  numero, player, precio, conPractica, soloPractica = false, mostrarPga = false, puedeQuitar, onQuitar, onChange,
 }) {
   const menor = esJunior(player);
   return (
@@ -1805,12 +1829,14 @@ function JugadorFila({
       <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-outline-variant/40 pt-2.5">
         {!soloPractica && (
         <>
+        {mostrarPga && (
         <input
           value={player.pga_code}
           placeholder="PGA (opcional)"
           onChange={(e) => onChange('pga_code', e.target.value)}
           className="min-w-[150px] flex-1 rounded border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-md"
         />
+        )}
         <input
           value={player.handicap}
           placeholder="Handicap/GHIN"
@@ -1819,12 +1845,7 @@ function JugadorFila({
         />
         </>
         )}
-        <div className="flex flex-col items-start gap-1">
-          <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">
-            Bastones propios · renta
-          </span>
-          <Bastones valor={player.club_hand} onCambio={(v) => onChange('club_hand', v)} />
-        </div>
+        <Bastones valor={player.club_hand} onCambio={(v) => onChange('club_hand', v)} />
         {!menor && !soloPractica && (
           <div className="flex items-center gap-2" title={AYUDA_LOCAL}>
             <span className="whitespace-nowrap text-label-sm uppercase tracking-wider text-outline">

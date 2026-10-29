@@ -155,12 +155,12 @@ export const EXTRAS = [
     nombre: 'Zona de práctica',
     precio: 250,
     precioFin: 400,
-    nota: '180 pelotas de práctica.',
+    nota: '120 pelotas de práctica.',
   },
 ];
 
 /** Lo que incluye el green fee. Las bebidas ya no van incluidas. */
-export const INCLUIDO = ['Carrito compartido', 'Tarjeta de score', '10 tees', '50 pelotas de práctica'];
+export const INCLUIDO = ['Carrito compartido', 'Tarjeta de score', '10 tees', 'Zona de práctica con 20 pelotas'];
 
 /**
  * Una lista escrita de verdad: comas y una conjunción antes del último.

@@ -89,8 +89,8 @@ class ServiceCreate(ServiceBase):
 
 
 class ServiceUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=3, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=300, pattern=r"^[^<>]*$")
     price: Optional[Decimal] = Field(default=None, ge=0)
     weekend_price: Optional[Decimal] = Field(default=None, ge=0)
     is_active: Optional[bool] = None

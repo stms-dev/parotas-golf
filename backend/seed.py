@@ -157,7 +157,7 @@ def sembrar(produccion: bool = False):
             # Quien acompaña sin jugar paga su lugar. Se carga solo desde la
             # reserva del hotel, uno por cada acompañante anotado.
             ("ACOMPANANTE", "Acompañante (no juega)", "800.00", ServiceUnit.POR_PERSONA),
-            # 180 pelotas. Cuesta más de viernes a domingo.
+            # 120 pelotas. Cuesta más de viernes a domingo.
             ("PRACTICA", "Zona de práctica", "250.00", ServiceUnit.POR_PERSONA),
         ]
         FIN_DE_SEMANA = {"PRACTICA": "400.00"}

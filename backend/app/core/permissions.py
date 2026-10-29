@@ -74,6 +74,8 @@ class Permission:
 
     # ------------------------------------------------------------- finanzas
     FINANCE_VIEW_GLOBAL = "finance:view_global"
+    # Ventas totales: lo cobrado por sección y forma de pago. Solo la dirección.
+    FINANCE_SALES_TOTALS = "finance:sales_totals"
     FINANCE_VIEW_OWN_HOTEL = "finance:view_own_hotel"
     # Ver la caja y cobrar contra ella es una cosa; abrir y cerrar el turno es
     # otra, y la hace operaciones. Recepción cobra dentro de un turno que ya
@@ -183,6 +185,7 @@ _ADMIN_OPERACIONES: Set[str] = {
     Permission.OPEN_PARTIDA_MANAGE,
 
     Permission.FINANCE_VIEW_GLOBAL,
+    Permission.FINANCE_SALES_TOTALS,
     # Operaciones es quien abre y cierra el turno de caja.
     Permission.CASH_SESSION_VIEW,
     Permission.CASH_SESSION_MANAGE,

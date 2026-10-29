@@ -48,7 +48,7 @@ class CheckInService:
     # ------------------------------------------------------------------ cuenta
     def account_summary(self, reservation: Reservation) -> dict:
         paid = self._total_paid(reservation)
-        exchange_rate = self.exchange.current_rate()
+        exchange_rate = self._tipo_de_cambio_de(reservation, paid)
         lines: List[str] = []
 
         for player in reservation.players:
@@ -85,6 +85,19 @@ class CheckInService:
             "total_usd_equivalent": money(total / exchange_rate) if exchange_rate else ZERO,
             "lines": lines,
         }
+
+    def _tipo_de_cambio_de(self, reservation: Reservation, pagado: Optional[Decimal] = None) -> Decimal:
+        """El tipo de cambio con el que se lee la cuenta de una reserva.
+
+        Si la cuenta ya se liquidó, vale el del último pago: cambiar el tipo
+        de cambio hoy no reescribe lo que ya se cobró. Si aún hay saldo, el
+        siguiente cobro se hará con el vigente, así que se enseña ese.
+        """
+        pagos = [p for p in pagos_de_la_reserva(reservation) if p.exchange_rate_applied]
+        pagado = self._total_paid(reservation) if pagado is None else pagado
+        if pagos and money(reservation.total) > 0 and pagado >= money(reservation.total):
+            return max(pagos, key=lambda p: (p.paid_at or datetime.min, p.id)).exchange_rate_applied
+        return self.exchange.current_rate()
 
     @staticmethod
     def _total_paid(reservation: Reservation) -> Decimal:
@@ -124,6 +137,18 @@ class CheckInService:
                         player_id=player.id, player_name=player.full_name,
                         valid=False,
                         message="El mostrador no aplicó el beneficio",
+                        base_rate=money(player.rate_applied), discount=ZERO,
+                        final_rate=money(player.rate_applied),
+                    )
+                )
+                continue
+
+            if not self.settings.pga_activo():
+                results.append(
+                    PGAApplicationResult(
+                        player_id=player.id, player_name=player.full_name,
+                        valid=False,
+                        message="El descuento PGA está desactivado por el momento",
                         base_rate=money(player.rate_applied), discount=ZERO,
                         final_rate=money(player.rate_applied),
                     )
@@ -577,7 +602,7 @@ class CheckInService:
             "total": money(reservation.total),
             "total_paid": paid,
             "balance": balance,
-            "exchange_rate_applied": self.exchange.current_rate(),
+            "exchange_rate_applied": self._tipo_de_cambio_de(reservation, paid),
             "change_mxn": cambio,
             "pga_results": pga_results,
             "payments": [

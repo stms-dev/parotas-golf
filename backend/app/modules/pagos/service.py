@@ -208,6 +208,11 @@ class ReservaPublicaService:
             "paquetes": self.paquetes(),
             "practica": self._precio_practica(),
             "contacto": self.contacto(),
+            # El día de hoy del campo y hasta qué hora se reserva para hoy: el
+            # sitio no debe adivinarlos con el reloj del navegador.
+            "hoy": hoy_local(),
+            "limite_mismo_dia": self.ajustes.hora_limite_del_dia().strftime("%H:%M"),
+            "pga_activo": self.ajustes.pga_activo(),
             "minimo_grupo": self.PAQUETES[BookingModality.GRUPO]["minimo"],
             "cupo_partida_abierta": self.PAQUETES[BookingModality.PARTIDA_ABIERTA]["maximo"],
             "apartado_minutos": settings.APARTADO_MINUTOS,
@@ -244,7 +249,8 @@ class ReservaPublicaService:
 
         cerrado = (not settings.horarios_libres) and dia_cerrado(dia, limite)
 
-        practica = str(modalidad or "").upper() == BookingModality.PRACTICA.value
+        pedida = str(modalidad or "").upper()
+        practica = pedida == BookingModality.PRACTICA.value
         tope_practica = self.PAQUETES[BookingModality.PRACTICA]["maximo"]
 
         salidas = []
@@ -257,14 +263,35 @@ class ReservaPublicaService:
                 libres = 0
             # La práctica no toma la salida de golf: cualquier hora que no
             # esté bloqueada por un evento sirve como hora de llegada.
-            if practica:
-                from app.shared.enums import SlotStatus
+            from app.shared.enums import SlotStatus
 
+            if practica:
                 libres = 0 if slot.status == SlotStatus.BLOQUEADO else tope_practica
+            elif pedida == BookingModality.GRUPO.value:
+                # Un grupo toma la salida completa: solo sirve una salida sin
+                # nadie, y su tamaño no lo limita el cupo de la franja.
+                libres = (
+                    self.PAQUETES[BookingModality.GRUPO]["maximo"]
+                    if slot.status == SlotStatus.DISPONIBLE and not slot.open_closed
+                    else 0
+                )
+            elif pedida == BookingModality.PARTIDA_ABIERTA.value:
+                # Una partida abierta solo se junta con otras abiertas: una
+                # salida ya tomada por un grupo no se ofrece.
+                if slot.status not in (SlotStatus.DISPONIBLE, SlotStatus.ABIERTA):
+                    libres = 0
             salidas.append({
                 "id": slot.id,
                 "hora": slot.slot_time,
                 "libres": 0 if (vencida or cerrado) else libres,
+                # Salida con una partida abierta ya empezada: el sitio la marca
+                # para que quien entra sepa que se junta con otros jugadores.
+                "abierta": bool(
+                    pedida == BookingModality.PARTIDA_ABIERTA.value
+                    and slot.status == SlotStatus.ABIERTA
+                    and libres > 0
+                    and not (vencida or cerrado)
+                ),
                 "twilight": bool(twilight and slot.slot_time >= twilight),
             })
 
@@ -306,6 +333,7 @@ class ReservaPublicaService:
                 "modalidad": m.value,
                 "minimo": t["minimo"],
                 "maximo": t["maximo"],
+                "descripcion": self.ajustes.detalle_paquete(m.value),
             }
             for m, t in self.PAQUETES.items()
         ]

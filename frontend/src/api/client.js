@@ -309,6 +309,8 @@ export const treasuryApi = {
   settle: (id) => api.post(`/treasury/settlements/${id}/settle`),
 
   summary: (params) => api.get('/treasury/summary', params),
+  ventas: (params) => api.get('/treasury/sales-breakdown', params),
+  miDia: () => api.get('/treasury/my-day'),
   pgaBenefits: (params) => api.get('/treasury/pga-benefits', params),
 };
 

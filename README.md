@@ -783,3 +783,14 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Correo.** El worker está escrito y probado; solo falta configurar SMTP.
 - **Autenticación empresarial.** El módulo `identity` está aislado para que
   meter OIDC o SAML sea reemplazar su implementación, no reescribir permisos.
+
+## Cambios v14
+
+- **Descuento PGA**: apagado por defecto; se enciende desde Control (`pga_activo`). Apagado, no se pide ni se aplica en sitio, reserva ni check-in.
+- **Paquetes y servicios editables** (Control → "Paquetes y servicios adicionales"): nombre, descripción y precio de servicios, y descripciones de los paquetes (`paquete_{GRUPO,PARTIDA_ABIERTA,PRACTICA}_detalle`).
+- **Ventas totales** (`/sistema/ventas`, permiso `finance:sales_totals`, solo administración/operaciones): desglose por sección (green fees, tienda, etc.) y por forma de pago (efectivo, tarjeta, transferencia, dólares), por día/semana/mes/año, con CSV. Endpoint `GET /treasury/sales-breakdown`.
+- **Tipo de cambio**: cada cuenta pagada conserva el de su último pago; cambiar el tipo de cambio solo afecta reservas nuevas.
+- **Práctica**: 120 pelotas (migración `e6a8c0d2f4b5`, solo si la descripción no fue editada). El green fee ya incluye zona de práctica con 20 pelotas.
+- **Sitio**: Partida abierta y Práctica arrancan con 1 jugador (Grupo, 4); la fecha usa el día del campo (`campo.hoy`) y permite hoy hasta la hora límite; la partida abierta ofrece solo salidas con lugar suficiente; bastones propios/renta con diestro/zurdo; leyenda con teléfono si no llega la reserva.
+- **Partida abierta en el sitio**: las salidas con una partida ya iniciada se pueden elegir aunque no estén completas y salen marcadas con ● (campo `abierta` en `/public/disponibilidad`). El sitio ahora manda la modalidad al pedir salidas (antes solo la práctica).
+- **Corte del día de recepción**: `GET /treasury/my-day` (permiso `payment:register`) devuelve solo lo que cobró el usuario hoy. En `/sistema/ventas` recepción ve "Mi corte del día"; administración y operaciones ven el total del campo.

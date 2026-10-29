@@ -85,10 +85,10 @@ function descuentoPga(config, tarifaBase) {
  * tarjeta completa porque necesita los controles de validación, y los demás se
  * acomodan de dos en dos. Así la lista no crece de más cuando salen cuatro.
  */
-function bloquesDeJugadores(players) {
+function bloquesDeJugadores(players, pgaActivo = true) {
   const bloques = [];
   players.forEach((player) => {
-    if (player.pga_code) {
+    if (pgaActivo && player.pga_code) {
       bloques.push({ tipo: 'pga', players: [player] });
       return;
     }
@@ -123,6 +123,7 @@ export default function CheckInPage() {
   const [arrivals, setArrivals] = useState({});
   /** Por jugador: { decision: 'valida' | 'invalida' | null }. */
   const [pga, setPga] = useState({});
+  const [pgaActivo, setPgaActivo] = useState(false);
   const [addedServices, setAddedServices] = useState([]);
   const [modalidad, setModalidad] = useState('unico');
   const [moneda, setMoneda] = useState('MXN');
@@ -154,6 +155,13 @@ export default function CheckInPage() {
   useEffect(() => {
     catalogApi.services().then(setServices).catch(() => {});
     catalogApi.pgaConfig().then(setPgaConfig).catch(() => setPgaConfig(null));
+    // El descuento PGA se enciende y se apaga desde Precios & Configuración.
+    catalogApi
+      .settings()
+      .then((lista) =>
+        setPgaActivo(String(lista.find((x) => x.key === 'pga_activo')?.value || 'false').toLowerCase() === 'true'),
+      )
+      .catch(() => setPgaActivo(false));
     refrescarEncabezado();
   }, []);
 
@@ -303,7 +311,7 @@ export default function CheckInPage() {
         // Solo se mandan los jugadores que traen credencial y sobre los que el
         // mostrador ya tomó una decisión. apply_benefit es esa decisión.
         pga_validations: reservation.players
-          .filter((p) => p.pga_code && pga[p.id]?.decision)
+          .filter((p) => pgaActivo && p.pga_code && pga[p.id]?.decision)
           .map((p) => ({
             player_id: p.id,
             pga_code: p.pga_code,
@@ -532,7 +540,7 @@ export default function CheckInPage() {
   const ausentes = jugadores.filter((p) => !arrivals[p.id]);
 
   const lineasPga = presentes
-    .filter((p) => p.pga_code)
+    .filter((p) => pgaActivo && p.pga_code)
     .map((p) => {
       const estado = pga[p.id] || {};
       const descuento =
@@ -955,7 +963,7 @@ export default function CheckInPage() {
                 </div>
 
                 <div className="space-y-3 p-5">
-                  {bloquesDeJugadores(reservation.players).map((bloque, i) =>
+                  {bloquesDeJugadores(reservation.players, pgaActivo).map((bloque, i) =>
                     bloque.tipo === 'pga' ? (
                       <TarjetaPga
                         key={bloque.players[0].id}
@@ -1016,7 +1024,7 @@ export default function CheckInPage() {
                     </div>
                   )}
 
-                  {!esPractica && (
+                  {!esPractica && pgaActivo && (
                   <p className="flex items-start gap-2 rounded bg-surface-container-low px-3.5 py-2.5 text-body-md text-outline">
                     <Icono nombre="escudo" size={16} className="mt-0.5 shrink-0 text-secondary" />
                     Regla de aplicación: el beneficio PGA es estrictamente individual. Solo se
@@ -1696,7 +1704,7 @@ export default function CheckInPage() {
                       Es un segundo ticket del mismo folio: el ticket original no cambia y el
                       replay no genera comisión para el hotel.
                     </p>
-                  ) : esPractica ? null : (
+                  ) : esPractica || !pgaActivo ? null : (
                     <p className="mt-3 flex items-start gap-2 text-body-md text-outline">
                       <Icono nombre="martillo" size={15} className="mt-0.5 shrink-0 text-secondary" />
                       Nota administrativa: el PGA es un beneficio individual. Solo descuenta sobre la

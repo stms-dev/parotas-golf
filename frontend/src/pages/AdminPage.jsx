@@ -227,6 +227,8 @@ export default function AdminPage() {
 
       <Tarifas tarifas={tarifas} tasa={tasa} onCambio={() => cargarTodo(false)} />
 
+      <PaquetesYServicios onCambio={() => cargarTodo(false)} />
+
       <BeneficioPga />
 
       <CarritosYCaddies />
@@ -456,10 +458,47 @@ function TipoDeCambio({ tc, onCambio }) {
  * una configuración nueva; lo ya cobrado conserva el descuento que tuvo.
  */
 function BeneficioPga() {
+  const [activo, setActivo] = useState(false);
+  const [cambiando, setCambiando] = useState(false);
   const [config, setConfig] = useState(null);
   const [tipo, setTipo] = useState('PORCENTAJE');
   const [valor, setValor] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  function cargarActivo() {
+    catalogApi
+      .settings()
+      .then((lista) =>
+        setActivo(String(lista.find((x) => x.key === 'pga_activo')?.value || 'false').toLowerCase() === 'true'),
+      )
+      .catch(() => {});
+  }
+  useEffect(cargarActivo, []);
+
+  async function alternarActivo() {
+    const ok = await confirmar({
+      titulo: activo ? 'Desactivar el descuento PGA' : 'Activar el descuento PGA',
+      texto: activo
+        ? 'Dejará de pedirse el identificador PGA en las reservas y de aplicarse el descuento en el check-in. ' +
+          'Lo ya cobrado no cambia.'
+        : 'Volverá a pedirse el identificador PGA en las reservas y recepción podrá aplicar el descuento.',
+      confirmar: activo ? 'Sí, desactivar' : 'Sí, activar',
+    });
+    if (!ok) return;
+    setCambiando(true);
+    try {
+      await catalogApi.updateSetting('pga_activo', activo ? 'false' : 'true');
+      await exito(
+        activo ? 'Descuento PGA desactivado' : 'Descuento PGA activado',
+        activo ? 'Ya no se ofrece ni se aplica.' : 'Ya se ofrece y se puede aplicar en el check-in.',
+      );
+      cargarActivo();
+    } catch (err) {
+      await avisoError('No se pudo cambiar', err.message);
+    } finally {
+      setCambiando(false);
+    }
+  }
 
   function cargar() {
     catalogApi
@@ -540,6 +579,17 @@ function BeneficioPga() {
 
   return (
     <Tarjeta icono="verificado" titulo="Beneficio PGA">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
+        <p className="text-body-md text-on-surface-variant">
+          <strong className="text-primary">Descuento PGA {activo ? 'activado' : 'desactivado'}.</strong>{' '}
+          {activo
+            ? 'Se pide el identificador en las reservas y recepción puede aplicar el descuento.'
+            : 'No se pide el identificador ni se aplica ningún descuento mientras esté apagado.'}
+        </p>
+        <button onClick={alternarActivo} disabled={cambiando} className={`${BOTON} shrink-0 disabled:opacity-50`}>
+          {cambiando ? 'Guardando…' : activo ? 'Desactivar' : 'Activar'}
+        </button>
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-serif text-display-lg leading-none text-primary">{vigente}</p>
@@ -1066,6 +1116,198 @@ function ContactoDelSitio() {
             </div>
           </div>
         ))}
+      </div>
+    </Tarjeta>
+  );
+}
+
+/* ------------------------------------------- paquetes y servicios adicionales */
+
+const PAQUETES_EDITABLES = [
+  ['GRUPO', 'En Grupo'],
+  ['PARTIDA_ABIERTA', 'Partida Abierta'],
+  ['PRACTICA', 'Práctica'],
+];
+
+/**
+ * Los textos de los paquetes y los servicios adicionales (nombre, descripción y
+ * precio), en un solo lugar. Lo que se escribe aquí es lo que ve el huésped en
+ * el sitio y el mostrador en Nueva reserva.
+ */
+function PaquetesYServicios({ onCambio }) {
+  const [textos, setTextos] = useState({});
+  const [guardados, setGuardados] = useState({});
+  const [servicios, setServicios] = useState([]);
+  const [edicion, setEdicion] = useState({});
+  const [ocupado, setOcupado] = useState(null);
+
+  function cargar() {
+    catalogApi
+      .settings()
+      .then((lista) => {
+        const t = {};
+        for (const [m] of PAQUETES_EDITABLES) t[m] = lista.find((x) => x.key === `paquete_${m}_detalle`)?.value || '';
+        setGuardados(t);
+        setTextos((prev) => (Object.keys(prev).length ? prev : t));
+      })
+      .catch(() => {});
+    catalogApi.services({ active_only: false }).then(setServicios).catch(() => setServicios([]));
+  }
+  useEffect(cargar, []);
+
+  async function guardarPaquete(m, nombre) {
+    setOcupado(`p-${m}`);
+    try {
+      await catalogApi.updateSetting(`paquete_${m}_detalle`, String(textos[m] || '').trim());
+      await exito(`«${nombre}» actualizado`, 'La descripción ya se ve en el sitio y en Nueva reserva.');
+      cargar();
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  function campoDe(s) {
+    return edicion[s.id] || {
+      name: s.name,
+      description: s.description || '',
+      price: String(Number(s.price)),
+      weekend: s.weekend_price != null ? String(Number(s.weekend_price)) : '',
+    };
+  }
+  function cambiarCampo(s, clave, valor) {
+    setEdicion({ ...edicion, [s.id]: { ...campoDe(s), [clave]: valor } });
+  }
+
+  async function guardarServicio(s) {
+    const e = campoDe(s);
+    const precio = Number(e.price);
+    const fin = e.weekend === '' ? null : Number(e.weekend);
+    if (e.price === '' || !(precio >= 0) || (fin !== null && !(fin >= 0))) {
+      await avisoError('Precio inválido', 'Escriba cantidades en pesos, sin letras.');
+      return;
+    }
+    const cambios = { name: e.name.trim(), description: e.description.trim(), price: precio.toFixed(2) };
+    if (s.weekend_price != null || fin !== null) cambios.weekend_price = fin === null ? null : fin.toFixed(2);
+    setOcupado(`s-${s.id}`);
+    try {
+      await catalogApi.updateService(s.id, cambios);
+      await exito('Servicio actualizado', 'El sitio y el sistema ya usan el cambio.');
+      const { [s.id]: _quitado, ...resto } = edicion;
+      setEdicion(resto);
+      cargar();
+      onCambio?.();
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function alternar(s) {
+    const ok = await confirmar({
+      titulo: s.is_active ? `Dar de baja «${s.name}»` : `Activar «${s.name}»`,
+      texto: s.is_active
+        ? 'Dejará de ofrecerse en el sitio y en las reservas nuevas.'
+        : 'Volverá a ofrecerse en el sitio y en las reservas nuevas.',
+      confirmar: 'Sí',
+    });
+    if (!ok) return;
+    setOcupado(`s-${s.id}`);
+    try {
+      await catalogApi.updateService(s.id, { is_active: !s.is_active });
+      cargar();
+      onCambio?.();
+    } catch (err) {
+      await avisoError('No se pudo cambiar', err.message);
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <Tarjeta icono="golf" titulo="Paquetes y servicios adicionales">
+      <p className="mb-3 text-label-sm uppercase tracking-wider text-on-surface-variant">
+        Descripción de los paquetes
+      </p>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {PAQUETES_EDITABLES.map(([m, nombre]) => (
+          <div key={m} className="rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
+            <p className="text-title-md text-primary">{nombre}</p>
+            <textarea
+              rows={4}
+              maxLength={300}
+              value={textos[m] ?? ''}
+              placeholder="Si se deja vacío, se usa la descripción de fábrica."
+              onChange={(e) => setTextos({ ...textos, [m]: e.target.value })}
+              className={`${CAMPO} mt-1.5 w-full resize-none`}
+            />
+            <div className="mt-2 flex justify-end">
+              <button
+                onClick={() => guardarPaquete(m, nombre)}
+                disabled={ocupado === `p-${m}` || (textos[m] ?? '') === (guardados[m] ?? '')}
+                className={`${BOTON} disabled:opacity-50`}
+              >
+                {ocupado === `p-${m}` ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mb-3 mt-6 text-label-sm uppercase tracking-wider text-on-surface-variant">
+        Servicios adicionales
+      </p>
+      <div className="grid gap-3">
+        {servicios.map((s) => {
+          const e = campoDe(s);
+          const cambio =
+            e.name !== s.name ||
+            e.description !== (s.description || '') ||
+            Number(e.price) !== Number(s.price) ||
+            e.weekend !== (s.weekend_price != null ? String(Number(s.weekend_price)) : '');
+          return (
+            <div
+              key={s.id}
+              className={`rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3 ${
+                s.is_active ? '' : 'opacity-70'
+              }`}
+            >
+              <div className="grid gap-2 lg:grid-cols-[1.2fr_2fr_auto_auto]">
+                <label>
+                  <span className={ETIQUETA}>Nombre</span>
+                  <input value={e.name} maxLength={120} onChange={(x) => cambiarCampo(s, 'name', x.target.value)} className={`${CAMPO} w-full`} />
+                </label>
+                <label>
+                  <span className={ETIQUETA}>Descripción</span>
+                  <input value={e.description} maxLength={300} onChange={(x) => cambiarCampo(s, 'description', x.target.value)} className={`${CAMPO} w-full`} />
+                </label>
+                <label>
+                  <span className={ETIQUETA}>{s.weekend_price != null ? 'Lun a jue' : 'Precio'}</span>
+                  <input type="number" min="0" step="10" value={e.price} onChange={(x) => cambiarCampo(s, 'price', x.target.value)} className={`${CAMPO} w-28 text-right font-mono`} />
+                </label>
+                {s.weekend_price != null && (
+                  <label>
+                    <span className={ETIQUETA}>Vie a dom</span>
+                    <input type="number" min="0" step="10" value={e.weekend} onChange={(x) => cambiarCampo(s, 'weekend', x.target.value)} className={`${CAMPO} w-28 text-right font-mono`} />
+                  </label>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-label-sm text-outline">{s.code}{s.is_active ? '' : ' · dado de baja'}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => alternar(s)} disabled={ocupado === `s-${s.id}`} className={`${BOTON} disabled:opacity-50`}>
+                    {s.is_active ? 'Dar de baja' : 'Activar'}
+                  </button>
+                  <button onClick={() => guardarServicio(s)} disabled={!cambio || ocupado === `s-${s.id}`} className={`${BOTON} disabled:opacity-50`}>
+                    {ocupado === `s-${s.id}` ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Tarjeta>
   );

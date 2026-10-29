@@ -25,6 +25,7 @@ import ReservationDetailPage from '../pages/ReservationDetailPage';
 import CheckInPage from '../pages/CheckInPage';
 import SolicitudesPage from '../pages/SolicitudesPage';
 import FinancePage from '../pages/FinancePage';
+import VentasTotalesPage from '../pages/VentasTotalesPage';
 import SettingsPage from '../pages/SettingsPage';
 import AdminPage from '../pages/AdminPage';
 import TiendaPage from '../pages/tienda/TiendaPage';
@@ -166,6 +167,15 @@ export default function AppRouter() {
           element={
             <Protected permission={PERMISOS.CHECKIN}>
               <CheckInPage />
+            </Protected>
+          }
+        />
+
+        <Route
+          path="/ventas"
+          element={
+            <Protected permission="payment:register">
+              <VentasTotalesPage />
             </Protected>
           }
         />

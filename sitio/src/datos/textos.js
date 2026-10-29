@@ -86,7 +86,7 @@ export const TEXTOS = {
     'tarifas.hoyos': '{n} hoyos',
     'tarifas.adulto': 'Adulto',
     'tarifas.menores': 'Junior · 16 años o menos',
-    'tarifas.practicaDetalle': '180 pelotas · por persona',
+    'tarifas.practicaDetalle': '120 pelotas · por persona',
     'tarifas.local': 'Local · vive en Huatulco, con credencial',
     'tarifas.soloEntreSemana': 'paga adulto',
     'tarifas.twilight': 'Twilight · salidas de 2:00 a 3:00 pm',
@@ -97,7 +97,7 @@ export const TEXTOS = {
     'tarifas.carrito': 'carrito compartido',
     'tarifas.scorecard': 'tarjeta de score',
     'tarifas.tees': '10 tees',
-    'tarifas.pelotas': '50 pelotas de práctica',
+    'tarifas.pelotas': 'zona de práctica con 20 pelotas',
     'extra.CADDIE': 'Caddie',
     'extra.CADDIE.nota': 'Se le paga directo al caddie; no incluye propina.',
     'extra.BASTONES': 'Renta de bastones',
@@ -105,7 +105,7 @@ export const TEXTOS = {
     'extra.ACOMPANANTE': 'Acompañante',
     'extra.ACOMPANANTE.nota': 'Para quien va en el carrito sin jugar. No incluye equipo.',
     'extra.PRACTICA': 'Zona de práctica',
-    'extra.PRACTICA.nota': '180 pelotas de práctica. No incluye bastones ni tees. Vie a dom: {fin}.',
+    'extra.PRACTICA.nota': '120 pelotas de práctica. No incluye bastones ni tees. Vie a dom: {fin}.',
 
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Evento privado',
@@ -149,6 +149,8 @@ export const TEXTOS = {
     'reservar.twilight':
       'Las de color turquesa son twilight, desde las {desde} · el campo cierra a las {cierre}',
     'reservar.sinLugares': 'No quedan lugares a esa hora',
+    'reservar.abiertaLeyenda': 'Partida abierta ya iniciada: usted se une a otros jugadores.',
+    'reservar.abiertaTitulo': 'Partida abierta · {n} lugares disponibles',
     'reservar.quienes': 'Quiénes juegan',
     'reservar.unoMenos': 'Uno menos',
     'reservar.unoMas': 'Uno más',
@@ -159,14 +161,14 @@ export const TEXTOS = {
     'reservar.handicap': 'Handicap/GHIN',
     'reservar.pga': 'PGA (opcional)',
     'reservar.bastonesTitulo': 'Bastones propios · renta',
-    'reservar.traeBastones': 'Trae bastones',
+    'reservar.traeBastones': 'Bastones propios',
+    'reservar.rentaBastones': 'Renta',
     'reservar.diestro': 'Diestro',
     'reservar.zurdo': 'Zurdo',
     'reservar.renta': 'renta {precio}',
-    'reservar.notaEdad':
-      'La edad decide la tarifa: con 16 años o menos paga junior. El código PGA lo ' +
-      'valida recepción al llegar; no descuenta nada todavía.',
-    'reservar.pase': '¿A dónde le mandamos su pase?',
+    'reservar.notaEdad': 'Green fee junior aplicable a jugadores de 16 años o menos.',
+    'reservar.pase': 'Correo electrónico para envío de su reserva',
+    'reservar.noLlego': 'Si no recibe su reserva por correo, comuníquese al {telefono}.',
     'reservar.correo': 'Correo del titular',
     'reservar.telefono': 'Teléfono (opcional)',
     'reservar.calculando': 'Calculando su cuenta…',
@@ -194,7 +196,7 @@ export const TEXTOS = {
     'reservar.caddieNota':
       'se le paga directo a él, no va en esta cuenta · hay dos y se asignan por orden de salida',
     'reservar.incluye':
-      'Incluye carrito compartido, tarjeta de score, 10 tees y 50 pelotas de práctica. Preséntese en la casa ' +
+      'Incluye carrito compartido, tarjeta de score, 10 tees y zona de práctica con 20 pelotas. Preséntese en la casa ' +
       'club quince minutos antes de su salida.',
     'reservar.pagoSeguro': 'Pago seguro con Stripe',
     'reservar.pagoNota':
@@ -251,14 +253,14 @@ export const TEXTOS = {
     // paquetes
     'paquete.GRUPO': 'En Grupo',
     'paquete.GRUPO.detalle':
-      'El titular organiza su propio grupo en una salida exclusiva.',
+      'Salida exclusiva para su grupo, a partir de cuatro jugadores. El titular organiza al grupo y reserva para todos.',
     'paquete.PARTIDA_ABIERTA': 'Partida Abierta',
     'paquete.PARTIDA_ABIERTA.detalle':
-      'Sale con los que se junten, hasta llegar a 4, aunque vengan de hoteles distintos.',
+      'Para quien reserva solo o con pocas personas: se le empareja con otros jugadores hasta completar cuatro, aunque se hospeden en hoteles distintos.',
     'paquete.noAbiertas': 'Ese día el campo no está armando partidas abiertas.',
     'paquete.PRACTICA': 'Práctica',
     'paquete.PRACTICA.detalle':
-      'Solo zona de práctica: no sale al campo. Elija su hora de llegada.',
+      'Acceso a la zona de práctica, sin salir al campo. Puede reservar uno o varios jugadores, con o sin acompañantes.',
     'reservar.horaLlegada': '¿A qué hora llega?',
     'reservar.zonaPractica': 'Zona de práctica',
     'reservar.practicaPrecio': '{precio} por persona · {fin} de viernes a domingo',
@@ -331,7 +333,7 @@ export const TEXTOS = {
     'tarifas.hoyos': '{n} holes',
     'tarifas.adulto': 'Adult',
     'tarifas.menores': 'Junior · 16 and under',
-    'tarifas.practicaDetalle': '180 balls · per person',
+    'tarifas.practicaDetalle': '120 balls · per person',
     'tarifas.local': 'Local · Huatulco residents, with ID',
     'tarifas.soloEntreSemana': 'adult rate',
     'tarifas.twilight': 'Twilight · tee times 2:00–3:00 pm',
@@ -342,7 +344,7 @@ export const TEXTOS = {
     'tarifas.carrito': 'a shared cart',
     'tarifas.scorecard': 'a scorecard',
     'tarifas.tees': '10 tees',
-    'tarifas.pelotas': '50 practice balls',
+    'tarifas.pelotas': 'practice area with 20 balls',
     'extra.CADDIE': 'Caddie',
     'extra.CADDIE.nota': 'Paid directly to the caddie; tip not included.',
     'extra.BASTONES': 'Club rental',
@@ -350,7 +352,7 @@ export const TEXTOS = {
     'extra.ACOMPANANTE': 'Non-playing guest',
     'extra.ACOMPANANTE.nota': 'For anyone riding along without playing. No equipment included.',
     'extra.PRACTICA': 'Practice area',
-    'extra.PRACTICA.nota': '180 practice balls. Clubs and tees not included. Fri–Sun: {fin}.',
+    'extra.PRACTICA.nota': '120 practice balls. Clubs and tees not included. Fri–Sun: {fin}.',
 
     // ----------------------------------------------------- evento privado
     'evento.titulo': 'Private events',
@@ -394,6 +396,8 @@ export const TEXTOS = {
     'reservar.twilight':
       'The turquoise ones are twilight, from {desde} · the course closes at {cierre}',
     'reservar.sinLugares': 'No spots left at that time',
+    'reservar.abiertaLeyenda': 'Open game already started: you join other players.',
+    'reservar.abiertaTitulo': 'Open game · {n} spots available',
     'reservar.quienes': "Who's playing",
     'reservar.unoMenos': 'One fewer',
     'reservar.unoMas': 'One more',
@@ -408,10 +412,9 @@ export const TEXTOS = {
     'reservar.diestro': 'Right-handed',
     'reservar.zurdo': 'Left-handed',
     'reservar.renta': 'rental {precio}',
-    'reservar.notaEdad':
-      'Age sets the rate: 16 and under pays the junior rate. The PGA number is checked ' +
-      'at the clubhouse on arrival; it does not discount anything yet.',
-    'reservar.pase': 'Where should we send your pass?',
+    'reservar.notaEdad': 'Junior green fee applies to players aged 16 and under.',
+    'reservar.pase': 'Email address for sending your booking',
+    'reservar.noLlego': 'If you do not receive your booking by email, please call {telefono}.',
     'reservar.correo': 'Lead player email',
     'reservar.telefono': 'Phone (optional)',
     'reservar.calculando': 'Working out your total…',
@@ -439,7 +442,7 @@ export const TEXTOS = {
     'reservar.caddieNota':
       'paid directly to the caddie, not part of this total · two available, assigned by tee time',
     'reservar.incluye':
-      'Includes a shared cart, a scorecard, 10 tees and 50 practice balls. Please come to the ' +
+      'Includes a shared cart, a scorecard, 10 tees, and the practice area with 20 balls. Please come to the ' +
       'clubhouse fifteen minutes before your tee time.',
     'reservar.pagoSeguro': 'Secure payment with Stripe',
     'reservar.pagoNota':
@@ -492,14 +495,14 @@ export const TEXTOS = {
 
     'paquete.GRUPO': 'Group',
     'paquete.GRUPO.detalle':
-      'The holder organizes their own group on an exclusive tee time.',
+      'An exclusive tee time for your group, from four players. The lead player organizes the group and books for everyone.',
     'paquete.PARTIDA_ABIERTA': 'Open group',
     'paquete.PARTIDA_ABIERTA.detalle':
-      'You go out with whoever makes up the four, even from different hotels.',
+      'For guests booking alone or in small numbers: you are matched with other players until the group reaches four, even if they stay at different hotels.',
     'paquete.noAbiertas': 'The course is not making up open groups that day.',
     'paquete.PRACTICA': 'Practice',
     'paquete.PRACTICA.detalle':
-      'Practice area only: no round on the course. Pick your arrival time.',
+      'Access to the practice area, without playing a round. One or several players can book, with or without guests.',
     'reservar.horaLlegada': 'What time will you arrive?',
     'reservar.zonaPractica': 'Practice area',
     'reservar.practicaPrecio': '{precio} per person · {fin} Friday to Sunday',

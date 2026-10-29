@@ -153,6 +153,47 @@ def settle(
 
 
 # -------------------------------------------------------------------- finanzas
+@router.get("/sales-breakdown")
+def sales_breakdown(
+    start: Optional[date] = Query(default=None),
+    end: Optional[date] = Query(default=None),
+    group: str = Query(default="dia", pattern="^(dia|semana|mes|anio)$"),
+    db: Session = Depends(get_db),
+    _: User = Depends(RequirePermission(Permission.FINANCE_SALES_TOTALS)),
+):
+    """Lo cobrado por sección y forma de pago, agrupado por día, semana, mes o año."""
+    from app.modules.treasury.ventas import desglose
+    from app.shared.tiempo import hoy
+
+    end = end or hoy()
+    start = start or end
+    if start > end:
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError("La fecha inicial no puede ser posterior a la final")
+    if (end - start).days > 366 * 5:
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError("Elija un periodo de cinco años o menos")
+    return desglose(db, start, end, group)
+
+
+@router.get("/my-day")
+def my_day(
+    db: Session = Depends(get_db),
+    user: User = Depends(RequirePermission(Permission.PAYMENT_REGISTER)),
+):
+    """El corte de quien lo pide: lo que cobró hoy, por sección y forma de pago.
+
+    Es la vista del mostrador: cada quien ve lo suyo, no el total del campo.
+    """
+    from app.modules.treasury.ventas import desglose
+    from app.shared.tiempo import hoy
+
+    dia = hoy()
+    return desglose(db, dia, dia, "dia", usuario_id=user.id)
+
+
 @router.get("/summary", response_model=FinanceSummary)
 def finance_summary(
     start: Optional[date] = Query(default=None),

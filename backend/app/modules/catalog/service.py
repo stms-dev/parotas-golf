@@ -34,7 +34,7 @@ from app.modules.identity.models import User
 from app.realtime.events import EventType, RealtimeEvent
 from app.realtime.manager import publish
 from app.shared.enums import AuditAction, DayType, DiscountType, PlayerCategory, TimeBand, es_junior
-from app.shared.money import apply_percentage, money, rate as as_rate
+from app.shared.money import ZERO, apply_percentage, money, rate as as_rate
 
 
 class ExchangeRateService:
@@ -373,6 +373,10 @@ class PGAService:
     def validate(self, *, pga_code: Optional[str] = None,
                  credential_number: Optional[str] = None) -> PGAValidationResult:
         """Lo que consulta recepción en el mostrador."""
+        if not SettingsService(self.db).pga_activo():
+            return PGAValidationResult(
+                valid=False, message="El descuento PGA está desactivado por el momento",
+            )
         credential = self.find_credential(pga_code=pga_code, credential_number=credential_number)
         if not credential:
             return PGAValidationResult(valid=False, message="Credencial no encontrada en el padrón")
@@ -399,6 +403,8 @@ class PGAService:
         )
 
     def compute_discount(self, base_rate: Decimal) -> Decimal:
+        if not SettingsService(self.db).pga_activo():
+            return ZERO
         config = self.active_config()
         if config.discount_type == DiscountType.PORCENTAJE:
             return apply_percentage(base_rate, config.value)
@@ -623,6 +629,31 @@ class SettingsService:
             return int(value) if value is not None else default
         except (TypeError, ValueError):
             return default
+
+    def pga_activo(self) -> bool:
+        """¿El descuento PGA está encendido? Apagado mientras nadie diga lo contrario."""
+        return str(self.get("pga_activo", "false")).strip().lower() in ("true", "1", "si", "sí")
+
+    # Descripciones de los paquetes del sitio y del sistema. Si el club no
+    # escribió otra, se usa la de aquí: formal y sencilla.
+    DETALLE_PAQUETES = {
+        "GRUPO": (
+            "Salida exclusiva para su grupo, a partir de cuatro jugadores. "
+            "El titular organiza al grupo y reserva para todos."
+        ),
+        "PARTIDA_ABIERTA": (
+            "Para quien reserva solo o con pocas personas: se le empareja con otros "
+            "jugadores hasta completar cuatro, aunque se hospeden en hoteles distintos."
+        ),
+        "PRACTICA": (
+            "Acceso a la zona de práctica, sin salir al campo. "
+            "Puede reservar uno o varios jugadores, con o sin acompañantes."
+        ),
+    }
+
+    def detalle_paquete(self, modalidad: str) -> str:
+        base = self.DETALLE_PAQUETES.get(str(modalidad), "")
+        return (self.get(f"paquete_{modalidad}_detalle") or base).strip()
 
     def hora_limite_del_dia(self):
         """Hora a partir de la cual ya no se reserva para hoy (15:00 si no hay)."""

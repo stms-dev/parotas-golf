@@ -285,6 +285,12 @@ AJUSTES_EDITABLES = {
     "contacto_telefono": "Teléfono del club que muestra el sitio",
     "contacto_correo": "Correo del club que muestra el sitio",
     "contacto_domicilio": "Domicilio del club que muestra el sitio",
+    # Interruptor del descuento PGA (apagado por defecto).
+    "pga_activo": "Descuento PGA activo (true/false)",
+    # Descripciones de los paquetes, para el sitio y para el sistema.
+    "paquete_GRUPO_detalle": "Descripción del paquete En Grupo",
+    "paquete_PARTIDA_ABIERTA_detalle": "Descripción del paquete Partida Abierta",
+    "paquete_PRACTICA_detalle": "Descripción del paquete Práctica",
 }
 
 NUMERICOS = {"carritos_totales", "personas_por_carrito", "caddies_totales"}
@@ -323,6 +329,13 @@ def update_setting(
             valor = str(TypeAdapter(EmailStr).validate_python(valor))
         except Exception:
             raise ValidationError("Escriba un correo válido") from None
+    if key == "pga_activo":
+        if valor.lower() not in ("true", "false"):
+            raise ValidationError("El valor debe ser true o false")
+        valor = valor.lower()
+    if key.startswith("paquete_") and key.endswith("_detalle"):
+        if not 15 <= len(valor) <= 300 or any(c in valor for c in "<>"):
+            raise ValidationError("La descripción debe tener entre 15 y 300 caracteres y sin < >")
     if key == "contacto_domicilio":
         if not 3 <= len(valor) <= 200 or any(c in valor for c in "<>"):
             raise ValidationError("El domicilio debe tener entre 3 y 200 caracteres y sin < >")

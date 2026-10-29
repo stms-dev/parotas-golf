@@ -56,6 +56,7 @@ class PaqueteOut(BaseModel):
     modalidad: str
     minimo: int
     maximo: int
+    descripcion: str = ""
 
 
 class PracticaOut(BaseModel):
@@ -95,12 +96,17 @@ class CampoOut(BaseModel):
     practica: Optional[PracticaOut] = None
     # Teléfono, correo y domicilio que el sitio muestra; se editan en Configuración.
     contacto: Optional[ContactoOut] = None
+    # El día del campo y hasta qué hora se reserva para hoy; el interruptor PGA.
+    hoy: Optional[date] = None
+    limite_mismo_dia: Optional[str] = None
+    pga_activo: bool = False
 
 
 class SalidaOut(BaseModel):
     id: int
     hora: time
     libres: int
+    abierta: bool = False
     twilight: bool = False
 
 
