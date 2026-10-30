@@ -807,3 +807,7 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Nueva reserva (sistema)**: arranca en "Sin hotel"; el total aparece al completar los datos; habitación opcional; sugerencia de titulares anteriores (`GET /booking/holders`, un hotel solo ve a los suyos).
 - **Sitio, partida abierta**: al elegir hora muestra cuántos jugadores van de 4 (`ocupados`, `capacidad` en `/public/disponibilidad`).
 - **Ticket de tienda**: se imprime en rollo térmico de 80 mm.
+
+## Cambios v17
+
+- **Cierre automático de reservas no validadas** (`app/core/cierre_reservas.py`, revisión cada 30 minutos): una reserva por confirmar o confirmada, sin check-in y sin pago pendiente en línea, pasada su salida más la tolerancia, se marca sola como `NO_SHOW`, libera el cupo y deja una nota "[Automático]". Si ya tenía un pago (por ejemplo en línea), el pago se conserva. Tolerancia en el ajuste `no_show_automatico_min` (120 por defecto; 0 lo apaga).

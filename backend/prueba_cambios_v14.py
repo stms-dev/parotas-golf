@@ -218,6 +218,58 @@ r = admin.put("/api/catalog/settings/tienda_iva_pct", json={"value": "99"}, head
 check("Una tasa absurda se rechaza", r.status_code == 422)
 admin.put("/api/catalog/settings/tienda_iva_pct", json={"value": "16"}, headers=adm)
 
+
+print("\n9. Cierre automático de reservas que nadie validó")
+from datetime import datetime  # noqa: E402
+from app.core import cierre_reservas  # noqa: E402
+from app.core.database import SessionLocal  # noqa: E402
+from app.modules.billing.models import Payment  # noqa: E402
+from app.modules.booking.models import Reservation, TeeSlot  # noqa: E402
+
+dia_cierre = (date.today() + timedelta(days=11)).isoformat()
+sal3 = c.get(f"/api/public/disponibilidad?fecha={dia_cierre}&modalidad=PARTIDA_ABIERTA").json()["salidas"]
+s_a, s_b = [x for x in sal3 if x["libres"] >= 2][:2]
+def apartar(slot_id, nombre):
+    r = c.post("/api/public/reservas", json={"tee_slot_id": slot_id, "fecha": dia_cierre, "modalidad": "PARTIDA_ABIERTA",
+               "hoyos": 18, "jugadores": jug(2, nombre), "correo": f"{nombre.lower()}@ejemplo.com", "telefono": "+1 555 123 4567"})
+    return r.json()["folio"]
+f_pagada = apartar(s_a["id"], "Pagada")
+c.post(f"/api/public/reservas/{f_pagada}/pago", json=buena)
+f_sin_pago = apartar(s_b["id"], "Sinpago")
+
+def estado(folio):
+    db = SessionLocal()
+    try:
+        r = db.query(Reservation).filter(Reservation.folio == folio).one()
+        return r.status, r.hold_expires_at is not None, len(db.query(Payment).filter(Payment.reservation_id == r.id).all())
+    finally:
+        db.close()
+
+hora_a = datetime.strptime(s_a["hora"], "%H:%M:%S").time()
+dia_d = date.fromisoformat(dia_cierre)
+db = SessionLocal()
+r1 = cierre_reservas.cerrar_sin_presentarse(db, momento=datetime.combine(dia_d, hora_a) + timedelta(minutes=30))
+st, _, pagos_antes = estado(f_pagada)
+check("Dentro de la tolerancia la pagada en línea sigue confirmada", str(st.value if hasattr(st, "value") else st) == "CONFIRMADA", str(st))
+r2 = cierre_reservas.cerrar_sin_presentarse(db, momento=datetime.combine(dia_d, hora_a) + timedelta(hours=5))
+check("Pasada la tolerancia se cierran solas", r2["cerradas"] >= 1, str(r2))
+st, _, pagos_despues = estado(f_pagada)
+check("La pagada queda como no presentada", str(st.value if hasattr(st, "value") else st) == "NO_SHOW", str(st))
+check("Su pago se conserva (no se devuelve ni se borra)", pagos_despues == pagos_antes and pagos_antes >= 1, f"{pagos_antes}->{pagos_despues}")
+st2, apartada, _ = estado(f_sin_pago)
+check("Una apartada esperando su pago no se toca aquí", apartada and str(st2.value if hasattr(st2, "value") else st2) == "PENDIENTE", str(st2))
+sal4 = c.get(f"/api/public/disponibilidad?fecha={dia_cierre}&modalidad=PARTIDA_ABIERTA").json()["salidas"]
+check("La salida de la pagada vuelve a quedar libre", next(x for x in sal4 if x["id"] == s_a["id"])["libres"] == 4)
+r3 = cierre_reservas.cerrar_sin_presentarse(db, momento=datetime.combine(dia_d, hora_a) + timedelta(hours=9))
+check("Repetir la revisión no cierra dos veces", r3["cerradas"] == 0, str(r3))
+admin.put("/api/catalog/settings/no_show_automatico_min", json={"value": "0"}, headers=adm)
+r4 = cierre_reservas.cerrar_sin_presentarse(db, momento=datetime.combine(dia_d, hora_a) + timedelta(days=3))
+check("Con 0 minutos el cierre automático se apaga", r4["apagado"] is True)
+r5 = admin.put("/api/catalog/settings/no_show_automatico_min", json={"value": "abc"}, headers=adm)
+check("Un valor que no es número se rechaza", r5.status_code == 422)
+admin.put("/api/catalog/settings/no_show_automatico_min", json={"value": "120"}, headers=adm)
+db.close()
+
 print()
 if FALLOS:
     print("FALLARON:", FALLOS)

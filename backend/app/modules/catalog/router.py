@@ -288,6 +288,7 @@ AJUSTES_EDITABLES = {
     "contacto_domicilio": "Domicilio del club que muestra el sitio",
     # Interruptor del descuento PGA (apagado por defecto).
     "pga_activo": "Descuento PGA activo (true/false)",
+    "no_show_automatico_min": "Minutos después de la salida para cerrar sola una reserva no presentada (0 = apagado)",
     "tienda_iva_pct": "IVA (%) incluido en los precios de la tienda",
     # Descripciones de los paquetes, para el sitio y para el sistema.
     "paquete_GRUPO_detalle": "Descripción del paquete En Grupo",
@@ -331,6 +332,10 @@ def update_setting(
             valor = str(TypeAdapter(EmailStr).validate_python(valor))
         except Exception:
             raise ValidationError("Escriba un correo válido") from None
+    if key == "no_show_automatico_min":
+        if not valor.isdigit() or not 0 <= int(valor) <= 1440:
+            raise ValidationError("Escriba los minutos como número entre 0 y 1440 (0 apaga el cierre automático)")
+        valor = str(int(valor))
     if key == "tienda_iva_pct":
         try:
             tasa = Decimal(valor)

@@ -46,6 +46,7 @@ from app.shared.enums import (
     UserRole,
     es_junior,
 )
+from app.modules.billing.models import pagos_de_la_reserva
 from app.shared.money import ZERO, money, to_mxn
 
 logger = logging.getLogger(__name__)
@@ -903,6 +904,42 @@ class ReservationService_:
             self.db.refresh(slot)
             self._avisar_disponibilidad(slot, f"No-show de {reservation.folio}")
 
+        return reservation
+
+    def cerrar_sin_presentarse(self, reservation_id: int, motivo: str) -> Optional[Reservation]:
+        """Cierra sola una reserva a la que nadie llegó y que nadie validó.
+
+        La usa el reloj de cierre, sin usuario de por medio. El dinero que ya
+        entró (un pago en línea, por ejemplo) NO se devuelve ni se mueve: la
+        reserva queda como no presentada y el pago sigue donde estaba.
+        Devuelve None si ya no estaba en un estado que se cierre así.
+        """
+        reservation = self.get(reservation_id)
+        if reservation.status not in (ReservationStatus.PENDIENTE, ReservationStatus.CONFIRMADA):
+            return None
+        pagado = sum((p.amount_mxn for p in pagos_de_la_reserva(reservation)), start=ZERO)
+        anterior = reservation.status
+        reservation.status = ReservationStatus.NO_SHOW
+        marca = f"[Automático] {motivo}" + (
+            f" Pago conservado: {money(pagado)} MXN." if pagado > 0 else ""
+        )
+        reservation.notes = f"{reservation.notes}\n{marca}" if reservation.notes else marca
+        self.db.flush()
+        slot = self.slots.get(reservation.tee_slot_id)
+        if slot:
+            self._recalculate_slot(slot)
+        self.audit.log(
+            user=None, action=AuditAction.MODIFICAR, module=self.MODULE,
+            entity="Reservation", entity_id=reservation.id,
+            old_value=anterior, new_value=ReservationStatus.NO_SHOW,
+            description=f"Reserva {reservation.folio} cerrada sola como no presentada. {motivo}",
+        )
+        self.db.commit()
+        self.db.refresh(reservation)
+        self._avisar_reserva(reservation, EventType.RESERVA_ACTUALIZADA)
+        if slot:
+            self.db.refresh(slot)
+            self._avisar_disponibilidad(slot, f"{reservation.folio} cerrada como no presentada")
         return reservation
 
     def start_round(self, reservation_id: int, actor: User) -> Reservation:

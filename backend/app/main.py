@@ -98,6 +98,32 @@ async def _cerrar_cajas() -> None:
             await asyncio.sleep(60)
 
 
+async def _cerrar_reservas_vencidas() -> None:
+    """Cada 30 minutos cierra como no presentadas las reservas que nadie validó.
+
+    No hace falta más seguido: la tolerancia es de horas, no de minutos.
+    """
+    from app.core.cierre_reservas import cerrar_sin_presentarse
+    from app.core.database import SessionLocal
+
+    def _revisar() -> dict:
+        db = SessionLocal()
+        try:
+            return cerrar_sin_presentarse(db)
+        finally:
+            db.close()
+
+    while True:
+        try:
+            await asyncio.to_thread(_revisar)
+            await asyncio.sleep(1800)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Falló el cierre automático de reservas vencidas")
+            await asyncio.sleep(1800)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Al arrancar se le entrega el bucle de eventos al gestor de WebSockets.
@@ -146,8 +172,13 @@ async def lifespan(app: FastAPI):
     tarea_cajas = asyncio.create_task(_cerrar_cajas())
     logger.info("Cierre automático de cajas activo")
 
+    # Las reservas que nadie validó ni a las que nadie llegó se cierran solas.
+    tarea_reservas = asyncio.create_task(_cerrar_reservas_vencidas())
+    logger.info("Cierre automático de reservas vencidas activo")
+
     yield
 
+    tarea_reservas.cancel()
     tarea_cajas.cancel()
     if tarea_correos:
         tarea_correos.cancel()
