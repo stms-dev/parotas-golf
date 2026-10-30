@@ -634,6 +634,14 @@ class SettingsService:
         """¿El descuento PGA está encendido? Apagado mientras nadie diga lo contrario."""
         return str(self.get("pga_activo", "false")).strip().lower() in ("true", "1", "si", "sí")
 
+    def tienda_iva_pct(self) -> Decimal:
+        """Tasa de IVA (en %) que traen los precios de la tienda. 16 por defecto."""
+        try:
+            valor = Decimal(str(self.get("tienda_iva_pct", "16")).strip())
+        except Exception:  # noqa: BLE001 — un valor ilegible no debe tumbar la caja
+            return Decimal("16")
+        return valor if Decimal("0") <= valor <= Decimal("50") else Decimal("16")
+
     # Descripciones de los paquetes del sitio y del sistema. Si el club no
     # escribió otra, se usa la de aquí: formal y sencilla.
     DETALLE_PAQUETES = {

@@ -246,6 +246,11 @@ function Cancelar({ venta, atiende, onCerrar, onListo }) {
           </li>
         ))}
       </ul>
+      {Number(venta.iva_monto) > 0 && (
+        <p className="mt-3 text-body-md text-on-surface-variant">
+          Neto {mxn(venta.total_neto)} + IVA {Number(venta.iva_pct)}% {mxn(venta.iva_monto)}
+        </p>
+      )}
       <p className="mt-3 text-body-lg">
         Total <strong className="font-mono">{mxn(venta.total)}</strong>. Las piezas regresan al inventario.
         {efectivo > 0 && <> Devuelva <strong className="font-mono">{mxn(efectivo)}</strong> en efectivo al cliente.</>}

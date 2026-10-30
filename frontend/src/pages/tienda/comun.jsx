@@ -119,6 +119,16 @@ export function EstadoVenta({ estado }) {
  * La regla `@media print` de styles.css imprime solo `.documento-imprimible`.
  */
 export function Ticket({ venta, onCerrar }) {
+  // El ticket sale en rollo de 80 mm: mientras esté abierto, la página de
+  // impresión mide 80 mm de ancho y el largo que el ticket necesite.
+  useEffect(() => {
+    if (!venta) return undefined;
+    const estilo = document.createElement('style');
+    estilo.textContent = '@media print { @page { size: 80mm auto; margin: 2mm; } }';
+    document.head.appendChild(estilo);
+    return () => estilo.remove();
+  }, [venta]);
+
   if (!venta) return null;
   const pagado = venta.pagos.reduce((t, p) => t + Number(p.monto_mxn), 0);
   return (
@@ -181,6 +191,11 @@ export function Ticket({ venta, onCerrar }) {
             <span>TOTAL</span>
             <span>{mxn(venta.total)}</span>
           </div>
+          {Number(venta.iva_monto) > 0 && (
+            <p className="text-right text-[11px] text-black/70">
+              Neto {mxn(venta.total_neto)} · IVA {Number(venta.iva_pct)}% {mxn(venta.iva_monto)}
+            </p>
+          )}
           <p className="text-right text-[11px] text-black/70">{venta.piezas} pieza{venta.piezas === 1 ? '' : 's'}</p>
 
           <div className="my-3 border-t border-dashed border-black/50" />

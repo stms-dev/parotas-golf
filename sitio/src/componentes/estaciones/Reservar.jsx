@@ -561,6 +561,17 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   })}
                 </div>
               )}
+              {paquete === 'PARTIDA_ABIERTA' && (() => {
+                const elegida = (dia?.salidas || []).find((x) => x.id === slot);
+                if (!elegida) return null;
+                const max = elegida.capacidad || 4;
+                const van = (elegida.ocupados || 0) + jugadores.length;
+                return (
+                  <p className="mt-1.5 font-texto text-menudo font-semibold text-arena">
+                    {t('reservar.abiertaConteo', { van: Math.min(van, max), max, ya: elegida.ocupados || 0 })}
+                  </p>
+                );
+              })()}
               {(dia?.salidas || []).some((s) => s.abierta) && (
                 <p className="mt-1.5 font-texto text-menudo text-arena/80">
                   <span className="font-bold text-hoja">●</span> {t('reservar.abiertaLeyenda')}

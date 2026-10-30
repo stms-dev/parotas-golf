@@ -227,6 +227,9 @@ class VentaOut(BaseModel):
     piezas: int
     cambio_mxn: Decimal
     tipo_cambio: Decimal
+    iva_pct: Decimal = Decimal("0")
+    iva_monto: Decimal = Decimal("0")
+    total_neto: Optional[Decimal] = None
     cliente: Optional[str]
     notas: Optional[str]
     atendio: str
@@ -252,4 +255,5 @@ class ResumenInventario(BaseModel):
     sin_existencia: int
     sin_precio: int
     sin_codigo: int
+    iva_pct: Decimal = Decimal("16")
     categorias: List[str] = []

@@ -95,7 +95,7 @@ class CashSessionService:
         )
         payments = list(self.db.execute(stmt).scalars().all())
 
-        cash = card = transfer = usd_cash = ZERO
+        cash = card = transfer = online = usd_cash = ZERO
         for payment in payments:
             amount = money(payment.amount_mxn)
             if payment.method == PaymentMethod.EFECTIVO:
@@ -105,6 +105,8 @@ class CashSessionService:
                     usd_cash += money(payment.amount)
             elif payment.method == PaymentMethod.TARJETA:
                 card += amount
+            elif payment.method == PaymentMethod.PAGO_EN_LINEA:
+                online += amount
             else:
                 transfer += amount
 
@@ -112,8 +114,9 @@ class CashSessionService:
             "cash_mxn": money(cash),
             "card_mxn": money(card),
             "transfer_mxn": money(transfer),
+            "online_mxn": money(online),
             "usd_cash_original": money(usd_cash),
-            "total_mxn": money(cash + card + transfer),
+            "total_mxn": money(cash + card + transfer + online),
             "payment_count": len(payments),
         }
 

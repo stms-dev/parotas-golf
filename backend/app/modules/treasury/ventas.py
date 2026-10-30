@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Payment
+from app.modules.booking.models import Reservation, TeeSlot
 from app.modules.tienda.models import TiendaPago, TiendaVenta
 from app.shared.money import ZERO, money
 from app.shared.tiempo import zona
@@ -40,6 +41,7 @@ def _vacio() -> Dict[str, Decimal]:
         "efectivo_usd_en_mxn": ZERO,  # esos mismos dólares valuados al tipo de cambio de cada pago
         "tarjeta": ZERO,
         "transferencia": ZERO,
+        "pago_en_linea": ZERO,       # lo cobrado por internet (sitio web, liga de pago)
         "total": ZERO,
         "operaciones": 0,
     }
@@ -70,6 +72,8 @@ def _asentar(fila: Dict, metodo: str, moneda: str, monto: Decimal, monto_mxn: De
             fila["efectivo_mxn"] += neto
     elif metodo == "TARJETA":
         fila["tarjeta"] += neto
+    elif metodo == "PAGO_EN_LINEA":
+        fila["pago_en_linea"] += neto
     else:
         fila["transferencia"] += neto
     fila["total"] += neto
@@ -101,8 +105,16 @@ def _clave(dia: date, agrupar: str):
 
 
 def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
-             usuario_id: Optional[int] = None) -> dict:
-    """Si se pasa `usuario_id`, solo cuenta lo que cobró ese usuario."""
+             usuario_id: Optional[int] = None, base: str = "cobro") -> dict:
+    """Si se pasa `usuario_id`, solo cuenta lo que cobró ese usuario.
+
+    `base` decide a qué día se asigna cada cobro de reservas:
+    - "cobro": el día en que entró el dinero (caja y conciliación con el banco).
+    - "juego": el día en que se juega la reserva (operación del campo). Un pago
+      en línea hecho hoy para el 12 de diciembre cuenta ese día. La tienda no
+      cambia: se vende y se cobra en el mismo momento.
+    """
+    por_juego = base == "juego"
     if agrupar not in AGRUPACIONES:
         agrupar = "dia"
 
@@ -120,18 +132,26 @@ def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
         return periodos[clave]["por_fuente"][fuente]
 
     # --- cobros de reservas (green fees, servicios y replay)
-    # Se trae un día de margen por lado: paid_at está en UTC y el día del campo
-    # no empieza a la misma hora.
-    desde = datetime.combine(inicio - timedelta(days=1), datetime.min.time())
-    hasta = datetime.combine(fin + timedelta(days=2), datetime.min.time())
-    consulta_pagos = select(Payment).where(
-        Payment.is_voided.is_(False), Payment.paid_at >= desde, Payment.paid_at < hasta
-    )
+    if por_juego:
+        # Por fecha de juego: se filtra por el día de la salida de la reserva.
+        consulta_pagos = (
+            select(Payment, TeeSlot.slot_date)
+            .join(Reservation, Payment.reservation_id == Reservation.id)
+            .join(TeeSlot, Reservation.tee_slot_id == TeeSlot.id)
+            .where(Payment.is_voided.is_(False), TeeSlot.slot_date >= inicio, TeeSlot.slot_date <= fin)
+        )
+    else:
+        # Se trae un día de margen por lado: paid_at está en UTC y el día del
+        # campo no empieza a la misma hora.
+        desde = datetime.combine(inicio - timedelta(days=1), datetime.min.time())
+        hasta = datetime.combine(fin + timedelta(days=2), datetime.min.time())
+        consulta_pagos = select(Payment, Payment.paid_at).where(
+            Payment.is_voided.is_(False), Payment.paid_at >= desde, Payment.paid_at < hasta
+        )
     if usuario_id is not None:
         consulta_pagos = consulta_pagos.where(Payment.received_by_id == usuario_id)
-    pagos = db.execute(consulta_pagos).scalars().all()
-    for p in pagos:
-        dia = _fecha_local(p.paid_at)
+    for p, referencia in db.execute(consulta_pagos).all():
+        dia = referencia if por_juego else _fecha_local(referencia)
         if not inicio <= dia <= fin:
             continue
         fuente = "REPLAY" if p.replay_id is not None else "GREEN_FEES"
@@ -175,7 +195,7 @@ def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
         return {k: (str(v) if isinstance(v, Decimal) else v) for k, v in fila.items()}
 
     return {
-        "inicio": inicio, "fin": fin, "agrupar": agrupar,
+        "inicio": inicio, "fin": fin, "agrupar": agrupar, "base": "juego" if por_juego else "cobro",
         "fuentes": [{"clave": c, "nombre": n} for c, n in FUENTES],
         "totales": {"por_fuente": {k: plano(v) for k, v in totales.items()}, "general": plano(general)},
         "periodos": [

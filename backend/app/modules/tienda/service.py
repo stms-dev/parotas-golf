@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError, ValidationError
 from app.modules.audit.service import AuditService
-from app.modules.catalog.service import ExchangeRateService
+from app.modules.catalog.service import ExchangeRateService, SettingsService
 from app.modules.identity.models import User
 from app.modules.tienda.models import (
     TiendaCorte,
@@ -95,6 +95,7 @@ class CatalogoTienda:
             "sin_precio": sum(1 for p in productos if p.precio is None),
             "sin_codigo": sum(1 for p in productos if not p.tiene_codigo_barras),
             "categorias": self.categorias(),
+            "iva_pct": SettingsService(self.db).tienda_iva_pct(),
         }
 
     def _codigo_interno(self) -> str:
@@ -605,13 +606,16 @@ class VentasTienda:
 
         tc = ExchangeRateService(self.db).current_rate()
         cambio = self._validar_pagos(datos.pagos, total, tc)
+        # El precio de lista trae el IVA: el neto es el total entre (1 + tasa).
+        iva_pct = SettingsService(self.db).tienda_iva_pct()
+        iva_monto = money(total - total / (1 + iva_pct / Decimal(100)))
 
         venta = TiendaVenta(
             folio=self._folio(), corte_id=corte.id, fecha=hoy(), estado="PAGADA",
             subtotal=money(subtotal), descuento=descuento,
             descuento_motivo=(datos.descuento_motivo or "").strip() or None,
             total=total, costo_total=money(costo_total), piezas=piezas, cambio_mxn=cambio,
-            tipo_cambio=tc, cliente=_texto(datos.cliente), notas=(datos.notas or "").strip() or None,
+            tipo_cambio=tc, iva_pct=iva_pct, iva_monto=iva_monto, cliente=_texto(datos.cliente), notas=(datos.notas or "").strip() or None,
             atendio=datos.atendio.strip(), usuario_id=actor.id, created_at=datetime.utcnow(),
         )
         self.db.add(venta)

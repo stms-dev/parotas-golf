@@ -37,6 +37,7 @@ const COLUMNAS = [
   ['efectivo_usd', 'Dólares'],
   ['tarjeta', 'Tarjeta'],
   ['transferencia', 'Transferencia'],
+  ['pago_en_linea', 'Pago en línea'],
   ['total', 'Total'],
 ];
 
@@ -54,7 +55,7 @@ function rangoDe(clave) {
 
 /** Suma de las fuentes elegidas dentro de un conjunto de totales. */
 function sumar(porFuente, claves) {
-  const salida = { efectivo_mxn: 0, efectivo_usd: 0, efectivo_usd_en_mxn: 0, tarjeta: 0, transferencia: 0, total: 0, operaciones: 0 };
+  const salida = { efectivo_mxn: 0, efectivo_usd: 0, efectivo_usd_en_mxn: 0, tarjeta: 0, transferencia: 0, pago_en_linea: 0, total: 0, operaciones: 0 };
   for (const c of claves) {
     const f = porFuente?.[c];
     if (!f) continue;
@@ -92,6 +93,8 @@ export default function VentasTotalesPage() {
   const [atajo, setAtajo] = useState('hoy');
   const [aMano, setAMano] = useState({ start: '', end: '' });
   const [agrupar, setAgrupar] = useState('dia');
+  // A qué día se asigna un cobro: al día que entró el dinero o al día de juego.
+  const [base, setBase] = useState('cobro');
   const [seccion, setSeccion] = useState('TODAS');
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -108,14 +111,14 @@ export default function VentasTotalesPage() {
     let vigente = true;
     setCargando(true);
     setError(null);
-    (soloMio ? treasuryApi.miDia() : treasuryApi.ventas({ start, end, group: agrupar }))
+    (soloMio ? treasuryApi.miDia() : treasuryApi.ventas({ start, end, group: agrupar, base }))
       .then((d) => vigente && setDatos(d))
       .catch((e) => vigente && setError(e.message))
       .finally(() => vigente && setCargando(false));
     return () => {
       vigente = false;
     };
-  }, [start, end, agrupar, invertido, soloMio]);
+  }, [start, end, agrupar, base, invertido, soloMio]);
 
   const fuentes = datos?.fuentes || [];
   const elegidas = seccion === 'TODAS' ? fuentes.map((f) => f.clave) : [seccion];
@@ -130,12 +133,12 @@ export default function VentasTotalesPage() {
   const pag = usePaginacion([...filas].reverse(), 10, `${start}|${end}|${agrupar}|${seccion}`);
 
   function exportar() {
-    const cab = ['Periodo', 'Sección', 'Efectivo MXN', 'Dólares (USD)', 'Dólares en MXN', 'Tarjeta', 'Transferencia', 'Total'];
+    const cab = ['Periodo', 'Sección', 'Efectivo MXN', 'Dólares (USD)', 'Dólares en MXN', 'Tarjeta', 'Transferencia', 'Pago en línea', 'Total'];
     const lineas = [cab];
     for (const p of datos?.periodos || []) {
       for (const f of fuentes) {
         const v = p.por_fuente[f.clave];
-        lineas.push([p.etiqueta, f.nombre, v.efectivo_mxn, v.efectivo_usd, v.efectivo_usd_en_mxn, v.tarjeta, v.transferencia, v.total]);
+        lineas.push([p.etiqueta, f.nombre, v.efectivo_mxn, v.efectivo_usd, v.efectivo_usd_en_mxn, v.tarjeta, v.transferencia, v.pago_en_linea, v.total]);
       }
     }
     const csv = lineas.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
@@ -180,6 +183,17 @@ export default function VentasTotalesPage() {
             ))}
           </div>
           <label className="text-label-sm uppercase tracking-wider text-on-surface-variant">
+            Contar cada cobro por
+            <select
+              value={base}
+              onChange={(e) => setBase(e.target.value)}
+              className="mt-1 block rounded border border-outline-variant bg-surface-container-lowest px-2.5 py-2 text-body-md normal-case text-on-surface"
+            >
+              <option value="cobro">Día en que se cobró (caja)</option>
+              <option value="juego">Día de juego (operación)</option>
+            </select>
+          </label>
+          <label className="text-label-sm uppercase tracking-wider text-on-surface-variant">
             Del
             <input
               type="date"
@@ -210,7 +224,7 @@ export default function VentasTotalesPage() {
       ) : datos ? (
         <>
           {/* --- Lo que hay que saber del periodo, en una fila */}
-          <section className="grid gap-gutter sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-gutter sm:grid-cols-2 xl:grid-cols-6">
             <Resumen titulo="Total cobrado" valor={mxn(datos.totales.general.total)} pie={`${datos.totales.general.operaciones} cobros`} oscuro />
             <Resumen titulo="Efectivo en pesos" valor={mxn(datos.totales.general.efectivo_mxn)} pie="en caja, sin el cambio" />
             <Resumen
@@ -220,6 +234,7 @@ export default function VentasTotalesPage() {
             />
             <Resumen titulo="Tarjeta" valor={mxn(datos.totales.general.tarjeta)} pie="a depositar" />
             <Resumen titulo="Transferencia" valor={mxn(datos.totales.general.transferencia)} pie="a conciliar" />
+            <Resumen titulo="Pago en línea" valor={mxn(datos.totales.general.pago_en_linea)} pie="sitio web · se concilia con Stripe" />
           </section>
 
           {/* --- Cada sección con su propio detalle */}
@@ -241,6 +256,7 @@ export default function VentasTotalesPage() {
                     />
                     <Linea etiqueta="Tarjeta" valor={mxn(t.tarjeta)} />
                     <Linea etiqueta="Transferencia" valor={mxn(t.transferencia)} />
+                    <Linea etiqueta="Pago en línea" valor={mxn(t.pago_en_linea)} />
                   </dl>
                 </div>
               );

@@ -353,6 +353,44 @@ def create_reservation(
     return _reservation_out(reservation, scope)
 
 
+@router.get("/holders")
+def holders(
+    q: str = Query(min_length=2, max_length=60),
+    db: Session = Depends(get_db),
+    _: User = Depends(RequirePermission(Permission.RESERVATION_CREATE)),
+    scope: Optional[int] = Depends(get_hotel_scope),
+):
+    """Titulares que ya reservaron antes, para no capturarlos de nuevo.
+
+    Busca por nombre, correo o teléfono y devuelve a cada persona una sola vez
+    (con su dato más reciente). Un hotel solo ve a sus propios huéspedes.
+    """
+    from sqlalchemy import func, or_, select
+
+    patron = f"%{q.strip()}%"
+    consulta = select(Reservation).where(
+        or_(
+            Reservation.holder_name.ilike(patron),
+            Reservation.holder_email.ilike(patron),
+            Reservation.holder_phone.ilike(patron),
+        )
+    )
+    if scope is not None:
+        consulta = consulta.where(Reservation.hotel_id == scope)
+    filas = db.execute(consulta.order_by(Reservation.created_at.desc()).limit(200)).scalars().all()
+    vistos: dict = {}
+    for r in filas:
+        clave = (r.holder_email or "").strip().lower() or r.holder_name.strip().lower()
+        if clave in vistos:
+            vistos[clave]["visitas"] += 1
+            continue
+        vistos[clave] = {
+            "nombre": r.holder_name, "correo": r.holder_email,
+            "telefono": r.holder_phone, "visitas": 1,
+        }
+    return list(vistos.values())[:8]
+
+
 @router.get("/reservations", response_model=List[ReservationListItem])
 def list_reservations(
     term: Optional[str] = None,

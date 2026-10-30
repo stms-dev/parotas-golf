@@ -72,8 +72,8 @@ export default function Productos({ atiende }) {
 
   function exportar() {
     const filas = [
-      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio', 'Tienda', 'Bodega', 'Total', 'Minimo', 'Maximo', 'Comprar', 'Activo'],
-      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.existencia, p.existencia_bodega, p.existencia_total, p.minimo, p.maximo, p.compra_sugerida, p.activo ? 'Si' : 'No']),
+      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio bruto', 'Precio neto', 'Tienda', 'Bodega', 'Total', 'Minimo', 'Maximo', 'Comprar', 'Activo'],
+      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.precio != null ? (Number(p.precio) / (1 + Number(resumen?.iva_pct ?? 16) / 100)).toFixed(2) : '', p.existencia, p.existencia_bodega, p.existencia_total, p.minimo, p.maximo, p.compra_sugerida, p.activo ? 'Si' : 'No']),
     ];
     const csv = filas.map((f) => f.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
@@ -168,7 +168,8 @@ export default function Productos({ atiende }) {
             <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
               <th className="px-4 py-3">Producto</th>
               <th className="px-3 py-3 text-right">Costo</th>
-              <th className="px-3 py-3 text-right">Precio</th>
+              <th className="px-3 py-3 text-right" title="Precio de lista, con IVA">Precio bruto</th>
+              <th className="px-3 py-3 text-right" title="Precio sin IVA">Precio neto</th>
               <th className="px-3 py-3 text-right" title="Ganancia sobre el costo">Sobre costo</th>
               <th className="px-3 py-3">Tienda</th>
               <th className="px-3 py-3 text-right">Bodega</th>
@@ -195,6 +196,9 @@ export default function Productos({ atiende }) {
                   <td className="px-3 py-3 text-right font-mono text-body-md">{mxn(p.costo)}</td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">
                     {p.precio != null ? mxn(p.precio) : <span className="text-error">Sin precio</span>}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono text-body-md text-on-surface-variant">
+                    {p.precio != null ? mxn(Number(p.precio) / (1 + Number(resumen?.iva_pct ?? 16) / 100)) : '—'}
                   </td>
                   <td className={`px-3 py-3 text-right font-mono text-body-md ${margen != null && margen < 0 ? 'text-error' : 'text-on-surface-variant'}`}>
                     {margen == null ? '—' : `${margen.toFixed(0)}%`}
@@ -403,7 +407,7 @@ function EditarProducto({ producto, categorias, atiende, onCerrar, onListo }) {
           <input type="number" min="0" step="0.01" value={f.costo} onChange={set('costo')} className={`${CAMPO} font-mono`} />
         </label>
         <label>
-          <span className={ETIQUETA}>Precio de venta</span>
+          <span className={ETIQUETA}>Precio de venta (bruto, con IVA)</span>
           <input type="number" min="0" step="0.01" value={f.precio} onChange={set('precio')} className={`${CAMPO} font-mono`} />
         </label>
         <p className="sm:col-span-2 text-body-md text-outline">

@@ -1,5 +1,6 @@
 """Endpoints del catálogo (Administración)."""
 import re
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, status
@@ -287,6 +288,7 @@ AJUSTES_EDITABLES = {
     "contacto_domicilio": "Domicilio del club que muestra el sitio",
     # Interruptor del descuento PGA (apagado por defecto).
     "pga_activo": "Descuento PGA activo (true/false)",
+    "tienda_iva_pct": "IVA (%) incluido en los precios de la tienda",
     # Descripciones de los paquetes, para el sitio y para el sistema.
     "paquete_GRUPO_detalle": "Descripción del paquete En Grupo",
     "paquete_PARTIDA_ABIERTA_detalle": "Descripción del paquete Partida Abierta",
@@ -329,6 +331,14 @@ def update_setting(
             valor = str(TypeAdapter(EmailStr).validate_python(valor))
         except Exception:
             raise ValidationError("Escriba un correo válido") from None
+    if key == "tienda_iva_pct":
+        try:
+            tasa = Decimal(valor)
+        except Exception:
+            raise ValidationError("Escriba la tasa como número, por ejemplo 16") from None
+        if not Decimal("0") <= tasa <= Decimal("50"):
+            raise ValidationError("La tasa de IVA debe estar entre 0 y 50")
+        valor = str(tasa.normalize() if tasa == tasa.to_integral() else tasa)
     if key == "pga_activo":
         if valor.lower() not in ("true", "false"):
             raise ValidationError("El valor debe ser true o false")

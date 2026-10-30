@@ -798,3 +798,12 @@ Decisiones tomadas para esta versión, listas para retomarse:
 ## Cambios v15
 
 - **Nueva reserva (todos los perfiles)**: pantalla más limpia, sin quitar funciones. Encabezado y pasos compactos, caddie en una línea, horarios que ya pasaron solo con la hora tachada, el detalle de tarifas y bastones plegado ("Ver detalle…"), políticas del club plegables, y se eliminó el bloque duplicado de "Cupos y aforo" (el resumen lateral ya lo muestra).
+
+## Cambios v16
+
+- **Tienda, precio bruto y neto**: el precio de lista es el bruto (con IVA). Se muestra el neto en Productos, en la caja y en el ticket; cada venta guarda su IVA (`iva_pct`, `iva_monto`). Tasa en el ajuste `tienda_iva_pct` (16 por defecto). Migración `a1c3e5f7b9d1`.
+- **Pago en línea**: nuevo método `PAGO_EN_LINEA` para lo cobrado por el sitio (antes entraba como tarjeta). No pasa por caja y se concilia con Stripe. Aparece como columna propia en Ventas totales.
+- **Fecha de cobro vs. fecha de juego** (`/treasury/sales-breakdown?base=cobro|juego`): por defecto cuenta el día en que entró el dinero (caja/banco); "día de juego" asigna el cobro al día de la reserva. Un pago hecho hoy para el 12 de diciembre se ve ese día en operación.
+- **Nueva reserva (sistema)**: arranca en "Sin hotel"; el total aparece al completar los datos; habitación opcional; sugerencia de titulares anteriores (`GET /booking/holders`, un hotel solo ve a los suyos).
+- **Sitio, partida abierta**: al elegir hora muestra cuántos jugadores van de 4 (`ocupados`, `capacidad` en `/public/disponibilidad`).
+- **Ticket de tienda**: se imprime en rollo térmico de 80 mm.

@@ -119,6 +119,9 @@ class PaymentMethod(str, Enum):
     EFECTIVO = "EFECTIVO"
     TARJETA = "TARJETA"
     TRANSFERENCIA = "TRANSFERENCIA"
+    # El pago hecho por internet (sitio web o liga de pago): no pasa por caja ni
+    # por la terminal del mostrador, y se concilia contra Stripe.
+    PAGO_EN_LINEA = "PAGO_EN_LINEA"
 
 
 class Currency(str, Enum):

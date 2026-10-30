@@ -165,6 +165,16 @@
   .no-imprimir {
     display: none !important;
   }
+  /* Ticket de la tienda: rollo térmico de 80 mm (unos 72 mm útiles). */
+  .documento-imprimible.ticket {
+    position: static;
+    width: 72mm;
+    max-width: 72mm;
+    margin: 0 auto;
+    padding: 1mm;
+    border-radius: 0;
+    font-size: 11px;
+  }
 }
 
 

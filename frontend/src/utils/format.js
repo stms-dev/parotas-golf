@@ -157,6 +157,7 @@ export const METODO_PAGO = {
   EFECTIVO: 'Efectivo',
   TARJETA: 'Tarjeta',
   TRANSFERENCIA: 'Transferencia',
+  PAGO_EN_LINEA: 'Pago en línea',
 };
 
 /**

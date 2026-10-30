@@ -31,6 +31,11 @@ export default function Vender({ caja, atiende, onCajaCambio, horario }) {
   const [aviso, setAviso] = useState(null);
   const buscador = useRef(null);
 
+  // Los precios de lista traen IVA (son el precio bruto). La tasa viene de Ajustes.
+  const [ivaPct, setIvaPct] = useState(16);
+  useEffect(() => {
+    tiendaApi.resumen().then((r) => r?.iva_pct != null && setIvaPct(Number(r.iva_pct))).catch(() => {});
+  }, []);
   function cargar() {
     tiendaApi.productos().then(setProductos).catch(() => setProductos([]));
   }
@@ -147,6 +152,7 @@ export default function Vender({ caja, atiende, onCajaCambio, horario }) {
   const subtotal = carrito.reduce((t, l) => t + Number(l.producto.precio) * l.cantidad, 0);
   const montoDescuento = conDescuento ? Math.min(Number(descuento) || 0, subtotal) : 0;
   const total = Math.round((subtotal - montoDescuento) * 100) / 100;
+  const neto = Math.round((total / (1 + ivaPct / 100)) * 100) / 100;
   const piezas = carrito.reduce((t, l) => t + l.cantidad, 0);
 
   function limpiar() {
@@ -399,6 +405,9 @@ export default function Vender({ caja, atiende, onCajaCambio, horario }) {
               <span className="text-label-md uppercase tracking-wider text-secondary-fixed">Total</span>
               <span className="font-serif text-[2.6rem] leading-none">{mxn(total)}</span>
             </div>
+            <p className="text-right font-mono text-label-md text-primary-fixed/70">
+              Neto {mxn(neto)} + IVA {ivaPct}% {mxn(Math.round((total - neto) * 100) / 100)}
+            </p>
             {tc ? <p className="text-right font-mono text-label-md text-primary-fixed/70">≈ {usd(total / tc)} · TC {tc.toFixed(2)}</p> : null}
             <button
               type="button"

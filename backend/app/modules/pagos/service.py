@@ -286,6 +286,8 @@ class ReservaPublicaService:
                 "libres": 0 if (vencida or cerrado) else libres,
                 # Salida con una partida abierta ya empezada: el sitio la marca
                 # para que quien entra sepa que se junta con otros jugadores.
+                "ocupados": slot.occupied if pedida == BookingModality.PARTIDA_ABIERTA.value else 0,
+                "capacidad": slot.capacity,
                 "abierta": bool(
                     pedida == BookingModality.PARTIDA_ABIERTA.value
                     and slot.status == SlotStatus.ABIERTA
@@ -734,7 +736,7 @@ class ReservaPublicaService:
                 exchange_rate_applied=reserva.exchange_rate_applied,
                 amount_mxn=money(Decimal(monto_centavos) / Decimal(100)),
                 change_mxn=ZERO,
-                method=PaymentMethod.TARJETA,
+                method=PaymentMethod.PAGO_EN_LINEA,
                 reference=referencia,
                 notes=(
                     "Pago recibido con el apartado ya vencido. "
@@ -757,7 +759,7 @@ class ReservaPublicaService:
             exchange_rate_applied=reserva.exchange_rate_applied,
             amount_mxn=monto,
             change_mxn=ZERO,
-            method=PaymentMethod.TARJETA,
+            method=PaymentMethod.PAGO_EN_LINEA,
             reference=referencia,
             notes=f"Pago en línea · {marca or 'tarjeta'} ····{ultimos4 or '----'}",
             received_by_id=self.cuenta_del_sitio().id,

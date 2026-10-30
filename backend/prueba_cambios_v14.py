@@ -165,6 +165,59 @@ check("El corte de un usuario no supera el total del campo", float(mio_adm) <= f
 sin = admin.get("/api/treasury/my-day")
 check("Sin sesión no hay corte", sin.status_code in (401, 403), f"HTTP {sin.status_code}")
 
+
+print("\n8. Pago en línea, fecha de juego, titulares, IVA y partida abierta")
+hoy_s = date.today().isoformat()
+dia_juego = (date.today() + timedelta(days=9)).isoformat()
+sal = c.get(f"/api/public/disponibilidad?fecha={dia_juego}&modalidad=PARTIDA_ABIERTA").json()["salidas"]
+elegida = next(x for x in sal if x["libres"] >= 2)
+check("La salida trae cuántos van y la capacidad", elegida["ocupados"] == 0 and elegida["capacidad"] == 4, str(elegida))
+r = c.post("/api/public/reservas", json={"tee_slot_id": elegida["id"], "fecha": dia_juego, "modalidad": "PARTIDA_ABIERTA",
+           "hoyos": 18, "jugadores": jug(2, "Online"), "correo": "online@ejemplo.com", "telefono": "+1 555 123 4567"})
+check("Se aparta una reserva para dentro de 9 días", r.status_code == 201, r.text[:100])
+folio = r.json()["folio"]
+buena = {"numero": "4242424242424242", "mes": 12, "anio": 2030, "cvv": "123", "nombre": "Turista de Prueba"}
+r = c.post(f"/api/public/reservas/{folio}/pago", json=buena)
+check("Se paga en línea (simulado)", r.status_code == 200, r.text[:100])
+sal2 = c.get(f"/api/public/disponibilidad?fecha={dia_juego}&modalidad=PARTIDA_ABIERTA").json()["salidas"]
+tras = next(x for x in sal2 if x["id"] == elegida["id"])
+check("Ahora esa salida lleva 2 de 4 y se marca abierta", tras["ocupados"] == 2 and tras["abierta"] and tras["libres"] == 2, str(tras))
+
+por_cobro = admin.get("/api/treasury/sales-breakdown", params={"start": hoy_s, "end": hoy_s, "base": "cobro"}, headers=adm).json()
+check("Por día de cobro: el pago en línea cuenta hoy", float(por_cobro["totales"]["general"]["pago_en_linea"]) > 0
+      and float(por_cobro["totales"]["general"]["tarjeta"]) == 0 or float(por_cobro["totales"]["general"]["pago_en_linea"]) > 0)
+por_juego_hoy = admin.get("/api/treasury/sales-breakdown", params={"start": hoy_s, "end": hoy_s, "base": "juego"}, headers=adm).json()
+por_juego_dia = admin.get("/api/treasury/sales-breakdown", params={"start": dia_juego, "end": dia_juego, "base": "juego"}, headers=adm).json()
+check("Por día de juego: hoy no cuenta ese cobro", float(por_juego_hoy["totales"]["general"]["pago_en_linea"]) == 0)
+check("Por día de juego: cuenta el día de la reserva", float(por_juego_dia["totales"]["general"]["pago_en_linea"]) > 0,
+      por_juego_dia["totales"]["general"]["pago_en_linea"])
+check("El total general suma el pago en línea", float(por_cobro["totales"]["general"]["total"]) >= float(por_cobro["totales"]["general"]["pago_en_linea"]))
+r = admin.get("/api/treasury/sales-breakdown", params={"base": "otra"}, headers=adm)
+check("Una base inválida se rechaza", r.status_code == 422, f"HTTP {r.status_code}")
+
+lista = admin.get("/api/booking/holders", params={"q": "Online"}, headers=adm).json()
+check("Los titulares anteriores se sugieren con su correo", any(t["correo"] == "online@ejemplo.com" for t in lista), str(lista)[:120])
+hotel = entrar("concierge@celeste.mx")
+check("Un hotel no ve a titulares de otros", admin.get("/api/booking/holders", params={"q": "Online"}, headers=hotel).json() == [])
+check("Búsqueda muy corta se rechaza", admin.get("/api/booking/holders", params={"q": "a"}, headers=adm).status_code == 422)
+
+prods = admin.get("/api/tienda/productos", headers=adm).json()
+con_precio = next(p for p in prods if p["precio"] and p["existencia"] > 0)
+res = admin.get("/api/tienda/resumen", headers=adm).json()
+check("El resumen de tienda trae la tasa de IVA", float(res["iva_pct"]) == 16.0, str(res.get("iva_pct")))
+v = admin.post("/api/tienda/ventas", json={"lineas": [{"producto_id": con_precio["id"], "cantidad": 1}],
+               "pagos": [{"metodo": "TARJETA", "moneda": "MXN", "monto": con_precio["precio"]}], "atendio": "Prueba IVA"}, headers=adm)
+check("Venta con IVA registrada", v.status_code == 201, v.text[:100])
+vj = v.json()
+esperado = round(float(vj["total"]) - float(vj["total"]) / 1.16, 2)
+check("La venta guarda el IVA contenido (16 %)", abs(float(vj["iva_monto"]) - esperado) < 0.011 and float(vj["iva_pct"]) == 16.0, f"{vj['iva_monto']} vs {esperado}")
+check("El neto más el IVA da el total", abs(float(vj["total_neto"]) + float(vj["iva_monto"]) - float(vj["total"])) < 0.011)
+r = admin.put("/api/catalog/settings/tienda_iva_pct", json={"value": "8"}, headers=adm)
+check("La tasa se puede cambiar", r.status_code == 200, r.text[:100])
+r = admin.put("/api/catalog/settings/tienda_iva_pct", json={"value": "99"}, headers=adm)
+check("Una tasa absurda se rechaza", r.status_code == 422)
+admin.put("/api/catalog/settings/tienda_iva_pct", json={"value": "16"}, headers=adm)
+
 print()
 if FALLOS:
     print("FALLARON:", FALLOS)

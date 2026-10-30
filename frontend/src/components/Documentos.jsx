@@ -343,7 +343,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
             {pagos.map((p) => (
               <li key={p.id} className="flex justify-between gap-3">
                 <span className="text-on-surface-variant">
-                  {p.method === 'EFECTIVO' ? 'Efectivo' : p.method === 'TARJETA' ? 'Tarjeta' : 'Transferencia'}
+                  {p.method === 'EFECTIVO' ? 'Efectivo' : p.method === 'TARJETA' ? 'Tarjeta' : p.method === 'PAGO_EN_LINEA' ? 'Pago en línea' : 'Transferencia'}
                   {p.currency === 'USD'
                     ? ` · ${Number(p.amount).toFixed(2)} USD @ ${Number(p.exchange_rate_applied).toFixed(2)}`
                     : ''}
@@ -465,7 +465,7 @@ export function ReciboReplay({ reservation, replay, numero = 1, onCerrar }) {
             {pagos.map((p) => (
               <li key={p.id} className="flex justify-between gap-3">
                 <span className="text-on-surface-variant">
-                  {p.method === 'EFECTIVO' ? 'Efectivo' : p.method === 'TARJETA' ? 'Tarjeta' : 'Transferencia'}
+                  {p.method === 'EFECTIVO' ? 'Efectivo' : p.method === 'TARJETA' ? 'Tarjeta' : p.method === 'PAGO_EN_LINEA' ? 'Pago en línea' : 'Transferencia'}
                   {p.currency === 'USD'
                     ? ` · ${Number(p.amount).toFixed(2)} USD @ ${Number(p.exchange_rate_applied).toFixed(2)}`
                     : ''}

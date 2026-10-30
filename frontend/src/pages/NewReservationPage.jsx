@@ -214,11 +214,9 @@ export default function NewReservationPage() {
           // Del mostrador se llega con ?directo=1: es alguien que llegó por su
           // cuenta, sin hotel de por medio.
           const directo = hotelList.find((h) => h.is_direct);
-          // Recepción no elige: lo suyo es siempre público general.
-          const inicial =
-            isRecepcion || (searchParams.get('directo') === '1' && directo)
-              ? directo?.id
-              : hotelList.find((h) => !h.is_direct)?.id || hotelList[0].id;
+          // Siempre se arranca en "sin hotel" (huésped que llegó al campo);
+          // quien opera elige un hotel solo cuando la reserva viene de uno.
+          const inicial = directo?.id || hotelList[0].id;
           setForm((prev) => ({ ...prev, hotel_id: prev.hotel_id || inicial }));
         }
       })
@@ -393,6 +391,41 @@ export default function NewReservationPage() {
 
   // Los carritos no se eligen: salen de cuánta gente va, dos por carrito.
   const hotelDirecto = hotels.find((h) => h.is_direct) || null;
+
+  // --- Titulares anteriores, para sugerirlos al escribir el nombre.
+  const [titulares, setTitulares] = useState([]);
+  useEffect(() => {
+    const q = form.holder_name.trim();
+    if (q.length < 3) {
+      setTitulares([]);
+      return undefined;
+    }
+    let vigente = true;
+    const espera = setTimeout(() => {
+      bookingApi
+        .holders(q)
+        .then((lista) => vigente && setTitulares(lista || []))
+        .catch(() => vigente && setTitulares([]));
+    }, 250);
+    return () => {
+      vigente = false;
+      clearTimeout(espera);
+    };
+  }, [form.holder_name]);
+
+  function elegirTitular(nombre) {
+    const previo = titulares.find((t) => t.nombre === nombre);
+    setForm((prev) => ({
+      ...prev,
+      holder_name: nombre,
+      ...(previo
+        ? {
+            holder_email: prev.holder_email || previo.correo || '',
+            holder_phone: prev.holder_phone || previo.telefono || '',
+          }
+        : {}),
+    }));
+  }
   const hotelesConConvenio = hotels.filter((h) => !h.is_direct);
   /** Venta de mostrador: el huésped llegó al campo, sin hotel de por medio. */
   const ventaDirecta = Boolean(hotelDirecto && form.hotel_id === hotelDirecto.id);
@@ -972,10 +1005,21 @@ export default function NewReservationPage() {
                   <Input
                     value={form.holder_name}
                     placeholder="Roberto Morales Vega"
-                    onChange={(e) => setForm({ ...form, holder_name: e.target.value })}
+                    list="titulares-previos"
+                    autoComplete="off"
+                    onChange={(e) => elegirTitular(e.target.value)}
                   />
+                  {/* Titulares que ya reservaron antes: al elegir uno se llenan
+                      su correo y su teléfono. */}
+                  <datalist id="titulares-previos">
+                    {titulares.map((t) => (
+                      <option key={`${t.correo}-${t.nombre}`} value={t.nombre}>
+                        {t.correo}
+                      </option>
+                    ))}
+                  </datalist>
                 </Field>
-                <Field label="Habitación / suite asignada">
+                <Field label="Habitación / suite asignada (opcional)">
                   <Input
                     value={form.holder_room}
                     placeholder="Suite 412"
@@ -1440,9 +1484,15 @@ export default function NewReservationPage() {
                   <p className="text-label-sm text-outline">
                     {esFinDeSemana(date) ? 'Precio de fin de semana' : 'Precio entre semana'}
                   </p>
-                  <p className="whitespace-nowrap font-serif text-headline-md text-primary">
-                    {mxn(total)}
-                  </p>
+                  {listo ? (
+                    <p className="whitespace-nowrap font-serif text-headline-md text-primary">
+                      {mxn(total)}
+                    </p>
+                  ) : (
+                    <p className="text-right text-body-md text-outline">
+                      Se calcula al completar los datos
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

@@ -158,6 +158,7 @@ def sales_breakdown(
     start: Optional[date] = Query(default=None),
     end: Optional[date] = Query(default=None),
     group: str = Query(default="dia", pattern="^(dia|semana|mes|anio)$"),
+    base: str = Query(default="cobro", pattern="^(cobro|juego)$"),
     db: Session = Depends(get_db),
     _: User = Depends(RequirePermission(Permission.FINANCE_SALES_TOTALS)),
 ):
@@ -175,7 +176,7 @@ def sales_breakdown(
         from app.core.exceptions import ValidationError
 
         raise ValidationError("Elija un periodo de cinco años o menos")
-    return desglose(db, start, end, group)
+    return desglose(db, start, end, group, base=base)
 
 
 @router.get("/my-day")

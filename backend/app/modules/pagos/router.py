@@ -106,6 +106,8 @@ class SalidaOut(BaseModel):
     id: int
     hora: time
     libres: int
+    ocupados: int = 0
+    capacidad: int = 4
     abierta: bool = False
     twilight: bool = False
 

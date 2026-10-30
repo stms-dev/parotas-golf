@@ -253,6 +253,7 @@ export const publicApi = {
 export const bookingApi = {
   availability: (params) => api.get('/booking/availability', params),
   recursos: (params) => api.get('/booking/recursos', params),
+  holders: (q) => api.get('/booking/holders', { q }),
   availabilityRange: (params) => api.get('/booking/availability/range', params),
 
   quote: (body) => api.post('/booking/reservations/quote', body),

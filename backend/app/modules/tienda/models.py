@@ -19,11 +19,11 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.shared.money import DecimalMoney, DecimalRate
+from app.shared.money import DecimalMoney, DecimalRate, money
 
 
 class TiendaProducto(Base):
@@ -162,6 +162,16 @@ class TiendaVenta(Base):
     piezas: Mapped[int] = mapped_column(Integer, nullable=False)
     cambio_mxn: Mapped[Decimal] = mapped_column(DecimalMoney, default=Decimal("0.00"), nullable=False)
     tipo_cambio: Mapped[Decimal] = mapped_column(DecimalRate, nullable=False)
+    # El precio de lista es el bruto (con IVA). Aquí queda el IVA que trae el
+    # total de esta venta y la tasa con la que se sacó, para que un cambio de
+    # tasa no mueva las ventas anteriores.
+    iva_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"), nullable=False)
+    iva_monto: Mapped[Decimal] = mapped_column(DecimalMoney, default=Decimal("0.00"), nullable=False)
+
+    @property
+    def total_neto(self) -> Decimal:
+        """Lo vendido sin el IVA."""
+        return money(self.total - (self.iva_monto or 0))
 
     cliente: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
