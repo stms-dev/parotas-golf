@@ -480,7 +480,7 @@ function PadronPga({ pga, editable }) {
           {config
             ? `Beneficio vigente: ${
                 config.discount_type === 'PORCENTAJE'
-                  ? `${Number(config.value).toFixed(0)}% sobre el green fee`
+                  ? `${Number(config.value).toFixed(0)}% sobre el Green Fee`
                   : mxn(config.value)
               }`
             : 'Sin configuración de beneficio.'}

@@ -1,6 +1,6 @@
 /**
  * Caja de la tienda: su propio fondo y su propio corte, aparte de la caja de
- * green fees. Se abre con un fondo, se vende, y al cerrar se cuenta el
+ * Green Fee. Se abre con un fondo, se vende, y al cerrar se cuenta el
  * efectivo: el sistema dice cuánto debería haber y la diferencia queda guardada.
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -88,7 +88,7 @@ export default function Caja({ caja, atiende, onCajaCambio, horario, puedeAdmini
             {horario?.fuera
               ? 'Ya no admite ventas por hoy. Mañana se abre sola con la primera venta, a nombre de quien atienda.'
               : 'Se abre sola con la primera venta, a nombre de quien atienda. Si acaba de entrar, espere un momento.'}{' '}
-            Es independiente de la caja de green fees.
+            Es independiente de la caja de Green Fee.
           </p>
         </section>
       )}

@@ -1,7 +1,7 @@
 /**
  * Ventas totales.
  *
- * Lo cobrado, separado por sección (green fees, replay, tienda) y por forma de
+ * Lo cobrado, separado por sección (Green Fee, replay, tienda) y por forma de
  * pago (efectivo en pesos, dólares, tarjeta, transferencia). Sirve para dos
  * cosas: ver el detalle de un día y, con el mismo cálculo, juntar por semana,
  * mes o año; y saber cuánto debe haber en caja, cuánto llegó por transferencia

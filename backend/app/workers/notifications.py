@@ -195,7 +195,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
         renglones = "".join(
             f"<tr><td style='padding:6px 0;border-bottom:1px solid #e3ece6'>"
             f"{p.full_name}<span style='color:#77756c'> · "
-            f"{'Zona de práctica' if practica else ('Junior' if p.category == 'INFANTIL' else 'Green fee')}"
+            f"{'Zona de práctica' if practica else ('Junior' if p.category == 'INFANTIL' else 'Green Fee')}"
             f"</span></td>"
             f"<td style='padding:6px 0;border-bottom:1px solid #e3ece6;text-align:right;"
             f"font-family:ui-monospace,monospace'>${money(p.rate_applied)}</td></tr>"

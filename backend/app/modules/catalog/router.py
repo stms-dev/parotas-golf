@@ -278,7 +278,7 @@ class SettingUpdate(BaseModel):
 # a cualquier clave dejaría que un error de captura creara basura en la tabla.
 AJUSTES_EDITABLES = {
     "same_day_cutoff": "Hora límite para reservar el mismo día (HH:MM)",
-    "cierre_automatico_caja": "Hora en que las cajas (green fees y tienda) se cierran solas (HH:MM)",
+    "cierre_automatico_caja": "Hora en que las cajas (Green Fee y tienda) se cierran solas (HH:MM)",
     "carritos_totales": "Carritos de golf del club",
     "personas_por_carrito": "Personas que caben en cada carrito",
     "caddies_totales": "Caddies disponibles en el campo",

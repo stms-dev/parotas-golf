@@ -186,7 +186,7 @@ from app.shared.tiempo import ahora
 r = c.post("/api/tienda/caja/abrir", json={"fondo_inicial": 300, "atendio": A}, headers=rec)
 corte_auto = r.json()["id"]
 r = c.post("/api/treasury/cash/open", json={"opening_balance": 0}, headers=token("operaciones@lasparotas.mx"))
-check("Caja de green fees abierta", r.status_code in (200, 201), r.text[:80])
+check("Caja de Green Fee abierta", r.status_code in (200, 201), r.text[:80])
 db = SessionLocal()
 check("Antes de la hora no cierra nada", cerrar_vencidas(db, ahora() - timedelta(days=1)) == {"green_fees": 0, "tienda": 0})
 res_auto = cerrar_vencidas(db, ahora() + timedelta(days=1))
@@ -201,7 +201,7 @@ check("Arqueo posterior cuadra", r.status_code == 200 and Decimal(r.json()["dife
 r = c.post(f"/api/tienda/caja/cortes/{corte_auto}/arqueo", json={"efectivo_contado": 300, "atendio": A}, headers=rec)
 check("No se arquea dos veces", r.status_code == 409)
 ses = c.get("/api/treasury/cash", headers=token("operaciones@lasparotas.mx")).json()
-check("Green fees en CIERRE_AUTOMATICO", ses[0]["status"] == "CIERRE_AUTOMATICO", ses[0]["status"])
+check("Green Fee en CIERRE_AUTOMATICO", ses[0]["status"] == "CIERRE_AUTOMATICO", ses[0]["status"])
 
 print("\n" + ("TODO OK" if not fallas else f"{len(fallas)} FALLAS: {fallas}"))
 sys.exit(1 if fallas else 0)

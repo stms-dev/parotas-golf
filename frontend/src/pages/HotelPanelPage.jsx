@@ -632,7 +632,7 @@ function TarifasDeHoy({ tarifas }) {
 
       {/* El precio de hoy depende del día: se dice cuál aplica. */}
       <span className="text-label-sm text-outline">
-        Green fee por jugador ·{' '}
+        Green Fee por jugador ·{' '}
         <span className="font-medium text-secondary">
           {esFinDeSemana(hoy()) ? 'precio de fin de semana' : 'precio entre semana'}
         </span>

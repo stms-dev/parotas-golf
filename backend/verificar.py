@@ -164,7 +164,7 @@ payload = {
 response = client.post("/api/booking/reservations/quote", json=payload, headers=hotel)
 cotizacion = response.json()
 print(f"   ({'fin de semana' if FIN_DE_SEMANA else 'entre semana'}: adulto ${ADULTO_18}, menor ${MENOR_18})")
-check("Green fees 3 adultos + 1 menor", Decimal(cotizacion["subtotal_green_fees"]) == GREEN,
+check("Green Fee 3 adultos + 1 menor", Decimal(cotizacion["subtotal_green_fees"]) == GREEN,
       f"${cotizacion['subtotal_green_fees']}")
 check("Menor de 16 toma tarifa infantil", "INFANTIL" in " ".join(cotizacion["detail"]))
 check("Servicios", Decimal(cotizacion["subtotal_services"]) == SERVICIOS, f"${cotizacion['subtotal_services']}")
@@ -182,7 +182,7 @@ check("Folio generado", reserva["folio"].startswith("LP-"), reserva["folio"])
 check("QR por partida", bool(reserva["qr_token"]))
 check("TC congelado en la reserva", Decimal(reserva["exchange_rate_applied"]) == Decimal("17.2000"))
 check("Comisión congelada", Decimal(reserva["commission_rate_applied"]) == Decimal("5.0000"))
-check("Acompañante no cobra green fee", len(reserva["companions"]) == 1 and len(reserva["players"]) == 4)
+check("Acompañante no cobra Green Fee", len(reserva["companions"]) == 1 and len(reserva["players"]) == 4)
 
 # Cupo tomado
 response = client.get(f"/api/booking/availability?slot_date={manana}", headers=hotel)
@@ -534,7 +534,7 @@ liquidacion = response.json()
 bruta = Decimal(liquidacion["gross_sales"])
 comision = Decimal(liquidacion["commission_amount"])
 neto = Decimal(liquidacion["net_course"])
-# La comisión va solo sobre el green fee: caddies, bastones y acompañantes
+# La comisión va solo sobre el Green Fee: caddies, bastones y acompañantes
 # pasan completos al campo, y el replay ni siquiera es venta del hotel.
 base = Decimal("0.00")
 for item in client.get(f"/api/booking/reservations?hotel_id={reserva['hotel_id']}&slot_date={manana}&limit=200",
@@ -545,7 +545,7 @@ for item in client.get(f"/api/booking/reservations?hotel_id={reserva['hotel_id']
     base += (Decimal(d["total"]) - Decimal(d["subtotal_services"])) * Decimal("5") / Decimal("100")
 esperada = base.quantize(Decimal("0.01"))
 
-check("Comisión del hotel al 5% del green fee (sin servicios)", comision == esperada,
+check("Comisión del hotel al 5% del Green Fee (sin servicios)", comision == esperada,
       f"${comision} sobre ${bruta}")
 check("La venta del hotel no incluye el replay", REPLAY not in (bruta - TOTAL_PGA,))
 check("Neto del campo = bruta − comisión", neto == bruta - comision, f"${neto}")
@@ -1166,7 +1166,7 @@ check("En su lista el hotel ve el mismo total que en el detalle",
       _fila is not None and Decimal(_fila["total"]) == Decimal(_hotel2["total"]),
       f"${_fila['total']}" if _fila else "no aparece")
 
-# La comisión no se toca con la venta de mostrador: va sobre el green fee.
+# La comisión no se toca con la venta de mostrador: va sobre el Green Fee.
 check("La comisión del hotel no cambia por lo que se venda en el mostrador",
       Decimal(_campo2["total"]) - Decimal(_campo2["subtotal_services"])
       == Decimal(_hotel2["total"]) - Decimal(_hotel2["subtotal_services"]),
@@ -1196,9 +1196,9 @@ with _Sesion() as _db:
     check("El monto se descuenta tal cual cuando la tarifa alcanza",
           _servicio_pga.compute_discount(Decimal("2800.00")) == Decimal("500.00"),
           f"−${_servicio_pga.compute_discount(Decimal('2800.00'))} sobre $2800")
-    # Nunca se descuenta más de lo que cuesta ese green fee: si no, la partida
+    # Nunca se descuenta más de lo que cuesta ese Green Fee: si no, la partida
     # saldría con total negativo.
-    check("Nunca descuenta más que el propio green fee",
+    check("Nunca descuenta más que el propio Green Fee",
           _servicio_pga.compute_discount(Decimal("300.00")) == Decimal("300.00"),
           f"−${_servicio_pga.compute_discount(Decimal('300.00'))} sobre $300")
 

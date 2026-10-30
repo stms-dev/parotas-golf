@@ -66,7 +66,7 @@ La base se llena con la información real del club:
 
 - **Hoteles y tarifas** de la hoja *Costeo* del tarifario (`CAMPO_DE_GOLF_COSTEO.xlsx`):
   nueve convenios, cuatro con comisión del 5% (Celeste, Dreams, Secrets, Brisas)
-  y cinco sin comisión. El green fee cambia de **lunes a jueves** contra
+  y cinco sin comisión. El Green Fee cambia de **lunes a jueves** contra
   **viernes a domingo**, y el sistema elige solo el que corresponde al día de
   la salida.
 - **Productos del Pro-Shop** de `backend/data/inventario_inicial.tsv`: 73
@@ -91,9 +91,9 @@ ventana (`/sistema/tienda`). Los hoteles no la ven y no factura.
   kardex, precio por margen y exportar a CSV.
 - **Ventas**: búsqueda por fecha/folio, reimprimir ticket y cancelar (solo con
   la caja abierta; las piezas regresan al inventario).
-- **Caja**: su propio fondo y corte, aparte de la caja de green fees; al cerrar
+- **Caja**: su propio fondo y corte, aparte de la caja de Green Fee; al cerrar
   se cuentan billetes y queda guardada la diferencia.
-- **Cierre automático** (las dos cajas, green fees y tienda): a la hora de
+- **Cierre automático** (las dos cajas, Green Fee y tienda): a la hora de
   *Control del sistema › Turno de caja* (22:00 por omisión) lo que siga
   abierto se cierra solo con lo esperado congelado; el efectivo se cuenta
   después (*Contar efectivo* en Caja de la tienda).
@@ -286,7 +286,7 @@ Mateo    → infantil         →           $1,032.00
 El beneficio se configura desde Control del sistema y admite las dos formas que
 maneja el club: **un porcentaje** de la tarifa del portador, o **un monto fijo
 en pesos**. En los dos casos se aplica por persona acreditada, y nunca descuenta
-más de lo que cuesta ese green fee — si no, la partida saldría en negativo.
+más de lo que cuesta ese Green Fee — si no, la partida saldría en negativo.
 
 Y el hotel lo ve. Su total baja cuando se acredita una credencial en el campo,
 porque de ese total sale su comisión: ocultárselo solo provocaría que reclamara
@@ -415,7 +415,7 @@ neto, distribución de cobros, arqueo y la auditoría de cada bonificación PGA.
 Recepción entra a la misma ruta pero solo ve su turno de caja: la consolidación
 del club exige `finance:view_global`, que su perfil no tiene.
 
-**Precios & Tarifas** — alta y edición de green fees, servicios y convenios.
+**Precios & Tarifas** — alta y edición de Green Fee, servicios y convenios.
 Separada de Configuración a propósito: consultar el cuadro de precios es cosa
 de todos los días, modificarlo no.
 
@@ -426,7 +426,7 @@ cambios, en una sola pantalla.
 **Cajas automáticas.** La caja de la tienda se abre sola con el primer
 movimiento del día (abrir la pantalla o vender), a nombre de quien atiende y con
 fondo en cero; el fondo de cambio se ajusta después en Caja → «cambiar fondo».
-La de green fees se abre sola con el primer cobro del check-in. Las dos se
+La de Green Fee se abre sola con el primer cobro del check-in. Las dos se
 cierran solas a la hora de «Cierre automático de cajas» (22:00 por defecto) y
 quedan pendientes de contar. Pasada esa hora no se abre caja ni se cobra, y la
 hora se mide con la del campo, no con la del servidor. Es una sola regla para
@@ -455,7 +455,7 @@ tarjeta sigue ahí para poder reactivarlo.
 domicilio que el sitio público muestra en el pie y en «Casa club». Se editan
 ahí y el sitio los toma de `/api/public/campo` (`contacto`); no hay que tocar
 código. Las tarifas, la zona de práctica, los extras y el tipo de cambio que
-muestra la tabla de green fees del sitio también salen de esa misma llamada, así
+muestra la tabla de Green Fee del sitio también salen de esa misma llamada, así
 que cambiarlos en el sistema los cambia en el sitio. El teléfono es además el
 número al que abre WhatsApp (`wa.me`).
 
@@ -592,7 +592,7 @@ desde la reserva del hotel (servicio `ACOMPANANTE`) y se muestra junto a los
 jugadores, no como servicio del mostrador. En el mostrador su llegada se marca
 igual que la de un jugador: quien no llega no se cobra.
 
-**Comisión.** Se calcula solo sobre el green fee (ya con PGA y convenio):
+**Comisión.** Se calcula solo sobre el Green Fee (ya con PGA y convenio):
 `total − servicios`. Caddies, bastones y acompañantes pasan completos al campo,
 como indica la hoja de costeo.
 
@@ -611,7 +611,7 @@ La partida abierta es la excepción y existe justamente para emparejar
 jugadores de distintos hoteles.
 
 Un solo campo: **9 o 18 hoyos es una opción de la reserva**, no una salida
-distinta. Los acompañantes no ocupan lugar ni pagan green fee, y los menores de
+distinta. Los acompañantes no ocupan lugar ni pagan Green Fee, y los menores de
 16 años toman tarifa infantil automáticamente aunque el hotel los registre como
 adultos.
 
@@ -788,9 +788,9 @@ Decisiones tomadas para esta versión, listas para retomarse:
 
 - **Descuento PGA**: apagado por defecto; se enciende desde Control (`pga_activo`). Apagado, no se pide ni se aplica en sitio, reserva ni check-in.
 - **Paquetes y servicios editables** (Control → "Paquetes y servicios adicionales"): nombre, descripción y precio de servicios, y descripciones de los paquetes (`paquete_{GRUPO,PARTIDA_ABIERTA,PRACTICA}_detalle`).
-- **Ventas totales** (`/sistema/ventas`, permiso `finance:sales_totals`, solo administración/operaciones): desglose por sección (green fees, tienda, etc.) y por forma de pago (efectivo, tarjeta, transferencia, dólares), por día/semana/mes/año, con CSV. Endpoint `GET /treasury/sales-breakdown`.
+- **Ventas totales** (`/sistema/ventas`, permiso `finance:sales_totals`, solo administración/operaciones): desglose por sección (Green Fee, tienda, etc.) y por forma de pago (efectivo, tarjeta, transferencia, dólares), por día/semana/mes/año, con CSV. Endpoint `GET /treasury/sales-breakdown`.
 - **Tipo de cambio**: cada cuenta pagada conserva el de su último pago; cambiar el tipo de cambio solo afecta reservas nuevas.
-- **Práctica**: 120 pelotas (migración `e6a8c0d2f4b5`, solo si la descripción no fue editada). El green fee ya incluye zona de práctica con 20 pelotas.
+- **Práctica**: 120 pelotas (migración `e6a8c0d2f4b5`, solo si la descripción no fue editada). El Green Fee ya incluye zona de práctica con 20 pelotas.
 - **Sitio**: Partida abierta y Práctica arrancan con 1 jugador (Grupo, 4); la fecha usa el día del campo (`campo.hoy`) y permite hoy hasta la hora límite; la partida abierta ofrece solo salidas con lugar suficiente; bastones propios/renta con diestro/zurdo; leyenda con teléfono si no llega la reserva.
 - **Partida abierta en el sitio**: las salidas con una partida ya iniciada se pueden elegir aunque no estén completas y salen marcadas con ● (campo `abierta` en `/public/disponibilidad`). El sitio ahora manda la modalidad al pedir salidas (antes solo la práctica).
 - **Corte del día de recepción**: `GET /treasury/my-day` (permiso `payment:register`) devuelve solo lo que cobró el usuario hoy. En `/sistema/ventas` recepción ve "Mi corte del día"; administración y operaciones ven el total del campo.
@@ -811,3 +811,7 @@ Decisiones tomadas para esta versión, listas para retomarse:
 ## Cambios v17
 
 - **Cierre automático de reservas no validadas** (`app/core/cierre_reservas.py`, revisión cada 30 minutos): una reserva por confirmar o confirmada, sin check-in y sin pago pendiente en línea, pasada su salida más la tolerancia, se marca sola como `NO_SHOW`, libera el cupo y deja una nota "[Automático]". Si ya tenía un pago (por ejemplo en línea), el pago se conserva. Tolerancia en el ajuste `no_show_automatico_min` (120 por defecto; 0 lo apaga).
+
+## v17b — Rótulo "Green Fee"
+- En todo el sitio y el sistema (pantallas, correos, documentos, README y pruebas) el término "green fees" / "green fee" se escribe ahora **Green Fee**.
+- Los identificadores internos del código (por ejemplo `GREEN_FEES`) no cambian. No hubo cambios en la base de datos: no había textos guardados con ese término.

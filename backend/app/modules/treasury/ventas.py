@@ -1,6 +1,6 @@
 """Ventas totales: lo cobrado, separado por sección y por forma de pago.
 
-Cada fuente se cuenta aparte —green fees, replay y tienda— y dentro de cada
+Cada fuente se cuenta aparte —Green Fee, replay y tienda— y dentro de cada
 una por forma de pago: efectivo en pesos, efectivo en dólares, tarjeta y
 transferencia. Se agrupa por día, semana, mes o año para poder ver el detalle
 de un día y, con el mismo cálculo, el acumulado.
@@ -25,7 +25,7 @@ from app.shared.money import ZERO, money
 from app.shared.tiempo import zona
 
 FUENTES = [
-    ("GREEN_FEES", "Green fees y servicios"),
+    ("GREEN_FEES", "Green Fee y servicios"),
     ("REPLAY", "Replay"),
     ("TIENDA", "Tienda"),
 ]
@@ -131,7 +131,7 @@ def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
             }
         return periodos[clave]["por_fuente"][fuente]
 
-    # --- cobros de reservas (green fees, servicios y replay)
+    # --- cobros de reservas (Green Fee, servicios y replay)
     if por_juego:
         # Por fecha de juego: se filtra por el día de la salida de la reserva.
         consulta_pagos = (

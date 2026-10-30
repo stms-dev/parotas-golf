@@ -47,7 +47,7 @@ export default function Tarifas({ onIr, campo = null }) {
   // La zona de práctica ya va en la tabla; aquí quedan los demás extras.
   const extras = extrasDe(campo).filter((e) => e.code !== 'PRACTICA');
 
-  // Lo que el green fee incluye, en el idioma de quien lee y unido con la
+  // Lo que el Green Fee incluye, en el idioma de quien lee y unido con la
   // conjunción que toca.
   const incluido = enLista(
     INCLUIDO_CLAVES.map((clave) => t(clave)),
@@ -183,5 +183,5 @@ const INCLUIDO_CLAVES = ['tarifas.carrito', 'tarifas.scorecard', 'tarifas.tees',
 // Si algún día alguien agrega algo a INCLUIDO y olvida su frase, que se note en
 // desarrollo en lugar de salir una lista corta en la página.
 if (import.meta.env.DEV && INCLUIDO.length !== INCLUIDO_CLAVES.length) {
-  console.warn('INCLUIDO y INCLUIDO_CLAVES no coinciden: falta traducir algo del green fee.');
+  console.warn('INCLUIDO y INCLUIDO_CLAVES no coinciden: falta traducir algo del Green Fee.');
 }

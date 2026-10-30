@@ -180,7 +180,7 @@ def crear_sesion(
                     "price_data": {
                         "currency": "mxn",
                         "product_data": {
-                            "name": f"Green fee · {folio}",
+                            "name": f"Green Fee · {folio}",
                             "description": descripcion,
                         },
                         # El monto, en centavos, calculado por el servidor.

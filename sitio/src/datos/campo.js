@@ -159,7 +159,7 @@ export const EXTRAS = [
   },
 ];
 
-/** Lo que incluye el green fee. Las bebidas ya no van incluidas. */
+/** Lo que incluye el Green Fee. Las bebidas ya no van incluidas. */
 export const INCLUIDO = ['Carrito compartido', 'Tarjeta de score', '10 tees', 'Zona de práctica con 20 pelotas'];
 
 /**
@@ -180,7 +180,7 @@ export const esFinDeSemana = (iso) => {
   return dia === 0 || dia === 5 || dia === 6;       // viernes a domingo
 };
 
-/** Green fee de un jugador, según el día y si es menor. */
+/** Green Fee de un jugador, según el día y si es menor. */
 export function greenFee({ fecha, hoyos = 18, menor = false }) {
   const col = esFinDeSemana(fecha) ? 'fin' : 'semana';
   if (menor) return hoyos === 18 ? TARIFAS.menor18[col] : null;
@@ -261,7 +261,7 @@ export const contactoDe = (campo) => ({
 export const enlaceWhatsApp = (telefono) => `https://wa.me/${String(telefono).replace(/\D/g, '')}`;
 
 /**
- * La tabla de green fees, tal como la tiene el sistema.
+ * La tabla de Green Fee, tal como la tiene el sistema.
  *
  * Con el sistema contestando, MANDA el sistema: una tarifa que el club dio de
  * baja desaparece de la tabla en vez de quedarse con el precio viejo de este

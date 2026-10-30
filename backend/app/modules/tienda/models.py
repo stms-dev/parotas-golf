@@ -13,7 +13,7 @@ Tres reglas mandan aquí:
    precio y el costo del momento: si mañana sube el precio, el ticket de hoy
    sigue diciendo lo que se cobró.
 3. **La tienda tiene su caja.** Su corte se abre con un fondo y se cierra
-   contando el efectivo; no se mezcla con la caja de green fees.
+   contando el efectivo; no se mezcla con la caja de Green Fee.
 """
 from datetime import date, datetime
 from decimal import Decimal

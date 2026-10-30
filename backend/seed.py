@@ -93,7 +93,7 @@ def sembrar(produccion: bool = False):
         print(f"✓ {len(hoteles) - 1} hoteles con convenio + venta directa en mostrador")
 
         # ------------------------------------------------------------ tarifas
-        # Green fee POR JUGADOR, de la hoja "Costeo". El precio cambia de lunes
+        # Green Fee POR JUGADOR, de la hoja "Costeo". El precio cambia de lunes
         # a jueves contra viernes a domingo, y es el mismo en los tres
         # paquetes: lo que cambia entre ellos es cómo se ocupa la salida.
         #
@@ -251,7 +251,7 @@ def sembrar(produccion: bool = False):
         # -------------------------------------------------------- parámetros
         parametros = [
             ("same_day_cutoff", "15:00", "Hora límite para reservar el mismo día (HH:MM)"),
-            ("cierre_automatico_caja", "22:00", "Hora en que las cajas (green fees y tienda) se cierran solas (HH:MM)"),
+            ("cierre_automatico_caja", "22:00", "Hora en que las cajas (Green Fee y tienda) se cierran solas (HH:MM)"),
             ("course_name", "Las Parotas Club de Golf", "Nombre del campo"),
             ("course_par", "72", "Par del campo"),
             ("max_handicap_men", "26.4", "Hándicap máximo caballeros"),

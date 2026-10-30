@@ -193,7 +193,7 @@ export default function App() {
             <ElCampo hoyoActivo={hoyo} onElegirHoyo={setHoyo} />
           </main>
         ) : (
-          /* Las demás paradas (green fees, evento, reservar) ya no llevan el
+          /* Las demás paradas (Green Fee, evento, reservar) ya no llevan el
              mapa: el trazo del campo se queda solo en El campo, que es donde
              se recorre hoyo por hoyo. Aquí el contenido se lleva el centro. */
           <main className="mt-4 flex min-h-0 flex-1 lg:mt-7 lg:w-full lg:max-w-[46rem] lg:self-center">

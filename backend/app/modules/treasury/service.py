@@ -277,7 +277,7 @@ class SettlementService:
         pga = money(sum((money(r.pga_discount_amount) for r in reservations), start=ZERO))
 
         # Cada reserva aporta su propia comisión congelada. La comisión va
-        # solo sobre el green fee (ya con PGA y convenio): caddies, bastones y
+        # solo sobre el Green Fee (ya con PGA y convenio): caddies, bastones y
         # acompañantes pasan al campo completos, como marca la hoja de costeo.
         commission = money(
             sum(

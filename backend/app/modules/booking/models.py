@@ -290,7 +290,7 @@ class ReservationPlayer(Base):
 
 
 class ReservationCompanion(Base):
-    """Acompañante. No consume cupo ni paga green fee, pero sí paga su lugar.
+    """Acompañante. No consume cupo ni paga Green Fee, pero sí paga su lugar.
 
     Su llegada se marca en el mostrador igual que la de un jugador: si no se
     presenta, su cargo sale de la cuenta.

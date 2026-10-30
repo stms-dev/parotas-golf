@@ -108,10 +108,10 @@ if prod:
         "pagos": [{"metodo": "TARJETA", "monto": str(p["precio"])}], "atendio": "María Ríos"})
     check("Vender fuera de horario se rechaza", r.status_code in (400, 409, 422), f"{r.status_code}")
 
-print("\n5. Turno de green fees")
+print("\n5. Turno de Green Fee")
 admin = entrar("admin@lasparotas.mx")
 r = c.post("/api/treasury/cash/open", json={"opening_balance": "0"}, headers=admin)
-check("El turno de green fees tampoco abre fuera de horario", r.status_code in (400, 409, 422), f"{r.status_code} {r.text[:100]}")
+check("El turno de Green Fee tampoco abre fuera de horario", r.status_code in (400, 409, 422), f"{r.status_code} {r.text[:100]}")
 poner_cierre("23:59")
 r = c.post("/api/treasury/cash/open", json={"opening_balance": "0"}, headers=admin)
 check("En horario sí abre", r.status_code == 201, f"{r.status_code} {r.text[:100]}")

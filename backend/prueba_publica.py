@@ -93,7 +93,7 @@ q = r.json()
 print("  HTTP", r.status_code, "·", q["fecha"], q["hora"][:5], "· twilight", q["twilight"])
 for j in q["jugadores"]:
     print(f"    {j['nombre']:<28} {j['categoria']:<9} {j['green_fee']}")
-print("  green fees", q["green_fees"], "+ bastones", q["subtotal_bastones"],
+print("  Green Fee", q["green_fees"], "+ bastones", q["subtotal_bastones"],
       f"({q['sets_bastones']} sets a {q['precio_bastones']})", "= total", q["total"])
 print("  caddie aparte:", q["caddie_por_persona"])
 assert q["sets_bastones"] == 2

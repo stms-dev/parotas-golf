@@ -924,7 +924,7 @@ function aCuerpo(jugadores) {
     bastones: j.bastones || null,
     // Un junior paga junior aunque sea local: no se manda.
     local: Boolean(j.local) && !esJunior(j.edad),
-    // La zona de práctica va incluida en el green fee: no se cobra aparte.
+    // La zona de práctica va incluida en el Green Fee: no se cobra aparte.
     practica: false,
   }));
 }

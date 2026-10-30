@@ -437,7 +437,7 @@ export default function ReservationDetailPage() {
       <Card title="Desglose de la cuenta">
         <dl className="space-y-2 text-body-lg">
           <div className="flex justify-between">
-            <dt className="text-outline">Green fees</dt>
+            <dt className="text-outline">Green Fee</dt>
             <dd>{mxn(reservation.subtotal_green_fees)}</dd>
           </div>
           {totalAcompanantes > 0 && (
@@ -473,7 +473,7 @@ export default function ReservationDetailPage() {
             Sobre este total se calcula su comisión del{' '}
             {Number(reservation.commission_rate_applied).toFixed(2)}%. Puede bajar en el campo: si
             se acredita una credencial PGA el descuento es individual y se refleja aquí, y si
-            alguien de la partida no se presenta su green fee deja de cobrarse. Lo que el huésped
+            alguien de la partida no se presenta su Green Fee deja de cobrarse. Lo que el huésped
             consuma en el mostrador no entra en esta cuenta.
           </p>
         ) : (

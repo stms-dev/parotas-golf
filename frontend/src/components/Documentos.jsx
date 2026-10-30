@@ -232,7 +232,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
               <td className="py-2">
                 <span className="block text-on-surface">{p.full_name}</span>
                 <span className="block text-label-sm text-outline">
-                  Green fee {categoria(p.category).toLowerCase()} ·{' '}
+                  Green Fee {categoria(p.category).toLowerCase()} ·{' '}
                   {recorrido(reservation)}
                 </span>
               </td>
@@ -303,7 +303,7 @@ export function Recibo({ reservation, cuenta, onCerrar }) {
 
       <dl className="mb-4 space-y-1 border-t border-outline-variant pt-3 text-body-md">
         <Linea
-          t={`Green fees base (${jugadores.length} cupos)`}
+          t={`Green Fee base (${jugadores.length} cupos)`}
           v={mxn(reservation.subtotal_green_fees)}
         />
         {/* Una línea por credencial, con nombre y código: así el huésped ve a

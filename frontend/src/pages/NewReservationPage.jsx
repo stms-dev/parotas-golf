@@ -1190,9 +1190,9 @@ export default function NewReservationPage() {
                 <span className="text-outline transition group-open:rotate-90">›</span>
               </summary>
               <div className="px-4 pb-4">
-            {/* --- 3d. Tarifas de green fee --- */}
+            {/* --- 3d. Tarifas de Green Fee --- */}
             <p className="mb-2 mt-5 flex items-center justify-between text-label-sm uppercase tracking-wider text-on-surface-variant">
-              <span>Categorías de tarifa de green fee</span>
+              <span>Categorías de tarifa de Green Fee</span>
               <span className="normal-case tracking-normal text-outline">
                 {ventaDirecta ? 'Precios del campo' : 'Precios de convenio hotelero'}
               </span>

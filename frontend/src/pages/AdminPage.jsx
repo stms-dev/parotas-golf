@@ -544,7 +544,7 @@ function BeneficioPga() {
         'profesional con credencial.<br>' +
         (esMonto
           ? '<span style="font-size:.9em;opacity:.75">El monto se descuenta a cada acreditado ' +
-            'por separado, y nunca más de lo que cuesta su propio green fee.</span><br>'
+            'por separado, y nunca más de lo que cuesta su propio Green Fee.</span><br>'
           : '') +
         '<span style="font-size:.9em;opacity:.75">Las partidas ya cobradas conservan su ' +
         'descuento.</span>',
@@ -635,7 +635,7 @@ function BeneficioPga() {
         El beneficio es individual: se aplica a la tarifa de cada jugador que presentó credencial,
         no al total de la partida.{' '}
         {esMonto
-          ? 'Con monto fijo, a cada acreditado se le descuenta esa cantidad, y nunca más de lo que cuesta su propio green fee.'
+          ? 'Con monto fijo, a cada acreditado se le descuenta esa cantidad, y nunca más de lo que cuesta su propio Green Fee.'
           : 'Con porcentaje, a cada acreditado se le descuenta esa proporción de su propia tarifa.'}
       </p>
     </Tarjeta>
@@ -763,7 +763,7 @@ function HorariosDelDia({ dia, slots, onDia, onCambio }) {
  * Una hora guardada en los parámetros del sistema, editable aquí.
  *
  * - same_day_cutoff: pasada esta hora ya no se reserva para hoy.
- * - cierre_automatico_caja: a esta hora las cajas (green fees y tienda) que
+ * - cierre_automatico_caja: a esta hora las cajas (Green Fee y tienda) que
  *   sigan abiertas se cierran solas y queda pendiente contar el efectivo.
  */
 function HoraAjuste({ clave, defecto, titulo, texto, mensaje }) {
@@ -842,7 +842,7 @@ function HoraCierreCajas() {
       clave="cierre_automatico_caja"
       defecto="22:00"
       titulo="Cierre automático de cajas"
-      texto="A esta hora la caja de green fees y la de la tienda se cierran solas si siguen abiertas; el efectivo se cuenta después."
+      texto="A esta hora la caja de Green Fee y la de la tienda se cierran solas si siguen abiertas; el efectivo se cuenta después."
       mensaje={(h) => `Las cajas se cerrarán solas a las <b>${h}</b>.`}
     />
   );
@@ -1324,7 +1324,7 @@ function Tarifas({ tarifas, tasa, onCambio }) {
   async function guardar(tarifa) {
     const nuevo = Number(precio);
     if (!nuevo || nuevo <= 0) {
-      await avisoError('Precio inválido', 'Escriba cuánto cuesta el green fee.');
+      await avisoError('Precio inválido', 'Escriba cuánto cuesta el Green Fee.');
       return;
     }
     try {
@@ -1626,7 +1626,7 @@ function Comisiones({ hoteles, onCambio }) {
   return (
     <Tarjeta icono="hotel" titulo="Comisión de cada hotel">
       <p className="mb-3 text-body-md text-outline">
-        Es el porcentaje del green fee que se queda el hotel por mandar al huésped. Servicios, acompañantes y replays no generan comisión.
+        Es el porcentaje del Green Fee que se queda el hotel por mandar al huésped. Servicios, acompañantes y replays no generan comisión.
       </p>
       <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         {/* La venta directa del mostrador no es un convenio: no paga comisión

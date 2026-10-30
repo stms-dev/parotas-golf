@@ -268,7 +268,7 @@ export default function FinancePage() {
         <Grande
           label="Total de comisiones"
           valor={comision}
-          pie="Solo sobre green fees: servicios, acompañantes y replays no generan comisión"
+          pie="Solo sobre Green Fee: servicios, acompañantes y replays no generan comisión"
           icono="hotel"
           tono="text-secondary"
         />

@@ -189,7 +189,7 @@ class CheckInService:
         """Recalcula la cuenta desde las líneas, nunca desde el total anterior.
 
         En el mostrador solo se cobra a quien se presentó: si un jugador de los
-        cuatro no llegó, su green fee sale de la cuenta. Antes del check-in
+        cuatro no llegó, su Green Fee sale de la cuenta. Antes del check-in
         nadie está marcado todavía, así que ahí se cobra la partida completa
         como venía reservada; el filtro entra en cuanto el mostrador empieza a
         marcar llegadas.

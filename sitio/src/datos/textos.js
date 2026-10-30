@@ -19,7 +19,7 @@ export const TEXTOS = {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Inicio',
     'nav.campo': 'Campo',
-    'nav.tarifas': 'Green fees',
+    'nav.tarifas': 'Green Fee',
     'nav.reservar': 'Reservas',
     'nav.evento': 'Evento privado',
     'nav.acceder': 'Acceder',
@@ -59,7 +59,7 @@ export const TEXTOS = {
     'salida.salidas': 'Tee times',
     'salida.diseno': 'Diseño',
     'salida.reservar': 'Reservar tee time',
-    'salida.verTarifas': 'Ver green fees',
+    'salida.verTarifas': 'Ver Green Fee',
 
     // ---------------------------------------------------------- el campo
     'campo.rotHoyo': 'Hoyo {n}',
@@ -73,13 +73,13 @@ export const TEXTOS = {
     'campo.cuenta': '{n} de 18',
 
     // ------------------------------------------------------------ tarifas
-    'tarifas.titulo': 'Green fees',
+    'tarifas.titulo': 'Green Fee',
     'tarifas.localTitulo': 'Tarifa local · 18 hoyos',
     'tarifas.localTexto':
       '¿Vives en Huatulco? Tenemos una tarifa especial para residentes con credencial.',
     'tarifas.localBoton': 'Pulsa aquí para información',
     'tarifas.incluye':
-      'El green fee incluye {incluido}. Precios por jugador en MXN, impuestos incluidos.',
+      'El Green Fee incluye {incluido}. Precios por jugador en MXN, impuestos incluidos.',
     'tarifas.ronda': 'Ronda',
     'tarifas.semana': 'Lun a jue',
     'tarifas.fin': 'Vie a dom',
@@ -167,7 +167,7 @@ export const TEXTOS = {
     'reservar.diestro': 'Diestro',
     'reservar.zurdo': 'Zurdo',
     'reservar.renta': 'renta {precio}',
-    'reservar.notaEdad': 'Green fee junior aplicable a jugadores de 16 años o menos.',
+    'reservar.notaEdad': 'Green Fee junior aplicable a jugadores de 16 años o menos.',
     'reservar.pase': 'Correo electrónico para envío de su reserva',
     'reservar.noLlego': 'Si no recibe su reserva por correo, comuníquese al {telefono}.',
     'reservar.correo': 'Correo del titular',
@@ -189,7 +189,7 @@ export const TEXTOS = {
     'reservar.sinPractica': 'Sin zona de práctica',
     'reservar.conPractica': 'Zona de práctica {precio}',
     'reservar.practicaRenglon': 'Zona de práctica × {n}',
-    'reservar.greenFees': 'Green fees',
+    'reservar.greenFees': 'Green Fee',
     'reservar.sets': 'Renta de bastones · {n} {palabra}',
     'reservar.set': 'set',
     'reservar.setPlural': 'sets',
@@ -276,7 +276,7 @@ export const TEXTOS = {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Home',
     'nav.campo': 'Course',
-    'nav.tarifas': 'Green fees',
+    'nav.tarifas': 'Green Fee',
     'nav.reservar': 'Reservations',
     'nav.evento': 'Private events',
     'nav.acceder': 'Sign in',
@@ -321,13 +321,13 @@ export const TEXTOS = {
     'campo.cuenta': '{n} of 18',
 
     // ------------------------------------------------------------ tarifas
-    'tarifas.titulo': 'Green fees',
+    'tarifas.titulo': 'Green Fee',
     'tarifas.localTitulo': 'Local rate · 18 holes',
     'tarifas.localTexto':
       'Live in Huatulco? We offer a special rate for residents with ID.',
     'tarifas.localBoton': 'Tap here for info',
     'tarifas.incluye':
-      'The green fee includes {incluido}. Per player in MXN, taxes included.',
+      'The Green Fee includes {incluido}. Per player in MXN, taxes included.',
     'tarifas.ronda': 'Round',
     'tarifas.semana': 'Mon–Thu',
     'tarifas.fin': 'Fri–Sun',
@@ -414,7 +414,7 @@ export const TEXTOS = {
     'reservar.diestro': 'Right-handed',
     'reservar.zurdo': 'Left-handed',
     'reservar.renta': 'rental {precio}',
-    'reservar.notaEdad': 'Junior green fee applies to players aged 16 and under.',
+    'reservar.notaEdad': 'Junior Green Fee applies to players aged 16 and under.',
     'reservar.pase': 'Email address for sending your booking',
     'reservar.noLlego': 'If you do not receive your booking by email, please call {telefono}.',
     'reservar.correo': 'Lead player email',
@@ -436,7 +436,7 @@ export const TEXTOS = {
     'reservar.sinPractica': 'No practice area',
     'reservar.conPractica': 'Practice area {precio}',
     'reservar.practicaRenglon': 'Practice area × {n}',
-    'reservar.greenFees': 'Green fees',
+    'reservar.greenFees': 'Green Fee',
     'reservar.sets': 'Club rental · {n} {palabra}',
     'reservar.set': 'set',
     'reservar.setPlural': 'sets',

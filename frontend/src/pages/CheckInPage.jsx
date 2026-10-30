@@ -214,7 +214,7 @@ export default function CheckInPage() {
       // Lo normal es que llegue la partida completa, así que todos entran
       // marcados y el mostrador solo desmarca al que faltó. Pero si la partida
       // ya pasó por el mostrador, manda lo que quedó registrado: volver a
-      // marcar al ausente reviviría su green fee y pediría un cobro que ya no
+      // marcar al ausente reviviría su Green Fee y pediría un cobro que ya no
       // existe, con riesgo de cobrarle dos veces al huésped.
       const yaAtendida = Boolean(full.checked_in_at);
       setArrivals(
@@ -1181,7 +1181,7 @@ export default function CheckInPage() {
 
                   <dl className="space-y-2 px-5 py-4 text-body-lg">
                     <Linea
-                      t={`${presentes.length}× ${esPractica ? 'Zona de práctica' : 'Green fees base'}`}
+                      t={`${presentes.length}× ${esPractica ? 'Zona de práctica' : 'Green Fee base'}`}
                       nota={
                         presentes.length
                           ? `${presentes.length} @ ${mxn(greenFeesBruto / presentes.length)}`
@@ -1247,7 +1247,7 @@ export default function CheckInPage() {
 
                     <div className="border-t border-white/10 pt-2">
                       <Linea
-                        t={`Subtotal ${esPractica ? 'práctica' : 'green fees'} (${presentes.length} ${
+                        t={`Subtotal ${esPractica ? 'práctica' : 'Green Fee'} (${presentes.length} ${
                           esPractica
                             ? presentes.length === 1 ? 'persona' : 'personas'
                             : presentes.length === 1 ? 'cupo' : 'cupos'

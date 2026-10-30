@@ -1,6 +1,6 @@
 """Cierre automático de cajas a la hora configurada.
 
-Las dos cajas —la de green fees y la de la tienda— se cierran solas a la hora
+Las dos cajas —la de Green Fee y la de la tienda— se cierran solas a la hora
 de `cierre_automatico_caja` (22:00 si no se ha puesto otra). Si alguien la
 cerró antes con su arqueo, no hay nada que hacer. Si se quedó abierta, el
 sistema congela lo que debería haber y la marca como cerrada sin arqueo: al
