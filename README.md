@@ -1,4 +1,4 @@
-# Las Parotas · Sistema de Reservaciones y Operación
+# Las Parotas
 
 Sistema web para gestionar las reservas de un campo de golf y su relación con
 los hoteles que tienen convenio: solicitud, validación, check-in, cobro
