@@ -1,4 +1,4 @@
-# Las Parotas
+# Las Parotas · Sistema de Reservaciones y Operación
 
 Sistema web para gestionar las reservas de un campo de golf y su relación con
 los hoteles que tienen convenio: solicitud, validación, check-in, cobro
@@ -815,3 +815,15 @@ Decisiones tomadas para esta versión, listas para retomarse:
 ## v17b — Rótulo "Green Fee"
 - En todo el sitio y el sistema (pantallas, correos, documentos, README y pruebas) el término "green fees" / "green fee" se escribe ahora **Green Fee**.
 - Los identificadores internos del código (por ejemplo `GREEN_FEES`) no cambian. No hubo cambios en la base de datos: no había textos guardados con ese término.
+
+## Cambios v18 — Cambios de Isai
+- **Menú:** en inglés "Course" pasa a "Gallery"; "Reservations" pasa a "Book a tee time" (ES: "Reservar tee time"); "Evento privado" pasa a "Charter y torneos privados" / "Charter & private tournaments".
+- **Zona de práctica:** "120 pelotas o 90 minutos por persona" / "120 balls or 90 minutes per person" (tarifas, extras, reservar y sistema). Migración `b2d4f6a8c0e2` actualiza la descripción de fábrica en la base.
+- **Orden de tarifas:** 18 hoyos, 18 hoyos twilight, 18 hoyos junior, 9 hoyos, Zona de práctica; Extras igual.
+- **Charter y torneos privados:** solo la pregunta y el botón "Contáctanos" (WhatsApp; si no hay número, correo). Se quitó el texto y el enlace al sistema de reservas.
+- **Pestaña Reservar en inglés:** descripciones de paquetes y de práctica ya no salen en español.
+- **Huésped de hotel:** pregunta "¿Eres huésped de un hotel? Sí / No". Con Sí: hotel (lista de convenios) y habitación obligatoria. Se guardan `hotel_id` y `holder_room` en la reserva; precio y comisión del hotel sin cambios. La reserva aparece en el panel del hotel.
+- **Textos editables por idioma:** Administración > "Textos del sitio (español e inglés)". Cada idioma se guarda aparte (`sitio_texto_es_*` / `sitio_texto_en_*`); vacío = texto de fábrica.
+- **Diseño:** letra ~6 % más grande y `letter-spacing` de 0.012em en todo el sitio; las pantallas distintas de Campo usan más ancho.
+- Prueba nueva: `backend/prueba_cambios_v18.py`. Nota: `prueba_tienda.py` y `prueba_cambios_v14.py` dependen de la hora (la caja cierra a las 22:00); córranse de día.
+- **v18b:** el contenido de las pantallas (menos Campo) arranca donde termina el logo y tiene un ancho máximo de 62rem; en pantalla ancha (≥1024 px) la letra sube a 112.5 %. El celular no cambia.

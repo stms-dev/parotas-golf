@@ -47,6 +47,7 @@ from app.modules.catalog.service import (
     ScheduleService,
     SettingsService,
 )
+from app.modules.catalog.textos_sitio import ajustes_editables, es_texto_del_sitio
 from app.modules.identity.models import User
 
 router = APIRouter(prefix="/catalog", tags=["Catálogo y Configuración"])
@@ -296,6 +297,8 @@ AJUSTES_EDITABLES = {
     "paquete_PRACTICA_detalle": "Descripción del paquete Práctica",
 }
 
+AJUSTES_EDITABLES.update(ajustes_editables())
+
 NUMERICOS = {"carritos_totales", "personas_por_carrito", "caddies_totales"}
 
 
@@ -351,6 +354,10 @@ def update_setting(
     if key.startswith("paquete_") and key.endswith("_detalle"):
         if not 15 <= len(valor) <= 300 or any(c in valor for c in "<>"):
             raise ValidationError("La descripción debe tener entre 15 y 300 caracteres y sin < >")
+    if es_texto_del_sitio(key):
+        # Vacío = volver al texto de fábrica del sitio.
+        if len(valor) > 240 or any(c in valor for c in "<>"):
+            raise ValidationError("El texto debe tener máximo 240 caracteres y sin < >")
     if key == "contacto_domicilio":
         if not 3 <= len(valor) <= 200 or any(c in valor for c in "<>"):
             raise ValidationError("El domicilio debe tener entre 3 y 200 caracteres y sin < >")

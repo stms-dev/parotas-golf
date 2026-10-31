@@ -487,7 +487,8 @@ class ReservationService_:
 
     # --------------------------------------------------------------- creación
     def create(
-        self, data: ReservationCreate, actor: User, *, mandar_pase: bool = True
+        self, data: ReservationCreate, actor: User, *, mandar_pase: bool = True,
+        hotel_de_origen_id: Optional[int] = None,
     ) -> Reservation:
         # 1. Hotel: un usuario HOTEL solo puede reservar para el suyo, y
         # recepción solo para el público general.
@@ -504,6 +505,15 @@ class ReservationService_:
                     "Para asignarla a un hotel con convenio la registra operaciones."
                 )
             hotel_id = directo.id
+            # El huésped que reserva solo en el sitio y dice de qué hotel viene.
+            # Solo lo puede pedir el código del sitio (no viaja en el cuerpo
+            # público) y solo para la cuenta del sistema. La comisión no cambia:
+            # es la que ese hotel ya tiene.
+            if hotel_de_origen_id is not None and actor.role == UserRole.SISTEMA:
+                origen = self.hotels.get(hotel_de_origen_id)
+                if origen.is_direct or not origen.is_active:
+                    raise BusinessRuleError("Ese hotel no está disponible")
+                hotel_id = origen.id
         else:
             hotel_id = data.hotel_id
             if hotel_id is None:

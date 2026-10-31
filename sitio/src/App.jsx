@@ -43,7 +43,7 @@ function Paradas({ estacion, onIr, t }) {
 }
 
 export default function App() {
-  const { idioma, cambiar, t } = useIdioma();
+  const { idioma, cambiar, t, fijarTextos } = useIdioma();
   const [estacion, setEstacion] = useState('salida');
   // Horario, tarifas y reglas, leídos del sistema. Si no contesta se queda en
   // null y las pantallas usan los datos de campo.js: la presentación no se
@@ -65,7 +65,13 @@ export default function App() {
   const [hoyo, setHoyo] = useState(ESTACIONES[0].hoyo);
 
   useEffect(() => {
-    api.campo().then(setCampo).catch(() => setCampo(null));
+    api
+      .campo()
+      .then((c) => {
+        setCampo(c);
+        fijarTextos(c?.textos);
+      })
+      .catch(() => setCampo(null));
   }, []);
 
   // Quien vuelve de pagar aterriza directo en su confirmación, no en la
@@ -128,7 +134,9 @@ export default function App() {
         nitido
       />
 
-      <div className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7">
+      <div
+        className="relative mx-auto flex h-[100svh] max-w-[1480px] flex-col px-5 py-4 sm:px-8 sm:py-5 lg:py-7"
+      >
         {/* ------------------------------------------------------ encabezado */}
         <header className="shrink-0">
           <div className="flex items-center justify-between gap-5">
@@ -196,7 +204,7 @@ export default function App() {
           /* Las demás paradas (Green Fee, evento, reservar) ya no llevan el
              mapa: el trazo del campo se queda solo en El campo, que es donde
              se recorre hoyo por hoyo. Aquí el contenido se lleva el centro. */
-          <main className="mt-4 flex min-h-0 flex-1 lg:mt-7 lg:w-full lg:max-w-[46rem] lg:self-center">
+          <main className="mt-4 flex min-h-0 flex-1 lg:mt-7 lg:w-[calc(100%-7.25rem)] lg:max-w-[62rem] lg:self-start lg:ml-[7.25rem]">
             {/* El panel. Tiene su propio desplazamiento para que la página
                 nunca crezca: lo que se mueve es el contenido, no el sitio.
                 `safe center` centra cuando el contenido cabe y lo pega arriba

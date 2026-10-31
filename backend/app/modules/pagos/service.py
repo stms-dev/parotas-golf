@@ -156,6 +156,34 @@ class ReservaPublicaService:
             for campo, base in self.CONTACTO_BASE.items()
         }
 
+    def hoteles_del_sitio(self) -> list:
+        """Los hoteles con convenio, para que el huésped diga de cuál viene."""
+        from app.modules.catalog.models import Hotel
+
+        filas = self.db.execute(
+            select(Hotel)
+            .where(Hotel.is_active.is_(True), Hotel.is_direct.is_(False))
+            .order_by(Hotel.name)
+        ).scalars().all()
+        return [{"id": h.id, "nombre": h.name} for h in filas]
+
+    def textos_del_sitio(self) -> dict:
+        """Lo que el administrador escribió para el sitio, por idioma. Un texto
+        vacío no se manda: el sitio usa el de fábrica."""
+        from app.modules.catalog.textos_sitio import IDIOMAS, TEXTOS_EDITABLES, clave_ajuste, idiomas_de
+
+        salida = {}
+        for idioma in IDIOMAS:
+            propios = {}
+            for clave in TEXTOS_EDITABLES:
+                if idioma not in idiomas_de(clave):
+                    continue
+                valor = (self.ajustes.get(clave_ajuste(idioma, clave)) or "").strip()
+                if valor:
+                    propios[clave] = valor
+            salida[idioma] = propios
+        return salida
+
     def campo(self) -> dict:
         """Todo lo que el sitio necesita para pintar sus pantallas, de un jalón.
 
@@ -196,6 +224,8 @@ class ReservaPublicaService:
             })
 
         return {
+            "hoteles": self.hoteles_del_sitio(),
+            "textos": self.textos_del_sitio(),
             "primera_salida": config.start_time if config else None,
             "ultima_salida": config.end_time if config else None,
             "intervalo_minutos": config.interval_minutes if config else None,
@@ -549,6 +579,7 @@ class ReservaPublicaService:
             holder_name=titular.nombre.strip(),
             holder_email=datos.correo,
             holder_phone=datos.telefono,
+            holder_room=(datos.habitacion or "").strip() or None,
             booked_by_name=QUIEN_RESERVA,
             players=players,
             services=servicios,
@@ -557,7 +588,9 @@ class ReservaPublicaService:
 
         # Sin pase todavía: esto es un apartado, no una reserva. El QR sale
         # cuando el dinero entra.
-        reserva = self.reservas.create(cuerpo, cuenta, mandar_pase=False)
+        reserva = self.reservas.create(
+            cuerpo, cuenta, mandar_pase=False, hotel_de_origen_id=datos.hotel_id
+        )
 
         # El apartado. Se escribe después de crear porque hasta aquí ya se sabe
         # que la salida estaba libre y que el cupo se tomó.

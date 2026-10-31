@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -71,7 +71,15 @@ class ContactoOut(BaseModel):
     domicilio: str
 
 
+class HotelOut(BaseModel):
+    id: int
+    nombre: str
+
+
 class CampoOut(BaseModel):
+    hoteles: List[HotelOut] = []
+    # Textos que el administrador cambió, por idioma: {"es": {...}, "en": {...}}.
+    textos: dict = {}
     primera_salida: Optional[time] = None
     ultima_salida: Optional[time] = None
     intervalo_minutos: Optional[int] = None
@@ -181,6 +189,19 @@ class ApartarIn(BaseModel):
     jugadores: List[JugadorIn] = Field(min_length=1, max_length=8)
     correo: EmailStr
     telefono: Optional[str] = Field(default=None, max_length=40)
+    # Si el huésped viene de un hotel con convenio: cuál y su habitación. Solo
+    # se guarda de dónde salió la reserva; el precio y la comisión no cambian.
+    hotel_id: Optional[int] = None
+    habitacion: Optional[str] = Field(default=None, max_length=60)
+
+    @model_validator(mode="after")
+    def _hotel_y_habitacion(self):
+        self.habitacion = (self.habitacion or "").strip() or None
+        if self.hotel_id is not None and not self.habitacion:
+            raise ValueError("Escriba su número de habitación")
+        if self.hotel_id is None:
+            self.habitacion = None
+        return self
 
 
 class ApartadoOut(BaseModel):

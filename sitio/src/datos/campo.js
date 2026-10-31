@@ -155,7 +155,7 @@ export const EXTRAS = [
     nombre: 'Zona de práctica',
     precio: 250,
     precioFin: 400,
-    nota: '120 pelotas de práctica.',
+    nota: '120 pelotas o 90 minutos por persona.',
   },
 ];
 

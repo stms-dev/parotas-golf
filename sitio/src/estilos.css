@@ -5,10 +5,21 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Letra un poco más grande en todo el sitio (todo se mide en rem). */
+    font-size: 106.25%;
+  }
+
+  /* En pantalla ancha, un poco más grande todavía. El celular no se toca. */
+  @media (min-width: 1024px) {
+    html {
+      font-size: 112.5%;
+    }
   }
 
   body {
     @apply bg-sombra font-texto text-arena antialiased;
+    /* Un poco de aire entre letras; los rótulos traen su propio ajuste. */
+    letter-spacing: 0.012em;
   }
 
   /* Fraunces trae varios ejes. Se fija uno suave y una óptica de titular:

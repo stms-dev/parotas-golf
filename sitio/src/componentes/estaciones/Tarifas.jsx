@@ -18,22 +18,24 @@ import { useIdioma } from '../../datos/idioma';
 
 /**
  * Las filas salen de lo que el sistema tiene vigente (`campo`). La zona de
- * práctica va justo debajo de 18 hoyos, como pidió el club.
+ * práctica va al final de la tabla, como pidió el club.
  */
 function filasDe(campo) {
   const tarifas = tarifasDe(campo);
   const practica = extrasDe(campo).find((e) => e.code === 'PRACTICA');
+  // Orden que pidió el club: 18 hoyos, twilight, junior, 9 hoyos y, al final,
+  // la zona de práctica.
   const filas = [
     { clave: '18-adulto', hoyos: 18, quien: 'tarifas.adulto', precios: tarifas.adulto18 },
+    { clave: '18-twilight', hoyos: 18, quien: 'tarifas.twilight', precios: tarifas.twilight18 },
+    { clave: '18-menores', hoyos: 18, quien: 'tarifas.menores', precios: tarifas.menor18 },
+    { clave: '9-adulto', hoyos: 9, quien: 'tarifas.adulto', precios: tarifas.adulto9 },
     practica && {
       clave: 'practica',
       titulo: 'extra.PRACTICA',
       quien: 'tarifas.practicaDetalle',
       precios: { semana: practica.precio, fin: practica.precioFin ?? practica.precio },
     },
-    { clave: '9-adulto', hoyos: 9, quien: 'tarifas.adulto', precios: tarifas.adulto9 },
-    { clave: '18-twilight', hoyos: 18, quien: 'tarifas.twilight', precios: tarifas.twilight18 },
-    { clave: '18-menores', hoyos: 18, quien: 'tarifas.menores', precios: tarifas.menor18 },
     // La tarifa local (18 hoyos) no sale con precio en la tabla: se trata por
     // evento/residentes. Arriba hay un aviso que lleva a pedir información.
   ];

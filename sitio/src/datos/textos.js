@@ -20,8 +20,8 @@ export const TEXTOS = {
     'nav.inicio': 'Inicio',
     'nav.campo': 'Campo',
     'nav.tarifas': 'Green Fee',
-    'nav.reservar': 'Reservas',
-    'nav.evento': 'Evento privado',
+    'nav.reservar': 'Reservar tee time',
+    'nav.evento': 'Charter y torneos privados',
     'nav.acceder': 'Acceder',
     'nav.irAlInicio': 'Ir al inicio',
     'nitidez.boton': 'Fondo',
@@ -86,7 +86,7 @@ export const TEXTOS = {
     'tarifas.hoyos': '{n} hoyos',
     'tarifas.adulto': 'Adulto',
     'tarifas.menores': 'Junior · 16 años o menos',
-    'tarifas.practicaDetalle': '120 pelotas · por persona',
+    'tarifas.practicaDetalle': '120 pelotas o 90 minutos por persona',
     'tarifas.local': 'Local · vive en Huatulco, con credencial',
     'tarifas.soloEntreSemana': 'paga adulto',
     'tarifas.twilight': 'Twilight · salidas de 2:00 a 3:00 pm',
@@ -105,25 +105,23 @@ export const TEXTOS = {
     'extra.ACOMPANANTE': 'Acompañante',
     'extra.ACOMPANANTE.nota': 'Para quien va en el carrito sin jugar. No incluye equipo.',
     'extra.PRACTICA': 'Zona de práctica',
-    'extra.PRACTICA.nota': '120 pelotas de práctica. No incluye bastones ni tees. Vie a dom: {fin}.',
+    'extra.PRACTICA.nota': '120 pelotas o 90 minutos por persona. No incluye bastones ni tees. Vie a dom: {fin}.',
 
     // ----------------------------------------------------- evento privado
-    'evento.titulo': 'Evento privado',
-    'evento.cuerpo':
-      'Ofrecemos tarifas especiales para grupos y acompañamiento personalizado ' +
-      'para que la experiencia de su evento sea exactamente como la imagina.',
-    'evento.invitacion':
-      '¿Un torneo, una despedida, un día de empresa? Llámenos o escríbanos y lo ' +
-      'armamos con usted.',
-    'evento.telefono': 'Teléfono',
-    'evento.correo': 'Correo',
-    'evento.donde': 'Dónde',
-    'evento.acceso':
-      '¿Trabaja en el club o en un hotel con convenio? Entre por {enlace} — el botón «Acceder» de arriba.',
-    'evento.acceso.enlace': 'el sistema de reservas',
+    'evento.titulo': 'Charter y torneos privados',
+    'evento.invitacion': '¿Quieres organizar un torneo privado?',
+    'evento.boton': 'Contáctanos',
 
     // ----------------------------------------------------------- reservar
     'reservar.titulo': 'Reservar tee time',
+    'reservar.huesped': '¿Eres huésped de un hotel?',
+    'reservar.huespedSi': 'Sí',
+    'reservar.huespedNo': 'No',
+    'reservar.hotel': 'Elige tu hotel',
+    'reservar.habitacion': 'Número de habitación',
+    'reservar.huespedNota': 'Es para reconocer a tu hotel por tu reserva. Pagas la misma tarifa que cualquier persona.',
+    'falta.hotel': 'Elige el hotel donde te hospedas.',
+    'falta.habitacion': 'Escribe tu número de habitación.',
     'reservar.apartado': 'Le apartamos la salida durante {minutos} minutos mientras paga',
     'reservar.apartadoSinMinutos': 'Le apartamos la salida mientras paga',
     'reservar.paso1': 'Paquete',
@@ -275,10 +273,10 @@ export const TEXTOS = {
   en: {
     // ------------------------------------------------------------ el marco
     'nav.inicio': 'Home',
-    'nav.campo': 'Course',
+    'nav.campo': 'Gallery',
     'nav.tarifas': 'Green Fee',
-    'nav.reservar': 'Reservations',
-    'nav.evento': 'Private events',
+    'nav.reservar': 'Book a tee time',
+    'nav.evento': 'Charter & private tournaments',
     'nav.acceder': 'Sign in',
     'nav.irAlInicio': 'Back to home',
     'nitidez.boton': 'Background',
@@ -334,7 +332,7 @@ export const TEXTOS = {
     'tarifas.hoyos': '{n} holes',
     'tarifas.adulto': 'Adult',
     'tarifas.menores': 'Junior · 16 and under',
-    'tarifas.practicaDetalle': '120 balls · per person',
+    'tarifas.practicaDetalle': '120 balls or 90 minutes per person',
     'tarifas.local': 'Local · Huatulco residents, with ID',
     'tarifas.soloEntreSemana': 'adult rate',
     'tarifas.twilight': 'Twilight · tee times 2:00–3:00 pm',
@@ -353,25 +351,23 @@ export const TEXTOS = {
     'extra.ACOMPANANTE': 'Non-playing guest',
     'extra.ACOMPANANTE.nota': 'For anyone riding along without playing. No equipment included.',
     'extra.PRACTICA': 'Practice area',
-    'extra.PRACTICA.nota': '120 practice balls. Clubs and tees not included. Fri–Sun: {fin}.',
+    'extra.PRACTICA.nota': '120 balls or 90 minutes per person. Clubs and tees not included. Fri–Sun: {fin}.',
 
     // ----------------------------------------------------- evento privado
-    'evento.titulo': 'Private events',
-    'evento.cuerpo':
-      'We offer special group rates and personalized support to make your event ' +
-      'exactly the experience you have in mind.',
-    'evento.invitacion':
-      'A tournament, a bachelor party, a company day? Call or write and we will ' +
-      'put it together with you.',
-    'evento.telefono': 'Phone',
-    'evento.correo': 'Email',
-    'evento.donde': 'Where',
-    'evento.acceso':
-      'Club staff or a partner hotel? Sign in through {enlace} — the "Sign in" button above.',
-    'evento.acceso.enlace': 'the booking system',
+    'evento.titulo': 'Charter & private tournaments',
+    'evento.invitacion': 'Want to organize a private tournament?',
+    'evento.boton': 'Contact us',
 
     // ----------------------------------------------------------- reservar
     'reservar.titulo': 'Book a tee time',
+    'reservar.huesped': 'Are you a hotel guest?',
+    'reservar.huespedSi': 'Yes',
+    'reservar.huespedNo': 'No',
+    'reservar.hotel': 'Choose your hotel',
+    'reservar.habitacion': 'Room number',
+    'reservar.huespedNota': 'This lets us credit your hotel for your booking. You pay the same rate as everyone else.',
+    'falta.hotel': 'Please choose the hotel where you are staying.',
+    'falta.habitacion': 'Please enter your room number.',
     'reservar.apartado': 'We hold your tee time for {minutos} minutes while you pay',
     'reservar.apartadoSinMinutos': 'We hold your tee time while you pay',
     'reservar.paso1': 'Package',

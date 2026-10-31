@@ -235,6 +235,8 @@ export default function AdminPage() {
 
       <ContactoDelSitio />
 
+      <TextosDelSitio />
+
       <Correos />
 
       <Comisiones hoteles={hoteles} onCambio={() => cargarTodo(false)} />
@@ -1116,6 +1118,123 @@ function ContactoDelSitio() {
             </div>
           </div>
         ))}
+      </div>
+    </Tarjeta>
+  );
+}
+
+
+/* ----------------------------------------------- textos del sitio, por idioma */
+
+/**
+ * Textos del sitio público que se pueden cambiar, cada idioma por separado.
+ * Un campo vacío deja el texto de fábrica. Así lo que se escriba en español no
+ * se mezcla con el inglés.
+ * [clave, qué es, texto de fábrica en español, texto de fábrica en inglés, solo inglés]
+ */
+const TEXTOS_SITIO = [
+  ['nav.campo', 'Menú · Campo', 'Campo', 'Gallery'],
+  ['nav.reservar', 'Menú · Reservas', 'Reservar tee time', 'Book a tee time'],
+  ['nav.evento', 'Menú · Charter', 'Charter y torneos privados', 'Charter & private tournaments'],
+  ['evento.titulo', 'Charter · título de la pantalla', 'Charter y torneos privados', 'Charter & private tournaments'],
+  ['evento.invitacion', 'Charter · pregunta', '¿Quieres organizar un torneo privado?', 'Want to organize a private tournament?'],
+  ['evento.boton', 'Charter · botón de contacto', 'Contáctanos', 'Contact us'],
+  ['tarifas.practicaDetalle', 'Zona de práctica · tabla de tarifas', '120 pelotas o 90 minutos por persona', '120 balls or 90 minutes per person'],
+  [
+    'extra.PRACTICA.nota',
+    'Zona de práctica · nota en extras (use {fin} para el precio de vie a dom)',
+    '120 pelotas o 90 minutos por persona. No incluye bastones ni tees. Vie a dom: {fin}.',
+    '120 balls or 90 minutes per person. Clubs and tees not included. Fri–Sun: {fin}.',
+  ],
+  ['paquete.GRUPO.detalle', 'Paquete En Grupo · descripción (el español se edita en Paquetes y servicios)', '', 'An exclusive tee time for your group, from four players. The lead player organizes the group and books for everyone.', true],
+  ['paquete.PARTIDA_ABIERTA.detalle', 'Paquete Partida Abierta · descripción', '', 'For guests booking alone or in small numbers: you are matched with other players until the group reaches four, even if they stay at different hotels.', true],
+  ['paquete.PRACTICA.detalle', 'Paquete Práctica · descripción', '', 'Access to the practice area, without playing a round. One or several players can book, with or without guests.', true],
+];
+
+function TextosDelSitio() {
+  const [valores, setValores] = useState({});
+  const [guardados, setGuardados] = useState({});
+  const [guardando, setGuardando] = useState(null);
+  const ajuste = (idioma, clave) => `sitio_texto_${idioma}_${clave}`;
+
+  function cargar() {
+    catalogApi
+      .settings()
+      .then((lista) => {
+        const datos = {};
+        for (const [clave, , , , soloEn] of TEXTOS_SITIO) {
+          for (const i of soloEn ? ['en'] : ['es', 'en']) {
+            datos[ajuste(i, clave)] = lista.find((x) => x.key === ajuste(i, clave))?.value || '';
+          }
+        }
+        setGuardados(datos);
+        setValores(datos);
+      })
+      .catch(() => {});
+  }
+  useEffect(cargar, []);
+
+  async function guardar([clave, etiqueta, , , soloEn]) {
+    setGuardando(clave);
+    try {
+      for (const i of soloEn ? ['en'] : ['es', 'en']) {
+        const k = ajuste(i, clave);
+        if ((valores[k] ?? '') !== (guardados[k] ?? '')) {
+          await catalogApi.updateSetting(k, String(valores[k] || '').trim());
+        }
+      }
+      await exito('Texto actualizado', `${etiqueta}: el sitio lo muestra al recargar la página.`);
+      cargar();
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+    } finally {
+      setGuardando(null);
+    }
+  }
+
+  return (
+    <Tarjeta icono="correo" titulo="Textos del sitio (español e inglés)">
+      <p className="mb-3 text-body-md text-outline">
+        Cada idioma se escribe por separado. Si dejas un campo vacío, el sitio usa el texto original.
+      </p>
+      <div className="grid gap-3">
+        {TEXTOS_SITIO.map((fila) => {
+          const [clave, etiqueta, porDefectoEs, porDefectoEn, soloEn] = fila;
+          const cambiado = (soloEn ? ['en'] : ['es', 'en']).some(
+            (i) => (valores[ajuste(i, clave)] ?? '') !== (guardados[ajuste(i, clave)] ?? ''),
+          );
+          return (
+            <div key={clave} className="rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
+              <p className="text-label-sm uppercase tracking-wider text-on-surface-variant">{etiqueta}</p>
+              <div className="mt-1.5 grid gap-2.5 lg:grid-cols-2">
+                {(soloEn ? [['en', 'Inglés', porDefectoEn]] : [['es', 'Español', porDefectoEs], ['en', 'Inglés', porDefectoEn]]).map(
+                  ([i, nombre, defecto]) => (
+                    <label key={i} className="block">
+                      <span className="text-label-sm text-on-surface-variant">{nombre}</span>
+                      <input
+                        type="text"
+                        maxLength={240}
+                        placeholder={defecto}
+                        value={valores[ajuste(i, clave)] ?? ''}
+                        onChange={(e) => setValores({ ...valores, [ajuste(i, clave)]: e.target.value })}
+                        className={`${CAMPO} mt-1 w-full`}
+                      />
+                    </label>
+                  ),
+                )}
+              </div>
+              <div className="mt-2 flex justify-end">
+                <button
+                  onClick={() => guardar(fila)}
+                  disabled={guardando === clave || !cambiado}
+                  className={`${BOTON} shrink-0 disabled:opacity-50`}
+                >
+                  {guardando === clave ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Tarjeta>
   );

@@ -43,6 +43,9 @@ function inicial() {
 
 export function ProveedorDeIdioma({ children }) {
   const [idioma, setIdioma] = useState(inicial);
+  // Textos que el administrador cambió desde Configuración, por idioma. Ganan
+  // sobre el diccionario; lo que no cambió se queda como está.
+  const [propios, setPropios] = useState({});
 
   useEffect(() => {
     try {
@@ -61,7 +64,7 @@ export function ProveedorDeIdioma({ children }) {
    */
   const t = useCallback(
     (clave, vars) => {
-      const texto = TEXTOS[idioma]?.[clave] ?? TEXTOS.es[clave];
+      const texto = propios[idioma]?.[clave] ?? TEXTOS[idioma]?.[clave] ?? TEXTOS.es[clave];
       if (texto === undefined) {
         // En desarrollo se grita; en producción se devuelve la clave, que al
         // menos deja ver dónde falta en lugar de dejar un hueco en blanco.
@@ -74,12 +77,21 @@ export function ProveedorDeIdioma({ children }) {
         texto,
       );
     },
-    [idioma],
+    [idioma, propios],
   );
 
+  /** El texto que el administrador escribió para este idioma, si lo hay. */
+  const propio = useCallback((clave) => propios[idioma]?.[clave], [idioma, propios]);
+
   const valor = useMemo(
-    () => ({ idioma, t, cambiar: (nuevo) => IDIOMAS.includes(nuevo) && setIdioma(nuevo) }),
-    [idioma, t],
+    () => ({
+      idioma,
+      t,
+      propio,
+      fijarTextos: (textos) => setPropios(textos && typeof textos === 'object' ? textos : {}),
+      cambiar: (nuevo) => IDIOMAS.includes(nuevo) && setIdioma(nuevo),
+    }),
+    [idioma, t, propio],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

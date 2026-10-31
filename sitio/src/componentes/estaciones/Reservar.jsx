@@ -102,7 +102,7 @@ const esJunior = (edad) => Boolean(edad) && Number(edad) <= 16;
 const CORREO = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
 export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
-  const { idioma, t } = useIdioma();
+  const { idioma, t, propio } = useIdioma();
   const [paso, setPaso] = useState(0);
 
   const [paquete, setPaquete] = useState('GRUPO');
@@ -116,6 +116,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const [slot, setSlot] = useState(null);
   const [jugadores, setJugadores] = useState([jugadorNuevo()]);
   const [contacto, setContacto] = useState({ correo: '', telefono: '' });
+  // ¿Viene de un hotel con convenio? Solo sirve para que ese hotel reconozca la
+  // reserva; el precio es el mismo.
+  const [huesped, setHuesped] = useState(false);
+  const [hotelId, setHotelId] = useState('');
+  const [habitacion, setHabitacion] = useState('');
+  const hoteles = campo?.hoteles ?? [];
 
   const [dia, setDia] = useState(null);
   const [cotizacion, setCotizacion] = useState(null);
@@ -330,11 +336,13 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       const sinEdad = jugadores.findIndex((j) => !j.edad);
       if (sinEdad >= 0) return t('falta.edad', { n: sinEdad + 1 });
       if (!CORREO.test(contacto.correo.trim())) return t('falta.correo');
+      if (huesped && !hotelId) return t('falta.hotel');
+      if (huesped && !habitacion.trim()) return t('falta.habitacion');
       return null;
     }
     if (!cotizacion) return t('falta.cuenta');
     return null;
-  }, [paso, slot, jugadores, contacto.correo, cotizacion, t]);
+  }, [paso, slot, jugadores, contacto.correo, huesped, hotelId, habitacion, cotizacion, t]);
 
   function cuantos(n) {
     setJugadores((actuales) => {
@@ -363,6 +371,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         jugadores: aCuerpo(jugadores),
         correo: contacto.correo.trim(),
         telefono: contacto.telefono.trim() || null,
+        hotel_id: huesped && hotelId ? Number(hotelId) : null,
+        habitacion: huesped ? habitacion.trim() || null : null,
       });
 
       if (campo?.pasarela === 'stripe') {
@@ -382,6 +392,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     }
   }
 
+  /** La descripción de un paquete. En español sale la que el club escribió en
+   *  Configuración; en inglés, la del diccionario (o la que el club haya escrito
+   *  para el inglés). Así los dos idiomas no se cruzan. */
+  function detallePaquete(modalidad, delSistema) {
+    const clave = `paquete.${modalidad}.detalle`;
+    const propia = propio(clave);
+    if (propia) return propia;
+    return idioma === 'es' ? delSistema || t(clave) : t(clave);
+  }
+
   if (listo) {
     return (
       <Listo
@@ -395,6 +415,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           setSlot(null);
           setJugadores([jugadorNuevo()]);
           setContacto({ correo: '', telefono: '' });
+          setHuesped(false);
+          setHotelId('');
+          setHabitacion('');
           ultimaFirma.current = null;
           onLimpiarLlegada?.();
         }}
@@ -407,7 +430,57 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       {/* --------------------------------------------------------- cabeza */}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <h2 className="font-titulo text-rotulo-lg text-arena">{t('reservar.titulo')}</h2>
+        {hoteles.length > 0 && (
+          <div className="flex items-center gap-3 pb-1">
+            <span className="font-texto text-[0.95rem] font-semibold text-arena">
+              {t('reservar.huesped')}
+            </span>
+            <Alternador
+              opciones={[
+                { valor: true, texto: t('reservar.huespedSi') },
+                { valor: false, texto: t('reservar.huespedNo') },
+              ]}
+              valor={huesped}
+              onElegir={(v) => {
+                setHuesped(v);
+                if (!v) {
+                  setHotelId('');
+                  setHabitacion('');
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
+
+      {huesped && hoteles.length > 0 && (
+        <div className="mt-3 rounded-sm border border-arena/15 bg-arena/[0.04] p-3.5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <select
+              value={hotelId}
+              onChange={(e) => setHotelId(e.target.value)}
+              aria-label={t('reservar.hotel')}
+              className={`${entrada} w-full [&>option]:bg-sombra-honda [&>option]:text-arena`}
+            >
+              <option value="">{t('reservar.hotel')}</option>
+              {hoteles.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.nombre}
+                </option>
+              ))}
+            </select>
+            <input
+              value={habitacion}
+              maxLength={60}
+              onChange={(e) => setHabitacion(e.target.value)}
+              placeholder={t('reservar.habitacion')}
+              aria-label={t('reservar.habitacion')}
+              className={`${entrada} w-full`}
+            />
+          </div>
+          <p className="mt-2 font-texto text-menudo text-arena/80">{t('reservar.huespedNota')}</p>
+        </div>
+      )}
 
       <Rail paso={paso} onIr={setPaso} t={t} />
 
@@ -457,7 +530,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       </span>
                     </span>
                     <span className="mt-1.5 font-texto text-menudo leading-relaxed text-arena/85">
-                      {limites.descripcion || t(`paquete.${p.modalidad}.detalle`)}
+                      {detallePaquete(p.modalidad, limites.descripcion)}
                     </span>
                   </button>
                 );
@@ -473,7 +546,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                         fin: pesos(Number(precioPaquetePractica.precio_fin ?? precioPaquetePractica.precio)),
                       })
                     : null}
-                  {precioPaquetePractica?.descripcion ? ` · ${precioPaquetePractica.descripcion}` : ''}
+                  {precioPaquetePractica ? ` · ${t('tarifas.practicaDetalle')}` : ''}
                 </p>
               </Campo>
             ) : (

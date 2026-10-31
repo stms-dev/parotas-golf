@@ -1115,7 +1115,7 @@ export default function NewReservationPage() {
                 </Field>
                 )}
                 {PRACTICA_EN_RONDA && practica && !esPractica && (
-                  <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 120 pelotas`}>
+                  <Field label="Zona de práctica" hint={`${mxn(precioPractica)} · 120 pelotas o 90 minutos`}>
                     <SiNo
                       valor={form.holder_practica}
                       onCambio={(v) => setForm({ ...form, holder_practica: v })}
