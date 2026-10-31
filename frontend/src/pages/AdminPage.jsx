@@ -1146,9 +1146,6 @@ const TEXTOS_SITIO = [
     '120 pelotas o 90 minutos. No incluye bastones ni tees. Vie a dom: {fin}.',
     '120 balls or 90 minutes. Clubs and tees not included. Fri–Sun: {fin}.',
   ],
-  ['paquete.GRUPO.detalle', 'Paquete En Grupo · descripción (el español se edita en Paquetes y servicios)', '', 'An exclusive tee time for your group, from four players. The lead player organizes the group and books for everyone.', true],
-  ['paquete.PARTIDA_ABIERTA.detalle', 'Paquete Partida Abierta · descripción', '', 'For guests booking alone or in small numbers: you are matched with other players until the group reaches four, even if they stay at different hotels.', true],
-  ['paquete.PRACTICA.detalle', 'Paquete Práctica · descripción', '', 'Access to the practice area, without playing a round. One or several players can book, with or without guests.', true],
 ];
 
 function TextosDelSitio() {
@@ -1256,6 +1253,8 @@ const PAQUETES_EDITABLES = [
 function PaquetesYServicios({ onCambio }) {
   const [textos, setTextos] = useState({});
   const [guardados, setGuardados] = useState({});
+  const [textosEn, setTextosEn] = useState({});
+  const [guardadosEn, setGuardadosEn] = useState({});
   const [servicios, setServicios] = useState([]);
   const [edicion, setEdicion] = useState({});
   const [ocupado, setOcupado] = useState(null);
@@ -1268,6 +1267,10 @@ function PaquetesYServicios({ onCambio }) {
         for (const [m] of PAQUETES_EDITABLES) t[m] = lista.find((x) => x.key === `paquete_${m}_detalle`)?.value || '';
         setGuardados(t);
         setTextos((prev) => (Object.keys(prev).length ? prev : t));
+        const en = {};
+        for (const [m] of PAQUETES_EDITABLES) en[m] = lista.find((x) => x.key === `sitio_texto_en_paquete.${m}.detalle`)?.value || '';
+        setGuardadosEn(en);
+        setTextosEn((prev) => (Object.keys(prev).length ? prev : en));
       })
       .catch(() => {});
     catalogApi.services({ active_only: false }).then(setServicios).catch(() => setServicios([]));
@@ -1277,7 +1280,12 @@ function PaquetesYServicios({ onCambio }) {
   async function guardarPaquete(m, nombre) {
     setOcupado(`p-${m}`);
     try {
-      await catalogApi.updateSetting(`paquete_${m}_detalle`, String(textos[m] || '').trim());
+      if ((textos[m] ?? '') !== (guardados[m] ?? '')) {
+        await catalogApi.updateSetting(`paquete_${m}_detalle`, String(textos[m] || '').trim());
+      }
+      if ((textosEn[m] ?? '') !== (guardadosEn[m] ?? '')) {
+        await catalogApi.updateSetting(`sitio_texto_en_paquete.${m}.detalle`, String(textosEn[m] || '').trim());
+      }
       await exito(`«${nombre}» actualizado`, 'La descripción ya se ve en el sitio y en Nueva reserva.');
       cargar();
     } catch (err) {
@@ -1354,18 +1362,37 @@ function PaquetesYServicios({ onCambio }) {
         {PAQUETES_EDITABLES.map(([m, nombre]) => (
           <div key={m} className="rounded border border-outline-variant/60 bg-surface-container-low px-4 py-3">
             <p className="text-title-md text-primary">{nombre}</p>
-            <textarea
-              rows={4}
-              maxLength={300}
-              value={textos[m] ?? ''}
-              placeholder="Si se deja vacío, se usa la descripción de fábrica."
-              onChange={(e) => setTextos({ ...textos, [m]: e.target.value })}
-              className={`${CAMPO} mt-1.5 w-full resize-none`}
-            />
+            <div className="mt-1.5 grid gap-2.5 lg:grid-cols-2">
+              <label className="block">
+                <span className="text-label-sm text-on-surface-variant">Español</span>
+                <textarea
+                  rows={4}
+                  maxLength={300}
+                  value={textos[m] ?? ''}
+                  placeholder="Si se deja vacío, se usa la descripción de fábrica."
+                  onChange={(e) => setTextos({ ...textos, [m]: e.target.value })}
+                  className={`${CAMPO} mt-1 w-full resize-none`}
+                />
+              </label>
+              <label className="block">
+                <span className="text-label-sm text-on-surface-variant">Inglés</span>
+                <textarea
+                  rows={4}
+                  maxLength={240}
+                  value={textosEn[m] ?? ''}
+                  placeholder="If left empty, the original English description is used."
+                  onChange={(e) => setTextosEn({ ...textosEn, [m]: e.target.value })}
+                  className={`${CAMPO} mt-1 w-full resize-none`}
+                />
+              </label>
+            </div>
             <div className="mt-2 flex justify-end">
               <button
                 onClick={() => guardarPaquete(m, nombre)}
-                disabled={ocupado === `p-${m}` || (textos[m] ?? '') === (guardados[m] ?? '')}
+                disabled={
+                  ocupado === `p-${m}` ||
+                  ((textos[m] ?? '') === (guardados[m] ?? '') && (textosEn[m] ?? '') === (guardadosEn[m] ?? ''))
+                }
                 className={`${BOTON} disabled:opacity-50`}
               >
                 {ocupado === `p-${m}` ? 'Guardando…' : 'Guardar'}
@@ -1715,6 +1742,28 @@ function AltaDeTarifa({ onListo }) {
 function Comisiones({ hoteles, onCambio }) {
   const [editando, setEditando] = useState(null);
   const [valor, setValor] = useState('');
+  const [renombrando, setRenombrando] = useState(null);
+  const [nombre, setNombre] = useState('');
+
+  async function renombrar(hotel) {
+    const nuevo = nombre.trim();
+    if (nuevo.length < 2) {
+      await avisoError('Nombre inválido', 'Escriba el nombre del hotel (mínimo 2 letras).');
+      return;
+    }
+    if (nuevo === hotel.name) {
+      setRenombrando(null);
+      return;
+    }
+    try {
+      await catalogApi.updateHotel(hotel.id, { name: nuevo });
+      await exito('Nombre actualizado', `Ahora se llama «${nuevo}». El sitio y el sistema ya lo muestran.`);
+      setRenombrando(null);
+      onCambio();
+    } catch (err) {
+      await avisoError('No se pudo guardar', err.message);
+    }
+  }
 
   async function guardar(hotel) {
     const nuevo = Number(valor);
@@ -1743,7 +1792,7 @@ function Comisiones({ hoteles, onCambio }) {
   }
 
   return (
-    <Tarjeta icono="hotel" titulo="Comisión de cada hotel">
+    <Tarjeta icono="hotel" titulo="Hoteles: nombre y comisión">
       <p className="mb-3 text-body-md text-outline">
         Es el porcentaje del Green Fee que se queda el hotel por mandar al huésped. Servicios, acompañantes y replays no generan comisión.
       </p>
@@ -1755,9 +1804,43 @@ function Comisiones({ hoteles, onCambio }) {
             key={h.id}
             className="rounded border border-outline-variant/60 bg-surface-container-low px-3.5 py-3"
           >
-            <p className="truncate text-title-md text-primary" title={h.name}>
-              {h.name}
-            </p>
+            {renombrando === h.id ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  autoFocus
+                  maxLength={180}
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') renombrar(h);
+                    if (e.key === 'Escape') setRenombrando(null);
+                  }}
+                  className={`${CAMPO} min-w-0 flex-1`}
+                />
+                <button onClick={() => renombrar(h)} className={BOTON}>
+                  OK
+                </button>
+                <button onClick={() => setRenombrando(null)} className={BOTON}>
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="truncate text-title-md text-primary" title={h.name}>
+                  {h.name}
+                </p>
+                <button
+                  onClick={() => {
+                    setRenombrando(h.id);
+                    setNombre(h.name);
+                  }}
+                  className="shrink-0 text-label-sm text-secondary underline underline-offset-2"
+                >
+                  Renombrar
+                </button>
+              </div>
+            )}
             {editando === h.id ? (
               <div className="mt-1.5 flex items-center gap-1.5">
                 <input

@@ -70,7 +70,7 @@ def sembrar(produccion: bool = False):
             ("BARCELO", "Barceló", "0.00"),
             ("QUINTAREAL", "Quinta Real", "0.00"),
             ("CAMINOREAL", "Camino Real Zaashila", "0.00"),
-            ("AMHMH", "AMHMH (Binniguenda, Marina, Park Royal)", "0.00"),
+            ("AMHMH", "Park Royal", "0.00"),
             ("COSMO", "Cosmo Residences", "0.00"),
             # Quien llega al campo por su cuenta, sin venir de un hotel. El
             # mostrador lo registra aquí; no hay comisión que pagar.

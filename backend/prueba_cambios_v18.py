@@ -122,6 +122,20 @@ check("La descripción en español de un paquete se sigue editando en su lugar d
 r = admin.put("/api/catalog/settings/sitio_texto_en_nav.campo", json={"value": "Gallery"}, headers=rec)
 check("Recepción no puede cambiar textos", r.status_code == 403, f"HTTP {r.status_code}")
 
+print("\n4. Nombre del hotel editable y Park Royal")
+nombres = {h["id"]: h["nombre"] for h in c.get("/api/public/campo").json()["hoteles"]}
+check("El hotel AMHMH sale como Park Royal", "Park Royal" in nombres.values() and not any("Binniguenda" in n for n in nombres.values()), str(sorted(nombres.values())))
+hid = next(i for i, n in nombres.items() if n == "Park Royal")
+r = admin.patch(f"/api/catalog/hotels/{hid}", json={"name": "Park Royal Beach"}, headers=adm)
+check("El administrador renombra un hotel", r.status_code == 200 and r.json()["name"] == "Park Royal Beach", r.text[:100])
+check("El sitio muestra el nombre nuevo", "Park Royal Beach" in [h["nombre"] for h in c.get("/api/public/campo").json()["hoteles"]])
+r = admin.patch(f"/api/catalog/hotels/{hid}", json={"name": "Park Royal"}, headers=adm)
+r = admin.patch(f"/api/catalog/hotels/{hid}", json={"name": "Park Royal"}, headers=rec)
+check("Recepción no puede renombrar hoteles", r.status_code == 403, f"HTTP {r.status_code}")
+r = admin.put("/api/catalog/settings/sitio_texto_en_paquete.GRUPO.detalle", json={"value": "Private tee time for your group."}, headers=adm)
+check("La descripción en inglés de un paquete se guarda", r.status_code == 200 and
+      c.get("/api/public/campo").json()["textos"]["en"].get("paquete.GRUPO.detalle") == "Private tee time for your group.", r.text[:80])
+
 print()
 if FALLOS:
     print("FALLARON:", FALLOS)

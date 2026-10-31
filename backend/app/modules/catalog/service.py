@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -548,6 +548,12 @@ class HotelService:
 
     def update(self, hotel_id: int, data: HotelUpdate, actor: User) -> Hotel:
         hotel = self.get(hotel_id)
+        if data.name is not None:
+            repetido = self.db.execute(
+                select(Hotel).where(func.lower(Hotel.name) == data.name.lower(), Hotel.id != hotel_id)
+            ).scalars().first()
+            if repetido is not None:
+                raise BusinessRuleError(f"Ya existe un hotel llamado «{repetido.name}»")
         for field, value in data.model_dump(exclude_unset=True).items():
             if value is None:
                 continue

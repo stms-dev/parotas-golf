@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.shared.enums import DayType, DiscountType, PlayerCategory, ServiceUnit, TimeBand
 
@@ -23,12 +23,22 @@ class HotelCreate(HotelBase):
 
 
 class HotelUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, min_length=2, max_length=180)
     contact_name: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     contact_phone: Optional[str] = None
     commission_rate: Optional[Decimal] = Field(default=None, ge=0, le=100)
     is_active: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def _nombre_limpio(cls, v):
+        if v is None:
+            return v
+        v = " ".join(v.split())
+        if len(v) < 2 or any(c in v for c in "<>"):
+            raise ValueError("El nombre debe tener al menos 2 caracteres y sin < >")
+        return v
 
 
 class HotelOut(HotelBase):
