@@ -456,19 +456,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       {huesped && hoteles.length > 0 && (
         <div className="mt-3 rounded-sm border border-arena/15 bg-arena/[0.04] p-3.5">
           <div className="grid gap-2.5 sm:grid-cols-2">
-            <select
-              value={hotelId}
-              onChange={(e) => setHotelId(e.target.value)}
-              aria-label={t('reservar.hotel')}
-              className={`${entrada} w-full [&>option]:bg-sombra-honda [&>option]:text-arena`}
-            >
-              <option value="">{t('reservar.hotel')}</option>
-              {hoteles.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.nombre}
-                </option>
-              ))}
-            </select>
+            <Desplegable
+              valor={hotelId}
+              onElegir={setHotelId}
+              vacio={t('reservar.hotel')}
+              opciones={hoteles.map((h) => ({ valor: String(h.id), texto: h.nombre }))}
+            />
             <input
               value={habitacion}
               maxLength={60}
@@ -478,7 +471,6 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               className={`${entrada} w-full`}
             />
           </div>
-          <p className="mt-2 font-texto text-menudo text-arena/80">{t('reservar.huespedNota')}</p>
         </div>
       )}
 
@@ -920,7 +912,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       {/* Pegado abajo, y con hueco suficiente por debajo: el fondo opaco tiene
           que llegar hasta el borde del panel, o se alcanza a ver media ficha
           de jugador asomándose bajo los botones. */}
-      <div className="sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-arena/20 bg-sombra pb-5 pt-5">
+      <div className="sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-arena/20 bg-sombra pb-5 pt-5 lg:px-6">
         <div className="min-w-0">
           {cotizacion && (
             <p className="font-titulo text-[1.9rem] leading-none text-hoja sm:text-dato-xl">
@@ -1097,6 +1089,80 @@ function Contador({ valor, min, max, onCambiar, t }) {
       >
         +
       </button>
+    </div>
+  );
+}
+
+/**
+ * Lista desplegable con el diseño del sitio. La nativa del navegador sale con
+ * sus propios colores (blanco o negro, según el sistema) y no se puede
+ * pintar; esta usa los del club y se maneja también con teclado.
+ */
+function Desplegable({ valor, onElegir, opciones, vacio }) {
+  const [abierto, setAbierto] = useState(false);
+  const [activo, setActivo] = useState(-1);
+  const caja = useRef(null);
+  const elegida = opciones.find((o) => o.valor === valor);
+
+  useEffect(() => {
+    if (!abierto) return undefined;
+    const fuera = (e) => caja.current && !caja.current.contains(e.target) && setAbierto(false);
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [abierto]);
+
+  function teclado(e) {
+    if (e.key === 'Escape') return setAbierto(false);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!abierto) return setAbierto(true);
+      setActivo((a) => (e.key === 'ArrowDown' ? Math.min(a + 1, opciones.length - 1) : Math.max(a - 1, 0)));
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && abierto && activo >= 0) {
+      e.preventDefault();
+      onElegir(opciones[activo].valor);
+      setAbierto(false);
+    }
+  }
+
+  return (
+    <div ref={caja} className="relative" onKeyDown={teclado}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={abierto}
+        onClick={() => setAbierto((a) => !a)}
+        className={`${entrada} flex w-full items-center justify-between gap-3 text-left`}
+      >
+        <span className={elegida ? 'text-arena' : 'text-arena/75'}>{elegida ? elegida.texto : vacio}</span>
+        <svg viewBox="0 0 12 12" className={`h-3 w-3 shrink-0 text-arena/75 transition ${abierto ? 'rotate-180' : ''}`} aria-hidden="true">
+          <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {abierto && (
+        <ul
+          role="listbox"
+          className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-sm border border-arena/25 bg-sombra py-1 shadow-lg shadow-black/40"
+        >
+          {opciones.map((o, i) => (
+            <li
+              key={o.valor}
+              role="option"
+              aria-selected={o.valor === valor}
+              onMouseEnter={() => setActivo(i)}
+              onClick={() => {
+                onElegir(o.valor);
+                setAbierto(false);
+              }}
+              className={`cursor-pointer px-3 py-2 font-texto text-[0.95rem] ${
+                o.valor === valor ? 'text-hoja' : 'text-arena'
+              } ${i === activo ? 'bg-arena/12' : ''}`}
+            >
+              {o.texto}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

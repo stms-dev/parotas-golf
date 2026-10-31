@@ -827,3 +827,4 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Diseño:** letra ~6 % más grande y `letter-spacing` de 0.012em en todo el sitio; las pantallas distintas de Campo usan más ancho.
 - Prueba nueva: `backend/prueba_cambios_v18.py`. Nota: `prueba_tienda.py` y `prueba_cambios_v14.py` dependen de la hora (la caja cierra a las 22:00); córranse de día.
 - **v18b:** el contenido de las pantallas (menos Campo) arranca donde termina el logo y tiene un ancho máximo de 62rem; en pantalla ancha (≥1024 px) la letra sube a 112.5 %. El celular no cambia.
+- **v18c:** lista desplegable de hoteles con el diseño del sitio (reemplaza la nativa); se quitó la nota bajo hotel/habitación; la barra de total tiene margen interno en pantalla ancha; zona de práctica queda "120 pelotas o 90 minutos" (migración `c3e5a7b9d1f3`); letra de pantalla ancha a 118.75 %.
