@@ -85,7 +85,7 @@ export default function Tarifas({ onIr, campo = null }) {
         {t('tarifas.incluye', { incluido })}
       </p>
 
-      <table className="mt-5 w-full border-collapse text-left corta:mt-3">
+      <table className="mt-5 w-full border-collapse text-left lg:max-w-[44rem] corta:mt-3">
         <thead>
           <tr className="border-b border-arena/20">
             <th className="pb-2 font-texto text-cifra uppercase font-semibold text-arena/75">

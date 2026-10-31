@@ -192,10 +192,11 @@ export const TEXTOS = {
     'reservar.setPlural': 'sets',
     'reservar.caddie': 'Caddie · {precio}',
     'reservar.caddieNota':
-      'se le paga directo a él, no va en esta cuenta · hay dos y se asignan por orden de salida',
+      'se le paga directo a él, no va en esta cuenta',
     'reservar.incluye':
       'Incluye carrito compartido, tarjeta de score, 10 tees y zona de práctica con 20 pelotas. Preséntese en la casa ' +
       'club quince minutos antes de su salida.',
+    'reservar.conocimientos': 'Al reservar acepta que tiene los conocimientos básicos para jugar golf.',
     'reservar.pagoSeguro': 'Pago seguro con Stripe',
     'reservar.pagoNota':
       'Al confirmar lo mandamos a la página de pago de Stripe y vuelve aquí con su ' +
@@ -436,10 +437,11 @@ export const TEXTOS = {
     'reservar.setPlural': 'sets',
     'reservar.caddie': 'Caddie · {precio}',
     'reservar.caddieNota':
-      'paid directly to the caddie, not part of this total · two available, assigned by tee time',
+      'paid directly to the caddie, not part of this total',
     'reservar.incluye':
       'Includes a shared cart, a scorecard, 10 tees, and the practice area with 20 balls. Please come to the ' +
       'clubhouse fifteen minutes before your tee time.',
+    'reservar.conocimientos': 'By booking you confirm that you have the basic knowledge needed to play golf.',
     'reservar.pagoSeguro': 'Secure payment with Stripe',
     'reservar.pagoNota':
       'When you confirm we send you to Stripe to pay, and you come back here with ' +

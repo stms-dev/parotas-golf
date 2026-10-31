@@ -904,6 +904,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             <p className="font-texto text-menudo leading-relaxed text-arena/80">
               {t('reservar.incluye')}
             </p>
+
+            <p className="font-texto text-menudo leading-relaxed text-arena/80">
+              {t('reservar.conocimientos')}
+            </p>
           </Paso>
         )}
       </div>
