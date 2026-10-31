@@ -829,3 +829,4 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **v18b:** el contenido de las pantallas (menos Campo) arranca donde termina el logo y tiene un ancho máximo de 62rem; en pantalla ancha (≥1024 px) la letra sube a 112.5 %. El celular no cambia.
 - **v18c:** lista desplegable de hoteles con el diseño del sitio (reemplaza la nativa); se quitó la nota bajo hotel/habitación; la barra de total tiene margen interno en pantalla ancha; zona de práctica queda "120 pelotas o 90 minutos" (migración `c3e5a7b9d1f3`); letra de pantalla ancha a 118.75 %.
 - **v18d:** tabla de Green Fee más angosta en pantalla ancha; se quitó "hay dos y se asignan por orden de salida" del caddie; nuevo texto informativo (no obligatorio) antes de pagar: "Al reservar acepta que tiene los conocimientos básicos para jugar golf."
+- **v18e:** la portada vuelve a su tamaño de letra original; en Green Fee el párrafo se extiende a lo ancho y la tabla, los extras y el botón van centrados.

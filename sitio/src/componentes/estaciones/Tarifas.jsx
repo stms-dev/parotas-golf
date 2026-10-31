@@ -81,11 +81,11 @@ export default function Tarifas({ onIr, campo = null }) {
       <h2 className="font-titulo text-rotulo-lg text-arena corta:text-rotulo-md">
         {t('tarifas.titulo')}
       </h2>
-      <p className="mt-2.5 max-w-lectura font-texto text-parrafo text-arena/90 corta:mt-2 corta:text-[0.95rem]">
+      <p className="mt-2.5 max-w-lectura font-texto text-parrafo text-arena/90 lg:max-w-none corta:mt-2 corta:text-[0.95rem]">
         {t('tarifas.incluye', { incluido })}
       </p>
 
-      <table className="mt-5 w-full border-collapse text-left lg:max-w-[44rem] corta:mt-3">
+      <table className="mt-5 w-full border-collapse text-left lg:mx-auto lg:max-w-[44rem] corta:mt-3">
         <thead>
           <tr className="border-b border-arena/20">
             <th className="pb-2 font-texto text-cifra uppercase font-semibold text-arena/75">
@@ -137,7 +137,7 @@ export default function Tarifas({ onIr, campo = null }) {
         </tbody>
       </table>
 
-      <div className="mt-5 corta:mt-3">
+      <div className="mt-5 lg:mx-auto lg:max-w-[44rem] corta:mt-3">
         <p className="font-texto text-cifra uppercase text-arena/75">{t('tarifas.aparte')}</p>
         <ul className="mt-2.5 space-y-2 corta:mt-2 corta:space-y-1">
           {extras.map((extra) => (
@@ -167,7 +167,7 @@ export default function Tarifas({ onIr, campo = null }) {
 
       <button
         onClick={() => onIr('reservar')}
-        className="mt-6 self-start rounded-sm bg-hoja px-7 py-3 corta:mt-4 corta:py-2.5 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
+        className="mt-6 self-start rounded-sm bg-hoja lg:mx-auto lg:block px-7 py-3 corta:mt-4 corta:py-2.5 font-texto text-[0.95rem] font-bold text-sombra-honda transition hover:bg-brote focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brote"
       >
         {t('tarifas.reservar')}
       </button>

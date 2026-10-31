@@ -16,6 +16,14 @@
     }
   }
 
+  /* La portada se queda con la letra de siempre, en todas las pantallas. */
+  html[data-pantalla='salida'] {
+    font-size: 100%;
+  }
+  html[data-pantalla='salida'] body {
+    letter-spacing: normal;
+  }
+
   body {
     @apply bg-sombra font-texto text-arena antialiased;
     /* Un poco de aire entre letras; los rótulos traen su propio ajuste. */

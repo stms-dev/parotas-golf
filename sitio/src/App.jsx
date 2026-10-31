@@ -64,6 +64,12 @@ export default function App() {
   // sin cambiar de panel: se puede husmear el campo sin perder el hilo.
   const [hoyo, setHoyo] = useState(ESTACIONES[0].hoyo);
 
+  // La portada conserva su tamaño de letra original; el resto del sitio usa el
+  // más grande (ver estilos.css).
+  useEffect(() => {
+    document.documentElement.dataset.pantalla = estacion;
+  }, [estacion]);
+
   useEffect(() => {
     api
       .campo()
