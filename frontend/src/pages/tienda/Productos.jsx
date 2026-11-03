@@ -54,7 +54,7 @@ export default function Productos({ atiende }) {
     return productos.filter((p) => {
       if (filtro === 'baja' ? p.activo : !p.activo) return false;
       if (filtro === 'surtir' && !p.por_surtir) return false;
-      if (filtro === 'agotados' && p.existencia_total > 0) return false;
+      if (filtro === 'agotados' && p.existencia_fisica > 0) return false;
       if (filtro === 'pasar' && !p.pasar_a_tienda) return false;
       if (filtro === 'maximo' && !p.sobre_maximo) return false;
       if (filtro === 'sinprecio' && p.precio != null) return false;
@@ -72,8 +72,8 @@ export default function Productos({ atiende }) {
 
   function exportar() {
     const filas = [
-      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio bruto', 'Precio neto', 'Tienda', 'Bodega', 'Total', 'Minimo', 'Maximo', 'Comprar', 'Activo'],
-      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.precio != null ? (Number(p.precio) / (1 + Number(resumen?.iva_pct ?? 16) / 100)).toFixed(2) : '', p.existencia, p.existencia_bodega, p.existencia_total, p.minimo, p.maximo, p.compra_sugerida, p.activo ? 'Si' : 'No']),
+      ['Codigo', 'Descripcion', 'Categoria', 'Marca', 'Talla', 'Costo', 'Precio bruto', 'Precio neto', 'Tienda', 'Bodega', 'Merma', 'Total', 'Minimo', 'Maximo', 'Comprar', 'Activo'],
+      ...visibles.map((p) => [p.codigo, p.descripcion, p.categoria, p.marca || '', p.talla || '', p.costo, p.precio ?? '', p.precio != null ? (Number(p.precio) / (1 + Number(resumen?.iva_pct ?? 16) / 100)).toFixed(2) : '', p.existencia, p.existencia_bodega, p.merma_total, p.existencia_total, p.minimo, p.maximo, p.compra_sugerida, p.activo ? 'Si' : 'No']),
     ];
     const csv = filas.map((f) => f.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
@@ -88,7 +88,7 @@ export default function Productos({ atiende }) {
     <div className="space-y-gutter">
       {resumen && (
         <section className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          <Cifra label="Piezas" valor={resumen.piezas} pie={`${resumen.piezas_tienda} en tienda · ${resumen.piezas_bodega} en bodega`} />
+          <Cifra label="Piezas" valor={resumen.piezas} pie={`${resumen.piezas_tienda} en tienda · ${resumen.piezas_bodega} en bodega${resumen.piezas_merma ? ` · ${resumen.piezas_merma} de merma` : ''}`} />
           <Cifra label="Valor al costo" valor={mxn(resumen.valor_costo)} pie="lo que costó lo que hay" oscuro />
           <Cifra label="Valor a la venta" valor={mxn(resumen.valor_venta)} pie="si se vendiera todo" />
           <Cifra
@@ -163,7 +163,7 @@ export default function Productos({ atiende }) {
 
       <section className={TARJETA}>
         <div className="overflow-x-auto">
-        <table className="tabla-lineas min-w-[1060px] text-left">
+        <table className="tabla-lineas min-w-[1120px] text-left">
           <thead>
             <tr className="text-label-sm uppercase tracking-wider text-on-surface-variant">
               <th className="px-4 py-3">Producto</th>
@@ -173,7 +173,8 @@ export default function Productos({ atiende }) {
               <th className="px-3 py-3 text-right" title="Ganancia sobre el costo">Sobre costo</th>
               <th className="px-3 py-3">Tienda</th>
               <th className="px-3 py-3 text-right">Bodega</th>
-              <th className="px-3 py-3 text-right">Total</th>
+              <th className="px-3 py-3 text-right" title="Piezas dadas de baja por merma autorizada">Merma</th>
+              <th className="px-3 py-3 text-right" title="Tienda + bodega + merma">Total</th>
               <th className="px-3 py-3 text-right" title="Mínimo / máximo del total">Mín / Máx</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
@@ -205,6 +206,9 @@ export default function Productos({ atiende }) {
                   </td>
                   <td className="px-3 py-3"><Existencia producto={p} /></td>
                   <td className="px-3 py-3 text-right font-mono text-body-md">{p.existencia_bodega}</td>
+                  <td className={`px-3 py-3 text-right font-mono text-body-md ${p.merma_total ? 'text-error' : 'text-on-surface-variant'}`}>
+                    {p.merma_total || 0}
+                  </td>
                   <td className="px-3 py-3 text-right font-mono text-title-md">{p.existencia_total}</td>
                   <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-body-md text-on-surface-variant">
                     {p.minimo || p.maximo ? `${p.minimo || 0} / ${p.maximo || '—'}` : '—'}
@@ -584,6 +588,7 @@ const TIPOS = {
   TRASPASO: 'Traspaso',
   VENTA: 'Venta',
   CANCELACION: 'Cancelación',
+  MERMA: 'Merma',
 };
 
 function Kardex({ producto, onCerrar }) {

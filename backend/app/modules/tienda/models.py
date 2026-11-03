@@ -19,8 +19,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, Text, func
+from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 
 from app.core.database import Base
 from app.shared.money import DecimalMoney, DecimalRate, money
@@ -48,6 +48,9 @@ class TiendaProducto(Base):
     # TRASPASO, que queda en el kardex como cualquier otro movimiento.
     existencia: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # en tienda
     existencia_bodega: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    # Piezas dadas de baja por merma (autorizadas). No están en tienda ni en
+    # bodega, pero cuentan en el total para que el mínimo y el máximo no se muevan.
+    merma_total: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     # Mínimo y máximo sobre el total (tienda + bodega). Con el mínimo o menos
     # hay que comprar; la compra sugerida es lo que falta para el máximo.
     minimo: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -60,8 +63,15 @@ class TiendaProducto(Base):
     )
 
     @property
-    def existencia_total(self) -> int:
+    def existencia_fisica(self) -> int:
+        """Lo que realmente hay: tienda + bodega."""
         return (self.existencia or 0) + (self.existencia_bodega or 0)
+
+    @property
+    def existencia_total(self) -> int:
+        """Tienda + bodega + merma. Sobre este total corren el mínimo, el máximo
+        y la compra sugerida."""
+        return self.existencia_fisica + (self.merma_total or 0)
 
     @property
     def por_surtir(self) -> bool:
@@ -223,3 +233,45 @@ class TiendaPago(Base):
     referencia: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
 
     venta: Mapped[TiendaVenta] = relationship(back_populates="pagos")
+
+
+class TiendaMerma(Base):
+    """Piezas que se pierden (daño, caducidad, robo, muestra...).
+
+    Quien atiende la **solicita**; la Administración la **autoriza o la rechaza**.
+    La existencia solo baja al autorizar, y deja su movimiento MERMA en el
+    kardex. La evidencia (foto o PDF) se guarda aquí mismo.
+    """
+
+    __tablename__ = "tienda_mermas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    folio: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
+    producto_id: Mapped[int] = mapped_column(ForeignKey("tienda_productos.id"), nullable=False, index=True)
+    cantidad: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Opcional: de dónde sale. Vacío = primero de tienda y lo que falte de bodega.
+    ubicacion: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    motivo_tipo: Mapped[str] = mapped_column(String(16), nullable=False)
+    justificacion: Mapped[str] = mapped_column(Text, nullable=False)
+    estado: Mapped[str] = mapped_column(String(12), default="PENDIENTE", nullable=False, index=True)
+
+    solicito_nombre: Mapped[str] = mapped_column(String(120), nullable=False)
+    solicito_usuario_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    # Quién la resolvió (autorizó, rechazó o canceló) y cuándo.
+    resolvio_nombre: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    resolvio_usuario_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    resuelta_en: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    nota_resolucion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Al autorizar: lo que salió de cada lugar y el costo del momento.
+    de_tienda: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    de_bodega: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    costo_unitario: Mapped[Optional[Decimal]] = mapped_column(DecimalMoney, nullable=True)
+
+    evidencia_nombre: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    evidencia_tipo: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    evidencia = deferred(mapped_column(LargeBinary, nullable=True))
+
+    producto: Mapped[TiendaProducto] = relationship()

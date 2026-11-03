@@ -344,6 +344,20 @@ export const tiendaApi = {
   venta: (id) => api.get(`/tienda/ventas/${id}`),
   cancelar: (id, body) => api.post(`/tienda/ventas/${id}/cancelar`, body),
   reportes: (params) => api.get('/tienda/reportes', params),
+  mermas: (params) => api.get('/tienda/mermas', params),
+  solicitarMerma: (body) => api.post('/tienda/mermas', body),
+  autorizarMerma: (id, body) => api.post(`/tienda/mermas/${id}/autorizar`, body),
+  rechazarMerma: (id, body) => api.post(`/tienda/mermas/${id}/rechazar`, body),
+  cancelarMerma: (id, body) => api.post(`/tienda/mermas/${id}/cancelar`, body),
+  /** La evidencia pide sesión, así que no se puede poner en un <img src>: se baja con el token. */
+  evidenciaMerma: async (id) => {
+    const r = await fetch(`${BASE_URL}/tienda/mermas/${id}/evidencia`, {
+      headers: { Authorization: `Bearer ${tokenStore.get()}` },
+    });
+    if (!r.ok) throw new ApiError('No se pudo abrir la evidencia', r.status);
+    const blob = await r.blob();
+    return { url: URL.createObjectURL(blob), tipo: blob.type };
+  },
 };
 
 export const auditApi = {

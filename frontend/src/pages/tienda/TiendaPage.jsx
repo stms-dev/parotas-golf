@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { fechaHora, mxn } from '../../utils/format';
 import Caja from './Caja';
 import { CAMPO, ETIQUETA, useAtiende } from './comun';
+import Merma from './Merma';
 import Productos from './Productos';
 import Reportes from './Reportes';
 import Vender from './Vender';
@@ -21,6 +22,7 @@ const PESTANAS = [
   { id: 'vender', texto: 'Vender', icono: 'carrito' },
   { id: 'productos', texto: 'Productos', icono: 'paquete', admin: true },
   { id: 'ventas', texto: 'Ventas', icono: 'registro' },
+  { id: 'merma', texto: 'Merma', icono: 'alerta' },
   { id: 'caja', texto: 'Caja', icono: 'cajaFuerte' },
   { id: 'reportes', texto: 'Reportes', icono: 'grafica', admin: true },
 ];
@@ -28,6 +30,8 @@ const PESTANAS = [
 export default function TiendaPage() {
   const { can } = useAuth();
   const admin = can('tienda:administrar');
+  const puedeAutorizar = can('tienda:autorizar_merma');
+  const [porAutorizar, setPorAutorizar] = useState(0);
   const [params, setParams] = useSearchParams();
   const pestanas = PESTANAS.filter((p) => !p.admin || admin);
   const activa = pestanas.find((p) => p.id === params.get('vista'))?.id || 'vender';
@@ -64,6 +68,15 @@ export default function TiendaPage() {
       window.removeEventListener('focus', cargarCaja);
     };
   }, [cargarCaja]);
+
+  // Para quien autoriza: cuántas mermas esperan su respuesta (se ve en la pestaña).
+  const contarPendientes = useCallback(() => {
+    if (!puedeAutorizar) return;
+    tiendaApi.mermas({ estado: 'PENDIENTE' }).then((l) => setPorAutorizar(l.length)).catch(() => {});
+  }, [puedeAutorizar]);
+  useEffect(() => {
+    contarPendientes();
+  }, [contarPendientes, activa]);
 
   const ir = (id) => {
     cargarCaja();
@@ -106,6 +119,9 @@ export default function TiendaPage() {
           >
             <Icono nombre={p.icono} size={17} className={activa === p.id ? 'text-secondary' : ''} />
             {p.texto}
+            {p.id === 'merma' && porAutorizar > 0 && (
+              <span className="rounded-full bg-error px-1.5 py-0.5 font-mono text-label-sm text-on-error">{porAutorizar}</span>
+            )}
           </button>
         ))}
       </nav>
@@ -117,6 +133,7 @@ export default function TiendaPage() {
           {activa === 'vender' && <Vender {...props} />}
           {activa === 'productos' && <Productos atiende={atiende} />}
           {activa === 'ventas' && <Ventas {...props} />}
+          {activa === 'merma' && <Merma atiende={atiende} puedeAutorizar={puedeAutorizar} onCambio={contarPendientes} />}
           {activa === 'caja' && <Caja {...props} puedeAdministrar={admin} />}
           {activa === 'reportes' && <Reportes />}
         </>

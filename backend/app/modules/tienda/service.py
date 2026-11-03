@@ -21,6 +21,7 @@ from app.modules.tienda.models import (
     TiendaVenta,
     TiendaVentaLinea,
 )
+from app.modules.tienda.mermas import MermasTienda
 from app.shared.enums import AuditAction
 from app.shared.money import ZERO, money
 from app.shared.tiempo import ahora, hoy
@@ -83,15 +84,16 @@ class CatalogoTienda:
         productos = self.listar()
         return {
             "productos": len(productos),
-            "piezas": sum(p.existencia_total for p in productos),
+            "piezas": sum(p.existencia_fisica for p in productos),
             "piezas_tienda": sum(p.existencia for p in productos),
             "piezas_bodega": sum(p.existencia_bodega for p in productos),
             "pasar_a_tienda": sum(1 for p in productos if p.pasar_a_tienda),
             "sobre_maximo": sum(1 for p in productos if p.sobre_maximo),
-            "valor_costo": money(sum((money(p.costo) * p.existencia_total for p in productos), start=ZERO)),
-            "valor_venta": money(sum((money(p.precio or 0) * p.existencia_total for p in productos), start=ZERO)),
+            "valor_costo": money(sum((money(p.costo) * p.existencia_fisica for p in productos), start=ZERO)),
+            "valor_venta": money(sum((money(p.precio or 0) * p.existencia_fisica for p in productos), start=ZERO)),
             "por_surtir": sum(1 for p in productos if p.por_surtir),
-            "sin_existencia": sum(1 for p in productos if p.existencia_total <= 0),
+            "sin_existencia": sum(1 for p in productos if p.existencia_fisica <= 0),
+            "piezas_merma": sum(p.merma_total or 0 for p in productos),
             "sin_precio": sum(1 for p in productos if p.precio is None),
             "sin_codigo": sum(1 for p in productos if not p.tiene_codigo_barras),
             "categorias": self.categorias(),
@@ -799,4 +801,5 @@ class VentasTienda:
             "top_productos": [
                 {**x, "importe": money(x["importe"]), "utilidad": money(x["utilidad"])} for x in top[:15]
             ],
+            "merma": MermasTienda(self.db).resumen(desde, hasta),
         }

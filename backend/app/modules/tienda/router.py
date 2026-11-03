@@ -2,7 +2,7 @@
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +18,10 @@ from app.modules.tienda.schemas import (
     ConteoIn,
     FondoIn,
     CorteOut,
+    MermaIn,
+    MermaMotivoIn,
+    MermaNotaIn,
+    MermaOut,
     MovimientoIn,
     MovimientoOut,
     PrecioMasivoIn,
@@ -28,6 +32,7 @@ from app.modules.tienda.schemas import (
     VentaIn,
     VentaOut,
 )
+from app.modules.tienda.mermas import MOTIVOS, MermasTienda
 from app.modules.tienda.service import CajaTienda, CatalogoTienda, VentasTienda
 from app.shared.tiempo import hoy
 
@@ -35,6 +40,7 @@ router = APIRouter(prefix="/tienda", tags=["Tienda"])
 
 VENDER = RequirePermission(Permission.TIENDA_VENDER)
 ADMINISTRAR = RequirePermission(Permission.TIENDA_ADMINISTRAR)
+AUTORIZAR_MERMA = RequirePermission(Permission.TIENDA_AUTORIZAR_MERMA)
 
 
 # ------------------------------------------------------------------ productos
@@ -233,3 +239,61 @@ def reportes(
     fin = hasta or hoy()
     inicio = desde or fin.replace(day=1)
     return VentasTienda(db).reporte(inicio, fin)
+
+
+# ---------------------------------------------------------------------- merma
+def _merma_out(m) -> MermaOut:
+    out = MermaOut.model_validate(m)
+    out.producto_codigo = m.producto.codigo if m.producto else None
+    out.producto_descripcion = m.producto.descripcion if m.producto else None
+    out.motivo_nombre = MOTIVOS.get(m.motivo_tipo, m.motivo_tipo)
+    out.tiene_evidencia = bool(m.evidencia_tipo)
+    if m.costo_unitario is not None:
+        out.costo_total = m.costo_unitario * m.cantidad
+    return out
+
+
+@router.get("/mermas", response_model=List[MermaOut])
+def mermas(
+    estado: Optional[str] = Query(None),
+    desde: Optional[date] = Query(None),
+    hasta: Optional[date] = Query(None),
+    producto_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(VENDER),
+):
+    return [_merma_out(m) for m in MermasTienda(db).listar(
+        estado=estado, desde=desde, hasta=hasta, producto_id=producto_id)]
+
+
+@router.post("/mermas", response_model=MermaOut, status_code=status.HTTP_201_CREATED)
+def solicitar_merma(data: MermaIn, db: Session = Depends(get_db), user: User = Depends(VENDER)):
+    return _merma_out(MermasTienda(db).solicitar(data, user))
+
+
+@router.get("/mermas/{merma_id}/evidencia")
+def evidencia_merma(merma_id: int, db: Session = Depends(get_db), _: User = Depends(VENDER)):
+    datos, tipo, nombre = MermasTienda(db).evidencia(merma_id)
+    return Response(content=datos, media_type=tipo, headers={
+        "Content-Disposition": f'inline; filename="{nombre}"',
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, max-age=300",
+    })
+
+
+@router.post("/mermas/{merma_id}/autorizar", response_model=MermaOut)
+def autorizar_merma(merma_id: int, data: MermaNotaIn, db: Session = Depends(get_db),
+                    user: User = Depends(AUTORIZAR_MERMA)):
+    return _merma_out(MermasTienda(db).autorizar(merma_id, data.nota, user))
+
+
+@router.post("/mermas/{merma_id}/rechazar", response_model=MermaOut)
+def rechazar_merma(merma_id: int, data: MermaMotivoIn, db: Session = Depends(get_db),
+                   user: User = Depends(AUTORIZAR_MERMA)):
+    return _merma_out(MermasTienda(db).rechazar(merma_id, data.nota, user))
+
+
+@router.post("/mermas/{merma_id}/cancelar", response_model=MermaOut)
+def cancelar_merma(merma_id: int, data: MermaMotivoIn, db: Session = Depends(get_db),
+                   user: User = Depends(AUTORIZAR_MERMA)):
+    return _merma_out(MermasTienda(db).cancelar(merma_id, data.nota, user))

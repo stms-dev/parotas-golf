@@ -61,6 +61,9 @@ export default function Reportes() {
       ['Margen %', r.margen_pct], ['Piezas', r.piezas], ['Ticket promedio', r.ticket_promedio],
       ['Descuentos', r.descuentos], ['Canceladas', r.canceladas],
       [],
+      ['Merma autorizada (piezas)', r.merma?.piezas ?? 0], ['Merma autorizada (costo)', r.merma?.costo ?? 0],
+      ...(r.merma?.por_motivo || []).map((m) => [`  ${m.nombre}`, m.piezas, m.costo]),
+      [],
       ['Fecha', 'Ventas', 'Total', 'Utilidad'],
       ...r.por_dia.map((d) => [d.fecha, d.ventas, d.total, d.utilidad]),
       [],
@@ -126,6 +129,30 @@ export default function Reportes() {
               tono={r.canceladas ? 'text-error' : undefined}
             />
           </section>
+
+          {r.merma && (r.merma.piezas > 0 || r.merma.pendientes > 0) && (
+            <section className={`${TARJETA} p-5`}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="font-serif text-headline-md text-primary">Merma del periodo</h3>
+                <p className="text-body-md text-outline">
+                  {plural(r.merma.piezas, 'pieza')} · {mxn(r.merma.costo)} al costo
+                  {r.merma.pendientes ? ` · ${plural(r.merma.pendientes, 'solicitud')} por autorizar` : ''}
+                </p>
+              </div>
+              {r.merma.por_motivo.length > 0 && (
+                <ul className="mt-3 divide-y divide-outline-variant/40">
+                  {r.merma.por_motivo.map((m) => (
+                    <li key={m.motivo} className="flex items-center justify-between gap-3 py-2 text-body-lg">
+                      <span>{m.nombre}</span>
+                      <span className="font-mono text-body-md text-on-surface-variant">
+                        {plural(m.piezas, 'pieza')} · {mxn(m.costo)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <section className={`${TARJETA} p-5`}>
             <h3 className="text-title-lg text-primary">Ventas por día</h3>

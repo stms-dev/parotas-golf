@@ -89,6 +89,8 @@ class Permission:
     TIENDA_VENDER = "tienda:vender"
     # Productos, precios, entradas, ajustes, cancelaciones y reportes.
     TIENDA_ADMINISTRAR = "tienda:administrar"
+    # Aceptar, rechazar o cancelar una merma. Solo la Administración.
+    TIENDA_AUTORIZAR_MERMA = "tienda:autorizar_merma"
 
     # --------------------------------------------------------------- sistema
     USER_MANAGE = "user:manage"
@@ -197,6 +199,7 @@ _ADMIN_OPERACIONES: Set[str] = {
     Permission.SCREEN_TIENDA,
     Permission.TIENDA_VENDER,
     Permission.TIENDA_ADMINISTRAR,
+    Permission.TIENDA_AUTORIZAR_MERMA,
 }
 
 

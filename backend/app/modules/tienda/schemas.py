@@ -48,6 +48,8 @@ class ProductoOut(BaseModel):
     existencia: int
     existencia_bodega: int
     existencia_total: int
+    existencia_fisica: int = 0
+    merma_total: int = 0
     minimo: int
     maximo: int
     activo: bool
@@ -247,6 +249,7 @@ class ResumenInventario(BaseModel):
     piezas: int
     piezas_tienda: int = 0
     piezas_bodega: int = 0
+    piezas_merma: int = 0
     pasar_a_tienda: int = 0
     sobre_maximo: int = 0
     valor_costo: Decimal
@@ -257,3 +260,51 @@ class ResumenInventario(BaseModel):
     sin_codigo: int
     iva_pct: Decimal = Decimal("16")
     categorias: List[str] = []
+
+
+# ---------------------------------------------------------------------- merma
+class MermaIn(BaseModel):
+    producto_id: int
+    cantidad: int = Field(ge=1, le=100000)
+    # Opcional: sin lugar sale primero de tienda y luego de bodega.
+    ubicacion: Optional[Literal["TIENDA", "BODEGA"]] = None
+    motivo_tipo: Literal["DANADO", "CADUCADO", "ROBO", "MUESTRA", "OTRO"]
+    justificacion: str = Field(min_length=5, max_length=500)
+    atendio: str = Field(min_length=3, max_length=120)
+    # Foto o PDF en base64 (con o sin el encabezado data:...). Máximo 3 MB.
+    evidencia_base64: Optional[str] = Field(default=None, max_length=5_000_000)
+    evidencia_nombre: Optional[str] = Field(default=None, max_length=120)
+
+
+class MermaNotaIn(BaseModel):
+    nota: Optional[str] = Field(default=None, max_length=300)
+
+
+class MermaMotivoIn(BaseModel):
+    nota: str = Field(min_length=3, max_length=300)
+
+
+class MermaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    folio: str
+    producto_id: int
+    producto_codigo: Optional[str] = None
+    producto_descripcion: Optional[str] = None
+    cantidad: int
+    ubicacion: Optional[str]
+    motivo_tipo: str
+    motivo_nombre: Optional[str] = None
+    justificacion: str
+    estado: str
+    solicito_nombre: str
+    created_at: datetime
+    resolvio_nombre: Optional[str]
+    resuelta_en: Optional[datetime]
+    nota_resolucion: Optional[str]
+    de_tienda: int = 0
+    de_bodega: int = 0
+    costo_unitario: Optional[Decimal] = None
+    costo_total: Optional[Decimal] = None
+    tiene_evidencia: bool = False

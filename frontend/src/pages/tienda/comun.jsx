@@ -1,8 +1,7 @@
 /**
  * Piezas compartidas de la tienda: estilos, cifras, el ticket imprimible.
  */
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 
 import Icono from '../../components/Icono';
 import { fechaHora, mxn, usd } from '../../utils/format';
@@ -25,25 +24,15 @@ export const METODOS = {
 /** "1 venta", "3 ventas". */
 export const plural = (n, palabra) => `${n} ${palabra}${Number(n) === 1 ? '' : 's'}`;
 
-/** Quién está atendiendo: la cuenta la comparten los turnos. */
+/** Quién está atendiendo: la cuenta la comparten los turnos.
+ *
+ * Empieza vacío a propósito: el nombre lo escribe quien va a responder por lo
+ * que se registre (ventas, entradas, mermas). No se rellena con el usuario de
+ * la sesión ni con el último que se escribió. Se conserva mientras la pantalla
+ * siga abierta, para no escribirlo en cada venta.
+ */
 export function useAtiende() {
-  // Si nadie ha escrito otro nombre, atiende quien inició sesión.
-  const { user } = useAuth();
-  const [atiende, setAtiende] = useState(() => {
-    try {
-      return localStorage.getItem('ultimo_atendio') || user?.full_name || '';
-    } catch {
-      return user?.full_name || '';
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem('ultimo_atendio', atiende.trim());
-    } catch {
-      /* almacenamiento bloqueado */
-    }
-  }, [atiende]);
-  return [atiende, setAtiende];
+  return useState('');
 }
 
 export function Cifra({ label, valor, pie, tono, oscuro }) {
