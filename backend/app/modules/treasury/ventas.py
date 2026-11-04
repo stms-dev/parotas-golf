@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.billing.models import Payment
 from app.modules.booking.models import Reservation, TeeSlot
+from app.modules.cuponeras.models import Cuponera
 from app.modules.tienda.models import TiendaPago, TiendaVenta
 from app.shared.money import ZERO, money
 from app.shared.tiempo import zona
@@ -28,6 +29,7 @@ FUENTES = [
     ("GREEN_FEES", "Green Fee y servicios"),
     ("REPLAY", "Replay"),
     ("TIENDA", "Tienda"),
+    ("CUPONERAS", "Cuponeras vendidas"),
 ]
 AGRUPACIONES = ("dia", "semana", "mes", "anio")
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
@@ -157,6 +159,10 @@ def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
         fuente = "REPLAY" if p.replay_id is not None else "GREEN_FEES"
         moneda = p.currency.value if hasattr(p.currency, "value") else str(p.currency)
         metodo = p.method.value if hasattr(p.method, "value") else str(p.method)
+        # El Green Fee cubierto con una cuponera no es dinero nuevo: entró
+        # cuando se vendió la cuponera (se cuenta en su propia sección).
+        if metodo == "CUPONERA":
+            continue
         _asentar(fila_de(dia, fuente), metodo, moneda, p.amount, p.amount_mxn, p.change_mxn or ZERO)
 
     # --- tienda: el cambio se guarda en la venta, no en cada pago
@@ -176,6 +182,17 @@ def desglose(db: Session, inicio: date, fin: date, agrupar: str = "dia",
                 cambio_pendiente -= cambio
             _asentar(fila_de(v.fecha, "TIENDA"), pago.metodo, pago.moneda,
                      pago.monto, pago.monto_mxn, cambio)
+
+    # --- cuponeras: el dinero entra el día que se confirma la transferencia
+    consulta_cup = select(Cuponera).where(
+        Cuponera.pago_estado == "PAGADA", Cuponera.cancelada.is_(False), Cuponera.pagada_en.is_not(None)
+    )
+    if usuario_id is not None:
+        consulta_cup = consulta_cup.where(Cuponera.pago_confirmo_usuario_id == usuario_id)
+    for c in db.execute(consulta_cup).scalars():
+        dia = _fecha_local(c.pagada_en)
+        if inicio <= dia <= fin:
+            _asentar(fila_de(dia, "CUPONERAS"), "TRANSFERENCIA", "MXN", c.precio_total, c.precio_total, ZERO)
 
     lista: List[dict] = []
     for clave in sorted(periodos):

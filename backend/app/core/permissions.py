@@ -92,6 +92,17 @@ class Permission:
     # Aceptar, rechazar o cancelar una merma. Solo la Administración.
     TIENDA_AUTORIZAR_MERMA = "tienda:autorizar_merma"
 
+    # -------------------------------------------------------------- cuponeras
+    # Pantalla de cuponeras: recepción la usa para validar y canjear pases.
+    SCREEN_CUPONERAS = "screen:cuponeras"
+    # Escanear el folio y descontar los pases de quienes llegaron.
+    CUPONERA_CANJEAR = "cuponera:canjear"
+    # Vender una cuponera y confirmar su pago (Operaciones y Administración).
+    CUPONERA_GESTIONAR = "cuponera:gestionar"
+    # Cambiar precio, vigencia, modalidad o bloqueos, cancelar, anular un uso.
+    # Solo la Administración (SUPER_ADMIN, que recibe todos los permisos).
+    CUPONERA_ADMINISTRAR = "cuponera:administrar"
+
     # --------------------------------------------------------------- sistema
     USER_MANAGE = "user:manage"
     AUDIT_VIEW = "audit:view"
@@ -147,6 +158,9 @@ _RECEPCION: Set[str] = {
     Permission.SCREEN_TIENDA,
     Permission.TIENDA_VENDER,
     Permission.TIENDA_ADMINISTRAR,
+    # Cubre el Green Fee con los pases de una cuponera al hacer el check-in
+    # (escanea el código). No tiene pantalla de cuponeras ni ve precios.
+    Permission.CUPONERA_CANJEAR,
 }
 
 
@@ -199,7 +213,14 @@ _ADMIN_OPERACIONES: Set[str] = {
     Permission.SCREEN_TIENDA,
     Permission.TIENDA_VENDER,
     Permission.TIENDA_ADMINISTRAR,
-    Permission.TIENDA_AUTORIZAR_MERMA,
+    # Autorizar mermas es solo de la Administración (SUPER_ADMIN): operaciones
+    # puede capturarlas, no aprobarlas.
+
+    # Cuponeras: vende, confirma el pago y canjea. Cambiar precio, vigencia o
+    # cancelar es de la Administración.
+    Permission.SCREEN_CUPONERAS,
+    Permission.CUPONERA_CANJEAR,
+    Permission.CUPONERA_GESTIONAR,
 }
 
 

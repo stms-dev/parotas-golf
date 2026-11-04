@@ -153,6 +153,11 @@ class Reservation(Base):
     total: Mapped[Decimal] = mapped_column(DecimalMoney, default=Decimal("0.00"), nullable=False)
 
     # --- Pase QR (por reserva; adentro va la lista de jugadores) ---
+    # Cuponera con la que se apartó el horario (la reserva la levanta Operación o
+    # la Administración). Los pases se descuentan en recepción, al llegar.
+    cuponera_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cuponeras.id"), nullable=True, index=True)
+    cuponera = relationship("Cuponera", foreign_keys=[cuponera_id], lazy="joined")
+
     qr_token: Mapped[Optional[str]] = mapped_column(String(64), unique=True, index=True, nullable=True)
     qr_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
@@ -282,6 +287,8 @@ class ReservationPlayer(Base):
 
     arrived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     arrived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Canje de cuponera que cubrió su Green Fee (None = paga normal).
+    cuponera_uso_id: Mapped[Optional[int]] = mapped_column(ForeignKey("cuponera_usos.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 

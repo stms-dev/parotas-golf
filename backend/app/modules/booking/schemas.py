@@ -100,6 +100,8 @@ class PlayerOut(BaseModel):
     final_rate: Decimal
     arrived: bool
     arrived_at: Optional[datetime]
+    # Canje de cuponera que cubrió su Green Fee (None = paga normal).
+    cuponera_uso_id: Optional[int] = None
 
 
 class CompanionIn(BaseModel):
@@ -168,6 +170,10 @@ class ReservationCreate(BaseModel):
 
     # Solo lo usan roles del campo; el usuario HOTEL toma su propio hotel del token.
     hotel_id: Optional[int] = None
+
+    # Folio de la cuponera con la que se aparta el horario. Solo Operación y
+    # Administración; los pases se descuentan en recepción, al llegar.
+    cuponera_folio: Optional[str] = Field(default=None, max_length=16)
 
     @model_validator(mode="after")
     def _valid_holes(self):
@@ -279,6 +285,8 @@ class ReservationOut(BaseModel):
     rescheduled_from_folio: Optional[str] = None
     # Folio de la cortesía, si a esta partida ya se le repuso la ronda.
     reposicion_folio: Optional[str] = None
+    # Cuponera con la que se apartó (no la ve el hotel).
+    cuponera_folio: Optional[str] = None
 
     discount_code_applied: Optional[str]
     exchange_rate_applied: Decimal

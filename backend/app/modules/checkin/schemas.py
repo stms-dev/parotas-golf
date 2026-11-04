@@ -45,6 +45,14 @@ class PaymentLine(BaseModel):
     notes: Optional[str] = None
 
 
+class CuponeraAplicarIn(BaseModel):
+    """Cubrir con una cuponera el Green Fee de los jugadores que llegaron."""
+
+    cuponera_folio: str = Field(min_length=3, max_length=16)
+    player_ids: List[int] = Field(min_length=1)
+    attended_by_name: str = Field(min_length=3, max_length=120)
+
+
 class CheckInRequest(BaseModel):
     """Cierre del check-in: llegadas, PGA, servicios y cobro, en una operación."""
 

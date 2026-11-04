@@ -12,7 +12,7 @@ from app.modules.booking.schemas import PaymentOut, ReplayOut
 from typing import List
 
 from app.modules.checkin.schemas import (
-    AccountSummary, CheckInRequest, CheckInResult, ReplayRequest, ReplaySlot,
+    AccountSummary, CheckInRequest, CheckInResult, CuponeraAplicarIn, ReplayRequest, ReplaySlot,
 )
 from app.modules.checkin.service import CheckInService
 from app.modules.identity.models import User
@@ -45,6 +45,19 @@ def lookup(
         raise ValidationError("Indique folio, qr_token o reservation_id")
 
     return AccountSummary(**CheckInService(db).account_summary(reservation))
+
+
+@router.post("/{reservation_id}/cuponera", response_model=AccountSummary)
+def aplicar_cuponera(
+    reservation_id: int,
+    payload: CuponeraAplicarIn,
+    db: Session = Depends(get_db),
+    actor: User = Depends(RequirePermission(Permission.CUPONERA_CANJEAR)),
+):
+    """Cubre con una cuponera el Green Fee de los jugadores que llegaron."""
+    service = CheckInService(db)
+    reservation = service.aplicar_cuponera(reservation_id, payload, actor)
+    return AccountSummary(**service.account_summary(reservation))
 
 
 @router.post("/{reservation_id}", response_model=CheckInResult)

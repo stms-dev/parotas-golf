@@ -224,6 +224,9 @@ def _reservation_out(reservation: Reservation, scope: Optional[int] = None) -> R
             for t in reservation.replays
         ]
     out.hotel_name = reservation.hotel.name if reservation.hotel else None
+    out.cuponera_folio = (
+        reservation.cuponera.folio if scope is None and reservation.cuponera else None
+    )
     if reservation.tee_slot:
         out.slot_date = reservation.tee_slot.slot_date
         out.slot_time = reservation.tee_slot.slot_time

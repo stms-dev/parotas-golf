@@ -25,6 +25,7 @@ from app.modules.catalog.models import (  # noqa: F401
     RatePlan,
     SystemSetting,
 )
+from app.modules.cuponeras.models import Cuponera, CuponeraUso  # noqa: F401
 from app.modules.events.models import CourseEvent  # noqa: F401
 from app.modules.identity.models import User  # noqa: F401
 from app.modules.tienda.models import (  # noqa: F401

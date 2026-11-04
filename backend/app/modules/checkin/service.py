@@ -331,6 +331,86 @@ class CheckInService:
             )
         return created
 
+    # ---------------------------------------------------------------- cuponera
+    def aplicar_cuponera(self, reservation_id: int, data, actor: User) -> Reservation:
+        """Recepción escaneó la cuponera: se descuentan los pases de quienes llegaron.
+
+        Cada jugador cubierto gasta un pase y su Green Fee (ya con el descuento
+        de convenio o PGA que lleve) queda pagado con un cobro «CUPONERA». Ese
+        cobro no pasa por la caja: el dinero entró cuando se vendió la cuponera.
+        Lo demás (carrito, extras) se cobra normal.
+        """
+        from app.modules.cuponeras.service import Cuponeras
+
+        reservation = self.reservations.get(reservation_id)
+        if reservation.status not in (
+            ReservationStatus.PENDIENTE, ReservationStatus.CONFIRMADA, ReservationStatus.CHECK_IN,
+        ):
+            raise BusinessRuleError(
+                f"No se puede aplicar una cuponera a una reserva en estado {reservation.status}"
+            )
+        if str(reservation.modality) == BookingModality.PRACTICA.value or not reservation.holes:
+            raise BusinessRuleError("La cuponera no aplica a la zona de práctica")
+
+        cuponeras = Cuponeras(self.db)
+        cup = cuponeras.por_folio(data.cuponera_folio)
+        cup = cuponeras.obtener(cup.id, bloquear=True)
+        if reservation.cuponera_id and reservation.cuponera_id != cup.id:
+            raise BusinessRuleError(
+                f"Esta reserva se apartó con la cuponera {reservation.cuponera.folio}, "
+                f"no con {cup.folio}"
+            )
+        cuponeras.validar_para(cup, int(reservation.holes))
+
+        jugadores = {p.id: p for p in reservation.players}
+        elegidos = []
+        for pid in dict.fromkeys(data.player_ids):
+            jugador = jugadores.get(pid)
+            if not jugador:
+                raise NotFoundError(f"El jugador {pid} no pertenece a esta reserva")
+            if jugador.cuponera_uso_id:
+                raise BusinessRuleError(f"{jugador.full_name} ya está cubierto con una cuponera")
+            elegidos.append(jugador)
+        if len(elegidos) > cup.saldo:
+            raise BusinessRuleError(
+                f"Solo quedan {cup.saldo} pase(s) en {cup.folio} y se quieren cubrir {len(elegidos)} jugador(es)"
+            )
+
+        # Lo que vale el Green Fee de esos jugadores, con el convenio prorrateado.
+        bruto = money(sum((money(p.rate_applied) - money(p.pga_discount_applied) for p in elegidos), start=ZERO))
+        base = money(reservation.subtotal_green_fees)
+        if base > 0 and money(reservation.discount_amount) > 0:
+            bruto = money(bruto * (base - money(reservation.discount_amount)) / base)
+
+        uso = cuponeras.aplicar(
+            cup, len(elegidos), int(reservation.holes), reservation.folio, data.attended_by_name, actor,
+        )
+        pago = Payment(
+            reservation_id=reservation.id, cash_session_id=None, currency=Currency.MXN,
+            amount=bruto, exchange_rate_applied=Decimal("1.0000"), amount_mxn=bruto,
+            method=PaymentMethod.CUPONERA,
+            reference=f"{cup.folio} · {len(elegidos)} pase(s)", received_by_id=actor.id,
+        )
+        self.db.add(pago)
+        self.db.flush()
+        uso.payment_id = pago.id
+        for jugador in elegidos:
+            jugador.cuponera_uso_id = uso.id
+            jugador.arrived = True
+            jugador.arrived_at = jugador.arrived_at or datetime.utcnow()
+        if not reservation.cuponera_id:
+            reservation.cuponera_id = cup.id
+        self.audit.log(
+            user=actor, action=AuditAction.CHECK_IN, module="cuponeras", entity="Cuponera", entity_id=cup.id,
+            description=(
+                f"{reservation.folio}: {len(elegidos)} jugador(es) cubiertos con {cup.folio} "
+                f"(${bruto}) · quedan {cup.saldo} pases · {data.attended_by_name.strip()}"
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(reservation)
+        return reservation
+
     # --------------------------------------------------------------- check-in
     def perform(self, reservation_id: int, data: CheckInRequest, actor: User) -> dict:
         reservation = self.reservations.get(reservation_id)

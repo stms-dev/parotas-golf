@@ -122,6 +122,9 @@ class PaymentMethod(str, Enum):
     # El pago hecho por internet (sitio web o liga de pago): no pasa por caja ni
     # por la terminal del mostrador, y se concilia contra Stripe.
     PAGO_EN_LINEA = "PAGO_EN_LINEA"
+    # Green Fee cubierto con pases de una cuponera: no entra dinero a caja (ya
+    # entró cuando se vendió la cuponera), solo cubre la cuenta de la reserva.
+    CUPONERA = "CUPONERA"
 
 
 class Currency(str, Enum):

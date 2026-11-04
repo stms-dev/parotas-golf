@@ -28,6 +28,7 @@ import FinancePage from '../pages/FinancePage';
 import VentasTotalesPage from '../pages/VentasTotalesPage';
 import SettingsPage from '../pages/SettingsPage';
 import AdminPage from '../pages/AdminPage';
+import CuponerasPage from '../pages/CuponerasPage';
 import TiendaPage from '../pages/tienda/TiendaPage';
 import AuditPage from '../pages/AuditPage';
 import NotFoundPage from '../pages/NotFoundPage';
@@ -48,6 +49,7 @@ export const PERMISOS = {
   AUDITORIA: 'screen:audit',
   CONTROL: 'user:manage',
   TIENDA: 'screen:tienda',
+  CUPONERAS: 'screen:cuponeras',
   // Armar las partidas abiertas es trabajo de piso: lo decide quien está
   // viendo el campo, no el mostrador y menos un hotel.
   PARTIDAS_ABIERTAS: 'open_partida:manage',
@@ -211,6 +213,14 @@ export default function AppRouter() {
           element={
             <Protected permission={PERMISOS.TIENDA}>
               <TiendaPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/cuponeras"
+          element={
+            <Protected permission={PERMISOS.CUPONERAS}>
+              <CuponerasPage />
             </Protected>
           }
         />

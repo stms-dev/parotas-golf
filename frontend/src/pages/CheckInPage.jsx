@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { bookingApi, catalogApi, checkinApi, dashboardApi, treasuryApi } from '../api/client';
+import { bookingApi, catalogApi, checkinApi, cuponerasApi, dashboardApi, treasuryApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Spinner } from '../components/ui';
@@ -121,6 +121,11 @@ export default function CheckInPage() {
   });
 
   const [arrivals, setArrivals] = useState({});
+  // Cuponera: lo que se escaneó y su ficha (saldo, vigencia, si sirve hoy).
+  const [cupFolio, setCupFolio] = useState('');
+  const [cupFicha, setCupFicha] = useState(null);
+  const [cupError, setCupError] = useState('');
+  const [cupBuscando, setCupBuscando] = useState(false);
   /** Por jugador: { decision: 'valida' | 'invalida' | null }. */
   const [pga, setPga] = useState({});
   const [pgaActivo, setPgaActivo] = useState(false);
@@ -223,6 +228,9 @@ export default function CheckInPage() {
       setLlegadasAcomp(
         Object.fromEntries(full.companions.map((c) => [c.id, yaAtendida ? c.arrived : true])),
       );
+      setCupFolio('');
+      setCupFicha(null);
+      setCupError('');
       setAddedServices([]);
       setModalidad('unico');
       setMoneda('MXN');
@@ -620,7 +628,63 @@ export default function CheckInPage() {
   const esperaLlegada =
     saldada && ['PENDIENTE', 'CONFIRMADA', 'CHECK_IN'].includes(reservation?.status);
 
+  /** Escaneó el código de la cuponera: trae su saldo y si sirve hoy. */
+  async function buscarCuponera(e) {
+    e?.preventDefault();
+    const folio = cupFolio.trim();
+    if (!folio) return;
+    setCupBuscando(true);
+    setCupError('');
+    setCupFicha(null);
+    try {
+      setCupFicha(await cuponerasApi.porCodigo(folio));
+    } catch (err) {
+      setCupError(err.message);
+    } finally {
+      setCupBuscando(false);
+    }
+  }
+
+  /** Jugadores que llegaron y todavía no tienen su Green Fee cubierto. */
+  const porCubrir = (reservation?.players || []).filter((p) => arrivals[p.id] && !p.cuponera_uso_id);
+  const cubrirN = cupFicha ? Math.min(porCubrir.length, cupFicha.saldo) : 0;
+
+  async function aplicarCuponera() {
+    if (!cupFicha || cubrirN < 1) return;
+    const ok = await confirmar({
+      titulo: `¿Cubrir ${cubrirN} jugador${cubrirN === 1 ? '' : 'es'} con ${cupFicha.folio}?`,
+      texto: `Se descuentan ${cubrirN} pase${cubrirN === 1 ? '' : 's'} y quedan ${cupFicha.saldo - cubrirN}.${
+        cubrirN < porCubrir.length ? ' Los demás pagan su Green Fee normal.' : ''
+      }`,
+      confirmar: 'Sí, descontar pases',
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await checkinApi.cuponera(reservation.id, {
+        cuponera_folio: cupFicha.folio,
+        player_ids: porCubrir.slice(0, cubrirN).map((p) => p.id),
+        attended_by_name: atiende.trim(),
+      });
+      // Se refresca la cuenta sin tocar las llegadas que el mostrador ya marcó.
+      const [summary, full] = await Promise.all([
+        checkinApi.lookup({ folio: reservation.folio }),
+        bookingApi.getByFolio(reservation.folio),
+      ]);
+      setAccount(summary);
+      setReservation(full);
+      setCupFolio('');
+      setCupFicha(null);
+      exito('Cuponera aplicada', `${cubrirN} pase${cubrirN === 1 ? '' : 's'} descontado${cubrirN === 1 ? '' : 's'}.`);
+    } catch (err) {
+      avisoError('No se pudo aplicar la cuponera', err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function marcarLlegada(playerId) {
+    if (reservation?.players?.find((p) => p.id === playerId)?.cuponera_uso_id) return;
     if (bloqueada) return;
     setArrivals((actual) => ({ ...actual, [playerId]: !actual[playerId] }));
   }
@@ -963,6 +1027,67 @@ export default function CheckInPage() {
                 </div>
 
                 <div className="space-y-3 p-5">
+                  {/* Cuponera: se escanea su código y se cubre el Green Fee de
+                      quienes llegaron. Sin cuponera, esto no estorba. */}
+                  {!bloqueada && !esPractica && can('cuponera:canjear')
+                    && ['PENDIENTE', 'CONFIRMADA', 'CHECK_IN'].includes(reservation.status) && (
+                    <div className="rounded border border-outline-variant/60 bg-surface-container-low p-4">
+                      <p className="text-label-md uppercase tracking-wider text-primary">
+                        Cuponera{reservation.cuponera_folio ? ` · apartada con ${reservation.cuponera_folio}` : ''}
+                      </p>
+                      <form onSubmit={buscarCuponera} className="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          value={cupFolio}
+                          onChange={(e) => setCupFolio(e.target.value.toUpperCase())}
+                          placeholder="Escanee el código de la cuponera"
+                          autoComplete="off"
+                          className="min-w-[240px] flex-1 rounded border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-body-lg focus:border-primary-container focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          disabled={cupBuscando || !cupFolio.trim()}
+                          className="rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-title-md hover:bg-surface-container-high disabled:opacity-50"
+                        >
+                          Buscar
+                        </button>
+                      </form>
+                      {cupError && (
+                        <p className="mt-2 rounded border border-estado-cancel-border bg-estado-cancel-bg px-3 py-2 text-body-md text-estado-cancel-text">
+                          {cupError}
+                        </p>
+                      )}
+                      {cupFicha && (
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-title-md text-primary">
+                              {cupFicha.folio} · {cupFicha.titular_nombre}
+                            </p>
+                            <p className="text-body-md text-on-surface-variant">
+                              Quedan <strong data-testid="cup-saldo">{cupFicha.saldo}</strong> de {cupFicha.pases_total} pases
+                              {' · '}vence el {cupFicha.vence_el}
+                            </p>
+                            {cupFicha.motivo_bloqueo && (
+                              <p className="mt-1 text-body-md font-semibold text-estado-cancel-text">
+                                {cupFicha.motivo_bloqueo}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={aplicarCuponera}
+                            disabled={saving || Boolean(cupFicha.motivo_bloqueo) || cubrirN < 1 || atiende.trim().length < 3}
+                            title={atiende.trim().length < 3 ? 'Escriba quién atiende' : undefined}
+                            className="rounded bg-primary-container px-4 py-2.5 text-title-md text-on-primary shadow-card hover:bg-primary disabled:cursor-not-allowed disabled:bg-surface-container-highest disabled:text-outline disabled:shadow-none"
+                          >
+                            {cubrirN < 1
+                              ? 'Marque quién llegó'
+                              : `Cubrir ${cubrirN} jugador${cubrirN === 1 ? '' : 'es'} (${cubrirN} pase${cubrirN === 1 ? '' : 's'})`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {bloquesDeJugadores(reservation.players, pgaActivo).map((bloque, i) =>
                     bloque.tipo === 'pga' ? (
                       <TarjetaPga
@@ -1764,7 +1889,7 @@ function TarjetaPga({ player, indice, llego, estado, config, bloqueada, onLlegad
     config?.discount_type === 'PORCENTAJE' ? Number(config.value).toFixed(0) : null;
 
   return (
-    <Recuadro llego={llego} resaltado={valida} bloqueada={bloqueada} onLlegada={onLlegada}>
+    <Recuadro llego={llego} resaltado={valida} bloqueada={bloqueada} cubierta={Boolean(player.cuponera_uso_id)} onLlegada={onLlegada}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2">
@@ -1835,7 +1960,7 @@ function TarjetaPga({ player, indice, llego, estado, config, bloqueada, onLlegad
 /** Jugador sin credencial: solo hay que marcar si llegó. */
 function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada, practica = false }) {
   return (
-    <Recuadro llego={llego} bloqueada={bloqueada} onLlegada={onLlegada}>
+    <Recuadro llego={llego} bloqueada={bloqueada} cubierta={Boolean(player.cuponera_uso_id)} onLlegada={onLlegada}>
       <div className="flex items-start justify-between gap-3">
         <p className="flex min-w-0 flex-wrap items-center gap-2">
           <Numero valor={indice} llego={llego} />
@@ -1877,14 +2002,14 @@ function TarjetaSimple({ player, indice, llego, bloqueada, onLlegada, practica =
  * El recuadro del jugador. Todo él es el control de llegada: en un mostrador
  * con gente esperando, apuntarle a una casilla de 16px es perder tiempo.
  */
-function Recuadro({ llego, resaltado, bloqueada, onLlegada, children }) {
+function Recuadro({ llego, resaltado, bloqueada, cubierta = false, onLlegada, children }) {
   return (
     <div
       role="button"
       tabIndex={bloqueada ? -1 : 0}
       aria-pressed={llego}
       aria-disabled={bloqueada}
-      onClick={bloqueada ? undefined : onLlegada}
+      onClick={bloqueada || cubierta ? undefined : onLlegada}
       onKeyDown={(e) => {
         if (bloqueada) return;
         if (e.key === 'Enter' || e.key === ' ') {
@@ -1909,7 +2034,7 @@ function Recuadro({ llego, resaltado, bloqueada, onLlegada, children }) {
         }`}
       >
         <Icono nombre={llego ? 'check' : 'persona'} size={14} />
-        {llego ? 'Llegó al mostrador' : bloqueada ? 'No se presentó' : 'Toque para marcar su llegada'}
+        {cubierta ? 'Green Fee cubierto con cuponera' : llego ? 'Llegó al mostrador' : bloqueada ? 'No se presentó' : 'Toque para marcar su llegada'}
       </p>
     </div>
   );

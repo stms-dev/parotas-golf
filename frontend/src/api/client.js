@@ -293,6 +293,7 @@ export const checkinApi = {
   lookup: (params) => api.get('/checkin/lookup', params),
   perform: (id, body) => api.post(`/checkin/${id}`, body),
   replay: (id, body) => api.post(`/checkin/${id}/replay`, body),
+  cuponera: (id, body) => api.post(`/checkin/${id}/cuponera`, body),
   replaySlots: (id) => api.get(`/checkin/${id}/replay-slots`),
   enviarRecibo: (id, destino) =>
     api.post(`/correos/reserva/${id}/recibo${destino ? `?destino=${encodeURIComponent(destino)}` : ''}`),
@@ -319,6 +320,18 @@ export const eventsApi = {
   list: (params) => api.get('/events', params),
   create: (body) => api.post('/events', body),
   release: (id) => api.post(`/events/${id}/release`),
+};
+
+export const cuponerasApi = {
+  lista: (params) => api.get('/cuponeras', params),
+  crear: (body) => api.post('/cuponeras', body),
+  detalle: (id) => api.get(`/cuponeras/${id}`),
+  porCodigo: (folio) => api.get(`/cuponeras/codigo/${encodeURIComponent(folio)}`),
+  pago: (id, body) => api.post(`/cuponeras/${id}/pago`, body),
+  actualizar: (id, body) => api.patch(`/cuponeras/${id}`, body),
+  cancelar: (id, body) => api.post(`/cuponeras/${id}/cancelar`, body),
+  canjear: (id, body) => api.post(`/cuponeras/${id}/canjear`, body),
+  anularUso: (id, body) => api.post(`/cuponeras/usos/${id}/anular`, body),
 };
 
 export const tiendaApi = {

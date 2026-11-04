@@ -584,6 +584,21 @@ class ReservationService_:
         # La salida se valida ANTES de escribir nada.
         self._assert_slot_available(slot, len(data.players), data.modality)
 
+        # Cuponera: solo Operación y Administración la usan para apartar el
+        # horario. Los pases no se tocan aquí, se descuentan en recepción.
+        cuponera = None
+        if data.cuponera_folio and data.cuponera_folio.strip():
+            from app.core.permissions import Permission, role_has_permission
+            from app.modules.cuponeras.service import Cuponeras
+
+            if not role_has_permission(actor.role, Permission.CUPONERA_GESTIONAR):
+                raise BusinessRuleError("Solo Operación o la Administración pueden apartar con cuponera")
+            if data.modality == BookingModality.PRACTICA:
+                raise BusinessRuleError("La cuponera no aplica a la zona de práctica")
+            servicio_cup = Cuponeras(self.db)
+            cuponera = servicio_cup.por_folio(data.cuponera_folio)
+            servicio_cup.validar_para(cuponera, int(data.holes), slot.slot_date)
+
         # 5. Valores congelados: TC y comisión del momento.
         exchange_rate = self.exchange.current_rate()
         commission_rate = hotel.commission_rate
@@ -608,6 +623,7 @@ class ReservationService_:
             invoice_requested=data.invoice_requested,
             invoice_contact_email=str(data.invoice_contact_email) if data.invoice_contact_email else None,
             qr_token=secrets.token_urlsafe(24),
+            cuponera_id=cuponera.id if cuponera else None,
         )
         self.repo.add(reservation)
 
@@ -857,6 +873,13 @@ class ReservationService_:
         reservation.cancelled_at = datetime.utcnow()
         reservation.cancelled_by_id = actor.id
         reservation.cancellation_reason = reason
+
+        # Si ya se habían canjeado pases de una cuponera, regresan solos.
+        from app.modules.cuponeras.service import Cuponeras
+
+        Cuponeras(self.db).devolver_de_reserva(
+            reservation.folio, actor, f"Reserva {reservation.folio} cancelada"
+        )
 
         # Liberar el cupo para que otro hotel lo pueda tomar.
         self.db.flush()

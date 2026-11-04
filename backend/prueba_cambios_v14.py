@@ -130,7 +130,7 @@ check("Recepción no ve las ventas globales", r.status_code == 403, f"HTTP {r.st
 r = admin.get("/api/treasury/sales-breakdown", params={"start": "2026-01-01", "end": date.today().isoformat(), "group": "mes"}, headers=adm)
 check("El administrador consulta", r.status_code == 200, r.text[:80])
 d = r.json()
-check("Trae las tres secciones", [f["clave"] for f in d["fuentes"]] == ["GREEN_FEES", "REPLAY", "TIENDA"])
+check("Trae las secciones", [f["clave"] for f in d["fuentes"]] == ["GREEN_FEES", "REPLAY", "TIENDA", "CUPONERAS"])
 r = admin.get("/api/treasury/sales-breakdown", params={"start": "2026-02-01", "end": "2026-01-01"}, headers=adm)
 check("Un rango invertido se rechaza", r.status_code in (400, 422), f"HTTP {r.status_code}")
 r = admin.get("/api/treasury/sales-breakdown", params={"group": "decada"}, headers=adm)

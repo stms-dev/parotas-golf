@@ -120,7 +120,7 @@ const esJunior = (p) => Boolean(p.age) && Number(p.age) <= EDAD_JR_MAX;
 
 export default function NewReservationPage() {
   const navigate = useNavigate();
-  const { user, isHotel, isRecepcion } = useAuth();
+  const { user, isHotel, isRecepcion, can } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [date, setDate] = useState(hoy());
@@ -141,6 +141,8 @@ export default function NewReservationPage() {
     holes: 18,
     tee_slot_id: Number(searchParams.get('slot')) || null,
     hotel_id: null,
+    // Cuponera con la que se aparta el horario (solo Operación y Administración).
+    cuponera_folio: '',
     // La cuenta es del hotel o del mostrador y la comparten varios turnos:
     // aquí va el nombre de quien está levantando esta reserva.
     booked_by_name: (() => {
@@ -517,6 +519,9 @@ export default function NewReservationPage() {
         holes: Number(form.holes),
         hotel_id: isHotel ? undefined : form.hotel_id,
         booked_by_name: form.booked_by_name.trim(),
+        cuponera_folio: can('cuponera:gestionar') && !esPractica && form.cuponera_folio.trim()
+          ? form.cuponera_folio.trim().toUpperCase()
+          : undefined,
         holder_name: form.holder_name.trim(),
         holder_email: form.holder_email.trim(),
         holder_phone: form.holder_phone || null,
@@ -776,6 +781,22 @@ export default function NewReservationPage() {
                         </option>
                       ))}
                     </Select>
+                  </Field>
+                </div>
+              )}
+
+              {!isHotel && !isRecepcion && !esPractica && can('cuponera:gestionar') && (
+                <div className="min-w-[220px]">
+                  <Field
+                    label="Cuponera (opcional)"
+                    hint="Aparta el horario. Los pases se descuentan en recepción cuando lleguen."
+                  >
+                    <Input
+                      value={form.cuponera_folio}
+                      onChange={(e) => setForm({ ...form, cuponera_folio: e.target.value.toUpperCase() })}
+                      placeholder="CUP-0001"
+                      className="font-mono"
+                    />
                   </Field>
                 </div>
               )}
