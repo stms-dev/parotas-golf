@@ -328,6 +328,7 @@ export const cuponerasApi = {
   detalle: (id) => api.get(`/cuponeras/${id}`),
   porCodigo: (folio) => api.get(`/cuponeras/codigo/${encodeURIComponent(folio)}`),
   pago: (id, body) => api.post(`/cuponeras/${id}/pago`, body),
+  reenviar: (id) => api.post(`/cuponeras/${id}/reenviar`),
   actualizar: (id, body) => api.patch(`/cuponeras/${id}`, body),
   cancelar: (id, body) => api.post(`/cuponeras/${id}/cancelar`, body),
   canjear: (id, body) => api.post(`/cuponeras/${id}/canjear`, body),

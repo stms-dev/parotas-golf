@@ -71,7 +71,7 @@ def cuerpo(folio=None, n=4):  # el grupo siempre es de 4; se cubren los que lleg
 def nueva_cuponera(pases=10, pagada=True, **extra):
     base = {"titular_nombre": "Roberto Salinas", "pases_total": pases, "hoyos_18": True, "hoyos_9": False,
             "precio_total": "9000", "precio_lista": "12000", "vence_el": (D + timedelta(days=90)).isoformat(),
-            "pagada": pagada, "pago_referencia": "SPEI 1" if pagada else None}
+            "correo": extra.pop("correo", None), "pagada": pagada, "pago_referencia": "SPEI 1" if pagada else None}
     base.update(extra)
     return c.post("/api/cuponeras", json=base, headers=ops).json()
 
@@ -179,6 +179,70 @@ r = c.post(f"/api/checkin/{r4['id']}/cuponera", json={"cuponera_folio": cp4["fol
 check("Pide más pases de los que hay: rechaza", r.status_code == 409 and "Solo quedan 1 pase" in r.text, r.text[:100])
 r = c.post(f"/api/checkin/{r4['id']}/cuponera", json={"cuponera_folio": cp4["folio"], "player_ids": ids[:1], "attended_by_name": "Laura Pérez"}, headers=rec)
 check("Con el pase que queda cubre a uno", r.status_code == 200 and cup(cp4["id"])["estado"] == "AGOTADA")
+
+print("\n8. Correos de la cuponera")
+import json  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+from app.core.database import SessionLocal  # noqa: E402
+from app.modules.mailing.models import OutboxEmail  # noqa: E402
+from app.modules.mailing.service import MailingService  # noqa: E402
+
+
+def correos(kind=None, cuponera_id=None):
+    with SessionLocal() as db:
+        q = select(OutboxEmail).where(OutboxEmail.cuponera_id.is_not(None))
+        if kind:
+            q = q.where(OutboxEmail.kind == kind)
+        if cuponera_id:
+            q = q.where(OutboxEmail.cuponera_id == cuponera_id)
+        return [(m.kind, m.to_email, m.subject, m.datos) for m in db.execute(q).scalars()]
+
+
+cp5 = nueva_cuponera(pases=5, correo="roberto@ejemplo.com")
+mios = correos("CUPONERA", cp5["id"])
+check("Al registrarla pagada sale su correo", len(mios) == 1 and mios[0][1] == "roberto@ejemplo.com", str(mios))
+cp6 = nueva_cuponera(pases=5, pagada=False, correo="roberto@ejemplo.com")
+check("Pendiente de pago: todavía no se manda", not correos("CUPONERA", cp6["id"]))
+c.post(f"/api/cuponeras/{cp6['id']}/pago", json={"referencia": "SPEI 99"}, headers=ops)
+check("Al confirmar el pago sale su correo", len(correos("CUPONERA", cp6["id"])) == 1)
+sin_correo = nueva_cuponera(pases=5)
+check("Sin correo del titular no se manda nada", not correos(cuponera_id=sin_correo["id"]))
+r = c.post(f"/api/cuponeras/{sin_correo['id']}/reenviar", headers=ops)
+check("Reenviar sin correo avisa", r.status_code == 409, r.text[:80])
+r = c.post(f"/api/cuponeras/{cp5['id']}/reenviar", headers=ops)
+check("Reenviar manda otro", r.status_code == 200 and len(correos("CUPONERA", cp5["id"])) == 2)
+check("Recepción no puede reenviar", c.post(f"/api/cuponeras/{cp5['id']}/reenviar", headers=rec).status_code == 403)
+
+r5 = c.post("/api/booking/reservations", json=cuerpo(cp5["folio"]), headers=ops).json()
+ids = [p["id"] for p in c.get(f"/api/booking/reservations/{r5['id']}", headers=rec).json()["players"]][:3]
+c.post(f"/api/checkin/{r5['id']}/cuponera", json={"cuponera_folio": cp5["folio"], "player_ids": ids, "attended_by_name": "Laura Pérez"}, headers=rec)
+usos = correos("CUPONERA_USO", cp5["id"])
+check("Cada uso manda «te quedan»", len(usos) == 1 and "Le quedan 2 pases" in usos[0][2], str(usos))
+check("El aviso lleva el saldo", json.loads(usos[0][3])["saldo"] == 2)
+c.post(f"/api/cuponeras/{cp5['id']}/canjear", json={"jugadores": 2, "hoyos": 18, "atendio": "Laura Pérez"}, headers=rec)
+usos = correos("CUPONERA_USO", cp5["id"])
+check("El último dice que se terminaron", len(usos) == 2 and "terminaron" in usos[1][2], str(usos[-1:]))
+
+with SessionLocal() as db:
+    svc = MailingService(db)
+    todos = list(db.execute(select(OutboxEmail).where(OutboxEmail.cuponera_id == cp5["id"])).scalars())
+    tarjeta = next(m for m in todos if m.kind == "CUPONERA")
+    texto, html, imagen = svc._piezas(tarjeta)
+    check("La tarjeta lleva folio, pases e imagen", cp5["folio"] in texto and "5 (18 hoyos)" in texto and imagen[:4] == b"\x89PNG")
+    check("La tarjeta no lleva precios", "9000" not in texto and "$" not in texto)
+    aviso = next(m for m in todos if m.kind == "CUPONERA_USO")
+    t2, h2, i2 = svc._piezas(aviso)
+    check("El aviso trae el texto y no imagen", "Le quedan 2 pases" in t2 and i2 is None)
+    cuerpo_api = svc.cuerpo_resend(tarjeta)
+    check("El correo sale con la imagen dentro", cuerpo_api["attachments"][0]["content_id"] == "cuponera-codigo")
+    try:
+        import io
+        import zxingcpp  # noqa: E402
+        from PIL import Image
+        leido = zxingcpp.read_barcodes(Image.open(io.BytesIO(imagen)))
+        check("El código de la imagen se lee y dice el folio", leido and leido[0].text == cp5["folio"], str(leido))
+    except ImportError:
+        print("  (zxingcpp no instalado: no se probó la lectura del código)")
 
 print()
 if fallas:

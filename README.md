@@ -842,3 +842,11 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - El pago con cuponera es un `Payment` método `CUPONERA`: no entra al corte de caja. La venta de la cuponera cuenta una sola vez en Ventas ("Cuponeras vendidas").
 - Cancelar la reserva (o anular el canje, solo Administrador) devuelve los pases.
 - Migración: `a7c9e1b3d5f7`. Pruebas: `backend/prueba_cuponera_reserva.py`.
+
+## v21.1 · Correos de la cuponera y Check-In sin cobro doble
+
+- Al registrar la cuponera pagada (o al confirmar su transferencia) sale un correo al titular con su folio, pases, vigencia y el **código de barras** como imagen. Sin precios. Botón "Enviar por correo" en el detalle (Operación/Admin) para reenviar.
+- En cada uso (Check-In o canje) sale "Le quedan N pases"; al agotarse, "Se terminaron los pases".
+- Sin correo en la cuponera no se manda nada (el campo ahora es "recomendado").
+- Check-In: si la reserva se apartó con cuponera, se carga sola su ficha. Si se intenta cobrar normal a jugadores que la cuponera podría cubrir, el sistema avisa antes.
+- Migración: `b8d0f2a4c6e8` (outbox_emails.cuponera_id y datos).

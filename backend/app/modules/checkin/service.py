@@ -409,6 +409,7 @@ class CheckInService:
         )
         self.db.commit()
         self.db.refresh(reservation)
+        cuponeras.avisar_uso(cup, uso)
         return reservation
 
     # --------------------------------------------------------------- check-in

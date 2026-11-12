@@ -81,7 +81,10 @@ class CorreoOut(BaseModel):
 
 def _salida(correo) -> CorreoOut:
     out = CorreoOut.model_validate(correo)
-    out.folio = correo.reservation.folio if correo.reservation else None
+    out.folio = (
+        correo.reservation.folio if correo.reservation
+        else correo.cuponera.folio if correo.cuponera else None
+    )
     return out
 
 

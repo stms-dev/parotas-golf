@@ -92,6 +92,37 @@ class Cuponeras:
         self.audit = AuditService(db)
 
     # ------------------------------------------------------------ lectura
+    # ---------------------------------------------------------------- correos
+    def avisar_tarjeta(self, c: Cuponera) -> None:
+        """Manda la cuponera con su código al titular. No frena nada si falla."""
+        from app.modules.mailing.service import MailingService
+        from app.shared.enums import EmailKind
+
+        if c.pago_estado == "PAGADA" and not c.cancelada:
+            MailingService(self.db).enviar_cuponera_ahora(kind=EmailKind.CUPONERA, cuponera=c)
+
+    def avisar_uso(self, c: Cuponera, uso: CuponeraUso) -> None:
+        """«Se descontaron N pases, le quedan M»: sale en cada uso."""
+        from app.modules.mailing.service import MailingService
+        from app.shared.enums import EmailKind
+
+        MailingService(self.db).enviar_cuponera_ahora(
+            kind=EmailKind.CUPONERA_USO, cuponera=c,
+            datos={"jugadores": uso.jugadores, "hoyos": uso.hoyos, "saldo": c.saldo,
+                   "dia": uso.fecha.isoformat() if uso.fecha else None},
+        )
+
+    def reenviar_tarjeta(self, cuponera_id: int) -> Cuponera:
+        c = self.obtener(cuponera_id)
+        if c.cancelada:
+            raise BusinessRuleError("La cuponera está cancelada")
+        if c.pago_estado != "PAGADA":
+            raise BusinessRuleError("La cuponera todavía no está pagada: se manda al confirmar el pago")
+        if not (c.correo or "").strip():
+            raise BusinessRuleError("La cuponera no tiene correo. Agréguelo para poder enviarla")
+        self.avisar_tarjeta(c)
+        return c
+
     def obtener(self, cuponera_id: int, *, bloquear: bool = False) -> Cuponera:
         stmt = select(Cuponera).where(Cuponera.id == cuponera_id)
         if bloquear:
@@ -169,6 +200,7 @@ class Cuponeras:
         )
         self.db.commit()
         self.db.refresh(c)
+        self.avisar_tarjeta(c)
         return c
 
     def confirmar_pago(self, cuponera_id: int, referencia: str, actor: User) -> Cuponera:
@@ -188,6 +220,7 @@ class Cuponeras:
         )
         self.db.commit()
         self.db.refresh(c)
+        self.avisar_tarjeta(c)
         return c
 
     # --------------------------------------------------- cambios (Administración)
@@ -298,6 +331,7 @@ class Cuponeras:
         )
         self.db.commit()
         self.db.refresh(c)
+        self.avisar_uso(c, uso)
         return c
 
     def anular_uso(self, uso_id: int, nota: str, actor: User) -> Cuponera:

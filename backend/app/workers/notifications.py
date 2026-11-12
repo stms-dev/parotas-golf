@@ -14,8 +14,26 @@ import qrcode
 
 from app.core.config import settings
 
+# El identificador con el que el HTML llama a la imagen del código de barras.
+CID_CODIGO = "cuponera-codigo"
+
 VERDE = "#16382C"
 ARENA = "#8f7145"
+
+
+_PATRONES_128 = (
+    '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 '
+    '221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 '
+    '221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 '
+    '212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 '
+    '231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 '
+    '231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 '
+    '314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 '
+    '112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 '
+    '111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 '
+    '214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 '
+    '114131 311141 411131 211412 211214 211232 2331112'
+).split()
 
 
 def generar_qr_png(token: str) -> bytes:
@@ -34,6 +52,40 @@ def generar_qr_png(token: str) -> bytes:
 
     buffer = BytesIO()
     qr.make_image(fill_color=VERDE, back_color="white").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def generar_codigo_barras_png(valor: str) -> bytes:
+    """PNG del código de barras (Code 128, juego B) de una cuponera.
+
+    El lector del mostrador solo entiende códigos lineales. Es el mismo
+    algoritmo que dibuja la pantalla (frontend/src/utils/codigoBarras.jsx).
+    """
+    from PIL import Image, ImageDraw
+
+    valores = [104]
+    for ch in valor:
+        v = ord(ch) - 32
+        if not 0 <= v <= 94:
+            raise ValueError(f"Carácter no válido para el código de barras: {ch}")
+        valores.append(v)
+    suma = sum(v if i == 0 else v * i for i, v in enumerate(valores))
+    valores += [suma % 103, 106]
+
+    bits = []
+    for v in valores:
+        for i, ancho in enumerate(_PATRONES_128[v]):
+            bits += [1 if i % 2 == 0 else 0] * int(ancho)
+
+    modulo, margen, alto = 3, 12, 130
+    imagen = Image.new("RGB", ((len(bits) + margen * 2) * modulo, alto), "white")
+    dibujo = ImageDraw.Draw(imagen)
+    for i, bit in enumerate(bits):
+        if bit:
+            x = (i + margen) * modulo
+            dibujo.rectangle([x, 0, x + modulo - 1, alto], fill="black")
+    buffer = BytesIO()
+    imagen.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
@@ -360,3 +412,102 @@ def cuerpo_recibo(reservation) -> tuple[str, str]:
     """)
 
     return texto, html
+
+
+
+def _fecha_larga(dia) -> str:
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+             "septiembre", "octubre", "noviembre", "diciembre"]
+    return f"{dia.day} de {meses[dia.month - 1]} de {dia.year}"
+
+
+def _plural_pases(n: int) -> str:
+    return f"{n} pase" if n == 1 else f"{n} pases"
+
+
+def _modalidad(c) -> str:
+    if c.hoyos_18 and c.hoyos_9:
+        return "18 o 9 hoyos"
+    return "18 hoyos" if c.hoyos_18 else "9 hoyos"
+
+
+def _bloqueos_txt(c) -> str:
+    from app.modules.cuponeras.service import bloqueos_de
+
+    partes = []
+    for b in bloqueos_de(c):
+        rango = b["desde"] if b["desde"] == b["hasta"] else f"{b['desde']} al {b['hasta']}"
+        partes.append(rango + (f" ({b['motivo']})" if b.get("motivo") else ""))
+    return "; ".join(partes)
+
+
+def cuerpo_cuponera(c) -> tuple[str, str]:
+    """Correo con la cuponera y su código de barras. Sin precios."""
+    bloqueos = _bloqueos_txt(c)
+    uso = (
+        "Para jugar, mande un WhatsApp al club con el día y la hora en que quiere ir; "
+        "nosotros apartamos su salida. Ese día, muestre este código en recepción y se "
+        "descuentan los pases de quienes lleguen."
+    )
+    texto = (
+        f"Hola {c.titular_nombre}:\n\n"
+        f"Su cuponera quedó registrada.\n\n"
+        f"Folio: {c.folio}\n"
+        f"Pases: {c.pases_total} ({_modalidad(c)})\n"
+        f"Vigencia: hasta el {_fecha_larga(c.vence_el)}\n"
+        + (f"No válida: {bloqueos}\n" if bloqueos else "")
+        + f"\n{uso}\n\nLas Parotas Club de Golf"
+    )
+    filas = [
+        ("Folio", c.folio),
+        ("Pases", f"{c.pases_total} · {_modalidad(c)}"),
+        ("Vigencia", f"hasta el {_fecha_larga(c.vence_el)}"),
+    ]
+    if bloqueos:
+        filas.append(("No válida", bloqueos))
+    tabla = "".join(
+        f"<tr><td style='padding:7px 0;border-bottom:1px solid #eeece6;color:#77756c'>{k}</td>"
+        f"<td style='padding:7px 0;border-bottom:1px solid #eeece6;text-align:right'>{v}</td></tr>"
+        for k, v in filas
+    )
+    contenido = f"""
+    <p style="font-size:18px;margin:0 0 6px">Hola {c.titular_nombre},</p>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;margin:0 0 16px">
+      Su cuponera quedó registrada.</p>
+    <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">{tabla}</table>
+    <div style="text-align:center;margin:22px 0 6px">
+      <img src="cid:{CID_CODIGO}" alt="Código de barras {c.folio}" style="max-width:100%">
+      <p style="font-family:ui-monospace,monospace;font-size:13px;letter-spacing:2px;margin:4px 0 0">{c.folio}</p>
+    </div>
+    <p style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#55534b">{uso}</p>"""
+    return texto, _marco(contenido)
+
+
+def cuerpo_uso(c, datos: dict) -> tuple[str, str]:
+    """Aviso de cada uso: cuántos pases se gastaron y cuántos quedan."""
+    from datetime import date
+
+    n = int(datos.get("jugadores", 0))
+    saldo = int(datos.get("saldo", 0))
+    hoyos = datos.get("hoyos")
+    dia = date.fromisoformat(datos["dia"]) if datos.get("dia") else None
+    cuando = f" el {_fecha_larga(dia)}" if dia else ""
+    if saldo > 0:
+        queda = f"Le quedan {_plural_pases(saldo)}, vigentes hasta el {_fecha_larga(c.vence_el)}."
+        titulo = f"Le quedan {_plural_pases(saldo)}"
+    else:
+        queda = "Con esto se terminaron los pases de su cuponera. Gracias por jugar con nosotros."
+        titulo = "Se terminaron los pases de su cuponera"
+    detalle = f"Se descontaron {_plural_pases(n)}{cuando}" + (f" ({hoyos} hoyos)" if hoyos else "") + "."
+    texto = (
+        f"Hola {c.titular_nombre}:\n\n{detalle}\n{queda}\n\n"
+        f"Cuponera: {c.folio} · {c.pases_total} pases\n\nLas Parotas Club de Golf"
+    )
+    contenido = f"""
+    <p style="font-size:18px;margin:0 0 6px">Hola {c.titular_nombre},</p>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;margin:0 0 14px">{detalle}</p>
+    <p style="font-size:30px;margin:6px 0 4px">{titulo}</p>
+    <p style="font-family:system-ui,sans-serif;font-size:14px;color:#55534b;margin:0">{queda}</p>
+    <p style="font-family:ui-monospace,monospace;font-size:12px;color:#77756c;margin:16px 0 0">
+      {c.folio} · {_plural_pases(c.pases_total)} en total</p>"""
+    return texto, _marco(contenido)

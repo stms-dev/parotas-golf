@@ -31,6 +31,12 @@ class OutboxEmail(Base):
         ForeignKey("reservations.id", ondelete="CASCADE"), nullable=True, index=True
     )
 
+    # Correos de cuponera: de cuál, y lo que se dijo en ese momento (saldo, jugadores).
+    cuponera_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("cuponeras.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    datos: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     status: Mapped[EmailStatus] = mapped_column(
         String(16), default=EmailStatus.PENDIENTE, nullable=False, index=True
     )
@@ -43,3 +49,4 @@ class OutboxEmail(Base):
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     reservation = relationship("Reservation", lazy="joined")
+    cuponera = relationship("Cuponera", lazy="joined")

@@ -20,6 +20,7 @@ API de Resend viaja por el puerto 443, el mismo de cualquier página web.
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import smtplib
 from datetime import datetime, timedelta
@@ -36,7 +37,10 @@ from app.modules.audit.models import AuditLog
 from app.modules.booking.models import Reservation
 from app.modules.mailing.models import OutboxEmail
 from app.shared.enums import AuditAction, EmailKind, EmailStatus
-from app.workers.notifications import cuerpo_pase, cuerpo_recibo, generar_qr_png
+from app.workers.notifications import (
+    CID_CODIGO, cuerpo_cuponera, cuerpo_pase, cuerpo_recibo, cuerpo_uso, generar_codigo_barras_png,
+    generar_qr_png,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +142,41 @@ class MailingService:
         self.db.flush()
         return correo
 
+    def encolar_cuponera(self, *, kind: EmailKind, cuponera, datos: Optional[dict] = None) -> Optional[OutboxEmail]:
+        """Correo de una cuponera (tarjeta o aviso de uso). Sin correo del titular, no hay nada que mandar."""
+        destinatario = (cuponera.correo or "").strip()
+        if not destinatario:
+            return None
+        if kind == EmailKind.CUPONERA:
+            asunto = f"Su cuponera · {cuponera.folio} · Las Parotas"
+        else:
+            saldo = int((datos or {}).get("saldo", 0))
+            asunto = (
+                f"Le quedan {saldo} pase{'' if saldo == 1 else 's'} · {cuponera.folio} · Las Parotas"
+                if saldo > 0 else f"Se terminaron los pases de su cuponera · {cuponera.folio} · Las Parotas"
+            )
+        correo = OutboxEmail(
+            kind=kind, to_email=destinatario, subject=asunto, cuponera_id=cuponera.id,
+            datos=json.dumps(datos) if datos else None, status=EmailStatus.PENDIENTE,
+        )
+        self.db.add(correo)
+        self.db.flush()
+        return correo
+
+    def enviar_cuponera_ahora(self, *, kind: EmailKind, cuponera, datos: Optional[dict] = None) -> Optional[OutboxEmail]:
+        """Como `enviar_ahora`, pero para cuponeras. Nunca lanza: la operación ya está hecha."""
+        try:
+            correo = self.encolar_cuponera(kind=kind, cuponera=cuponera, datos=datos)
+            if correo is None:
+                return None
+            self.db.commit()
+            self._intentar(correo, timeout=ESPERA_AL_MOMENTO)
+            return correo
+        except Exception:  # pragma: no cover
+            self.db.rollback()
+            logger.exception("No se pudo mandar el correo de la cuponera %s", getattr(cuponera, "folio", "?"))
+            return None
+
     def enviar_ahora(
         self,
         *,
@@ -200,6 +239,13 @@ class MailingService:
 
     def _piezas(self, correo: OutboxEmail) -> tuple[str, str, Optional[bytes]]:
         """Texto, HTML y —si es el pase— la imagen del QR."""
+        if correo.cuponera_id:
+            cup = correo.cuponera
+            if correo.kind == EmailKind.CUPONERA:
+                texto, html = cuerpo_cuponera(cup)
+                return texto, html, generar_codigo_barras_png(cup.folio)
+            texto, html = cuerpo_uso(cup, json.loads(correo.datos or "{}"))
+            return texto, html, None
         reservation = correo.reservation
         if correo.kind == EmailKind.PASE:
             texto, html = cuerpo_pase(reservation)
@@ -232,7 +278,12 @@ class MailingService:
         }
 
         if qr:
-            folio = correo.reservation.folio if correo.reservation else "pase"
+            es_cuponera = bool(correo.cuponera_id)
+            folio = (
+                correo.cuponera.folio if es_cuponera
+                else correo.reservation.folio if correo.reservation else "pase"
+            )
+            cid = CID_CODIGO if es_cuponera else CID_QR
             imagen = base64.b64encode(qr).decode("ascii")
             cuerpo["attachments"] = [
                 # El nombre de las dos copias tiene que ser distinto o hay
@@ -241,10 +292,10 @@ class MailingService:
                     "filename": "qr.png",
                     "content": imagen,
                     "content_type": "image/png",
-                    "content_id": CID_QR,
+                    "content_id": cid,
                 },
                 {
-                    "filename": f"pase-{folio}.png",
+                    "filename": f"{'cuponera' if es_cuponera else 'pase'}-{folio}.png",
                     "content": imagen,
                     "content_type": "image/png",
                 },
@@ -277,11 +328,18 @@ class MailingService:
         mensaje.add_alternative(html, subtype="html")
 
         if qr:
-            folio = correo.reservation.folio if correo.reservation else "pase"
+            es_cuponera = bool(correo.cuponera_id)
+            folio = (
+                correo.cuponera.folio if es_cuponera
+                else correo.reservation.folio if correo.reservation else "pase"
+            )
             parte_html = mensaje.get_payload()[1]
-            parte_html.add_related(qr, maintype="image", subtype="png", cid=f"<{CID_QR}>")
+            parte_html.add_related(
+                qr, maintype="image", subtype="png", cid=f"<{CID_CODIGO if es_cuponera else CID_QR}>"
+            )
             mensaje.add_attachment(
-                qr, maintype="image", subtype="png", filename=f"pase-{folio}.png"
+                qr, maintype="image", subtype="png",
+                filename=f"{'cuponera' if es_cuponera else 'pase'}-{folio}.png",
             )
         return mensaje
 

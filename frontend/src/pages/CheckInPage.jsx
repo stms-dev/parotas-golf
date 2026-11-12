@@ -231,6 +231,16 @@ export default function CheckInPage() {
       setCupFolio('');
       setCupFicha(null);
       setCupError('');
+      // Reserva apartada con cuponera: se trae sola, así el mostrador solo
+      // confirma y no se cobra por error lo que la cuponera ya cubre.
+      if (
+        full.cuponera_folio
+        && ['PENDIENTE', 'CONFIRMADA', 'CHECK_IN'].includes(full.status)
+        && can('cuponera:canjear')
+      ) {
+        setCupFolio(full.cuponera_folio);
+        cuponerasApi.porCodigo(full.cuponera_folio).then(setCupFicha).catch((err) => setCupError(err.message));
+      }
       setAddedServices([]);
       setModalidad('unico');
       setMoneda('MXN');
@@ -259,6 +269,25 @@ export default function CheckInPage() {
     if (enReplay) {
       await cobrarReplay();
       return;
+    }
+    // Reserva con cuponera: si van a cobrarse jugadores que la cuponera puede
+    // cubrir, se avisa antes. Es la forma de pagar dos veces lo mismo.
+    if (
+      !esperaLlegada && cupFicha && !cupFicha.motivo_bloqueo && cupFicha.saldo > 0
+      && porCubrir.length > 0 && cupFicha.folio === reservation.cuponera_folio
+    ) {
+      const quedan = Math.min(porCubrir.length, cupFicha.saldo);
+      const seguir = await confirmar({
+        titulo: 'Esta reserva es con cuponera',
+        texto:
+          `<b>${cupFicha.folio}</b> tiene <b>${cupFicha.saldo}</b> pase${cupFicha.saldo === 1 ? '' : 's'} y ` +
+          `${quedan} jugador${quedan === 1 ? '' : 'es'} que llegó todavía no está cubierto.<br>` +
+          'Use «Cubrir» en el recuadro de la cuponera antes de cobrar.<br><br>' +
+          '¿Cobrar a todos de todos modos?',
+        confirmar: 'Sí, cobrar normal',
+        icono: 'warning',
+      });
+      if (!seguir) return;
     }
     // Pagada en línea y sin nada extra: solo se registra la llegada.
     const soloLlegada = esperaLlegada;

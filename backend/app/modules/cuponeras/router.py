@@ -85,6 +85,12 @@ def confirmar_pago(cuponera_id: int, data: PagoIn, db: Session = Depends(get_db)
     return _completa(Cuponeras(db).confirmar_pago(cuponera_id, data.referencia, actor))
 
 
+@router.post("/{cuponera_id}/reenviar", response_model=CuponeraOut)
+def reenviar(cuponera_id: int, db: Session = Depends(get_db), _: User = Depends(GESTIONAR)):
+    """Vuelve a mandar la cuponera por correo (por si no le llegó o la perdió)."""
+    return _completa(Cuponeras(db).reenviar_tarjeta(cuponera_id))
+
+
 @router.patch("/{cuponera_id}", response_model=CuponeraOut)
 def actualizar(cuponera_id: int, data: CuponeraUpdate, db: Session = Depends(get_db), actor: User = Depends(ADMINISTRAR)):
     return _completa(Cuponeras(db).actualizar(cuponera_id, data, actor))

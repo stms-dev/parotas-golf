@@ -375,6 +375,15 @@ function Detalle({ id, admin, onClose, onCambio }) {
     onCambio();
   }
 
+  async function mandarCorreo() {
+    try {
+      await cuponerasApi.reenviar(c.id);
+      exito('Correo enviado', `La cuponera salió a ${c.correo}.`);
+    } catch (err) {
+      avisoError('No se pudo mandar', err.message);
+    }
+  }
+
   if (!c) return null;
   const viva = !c.cancelada;
   return (
@@ -391,6 +400,9 @@ function Detalle({ id, admin, onClose, onCambio }) {
             )}
             {c.pago_estado === 'PAGADA' && viva && (
               <button onClick={() => setTarjeta(true)} className={BOTON}><Icono nombre="imprimir" size={15} /> Tarjeta con código</button>
+            )}
+            {c.pago_estado === 'PAGADA' && viva && c.correo && (
+              <button onClick={mandarCorreo} className={BOTON}>Enviar por correo</button>
             )}
             {admin && viva && <button onClick={() => setEditando(true)} className={BOTON}>Editar</button>}
             {admin && viva && <button onClick={() => setNota({ tipo: 'cancelar' })} className={BOTON}>Cancelar cuponera</button>}
@@ -649,7 +661,7 @@ function Formulario({ inicial = null, onClose, onListo }) {
           <label><span className={ETIQUETA}>Titular</span><input value={f.titular_nombre} onChange={poner('titular_nombre')} className={CAMPO} /></label>
           <label><span className={ETIQUETA}>Empresa (opcional)</span><input value={f.empresa} onChange={poner('empresa')} className={CAMPO} /></label>
           <label><span className={ETIQUETA}>Teléfono (opcional)</span><input value={f.telefono} onChange={poner('telefono')} className={CAMPO} /></label>
-          <label><span className={ETIQUETA}>Correo (opcional)</span><input type="email" value={f.correo} onChange={poner('correo')} className={CAMPO} /></label>
+          <label><span className={ETIQUETA}>Correo (recomendado)</span><input type="email" value={f.correo} onChange={poner('correo')} className={CAMPO} placeholder="Ahí le llega su cuponera y cuántos pases le quedan" /></label>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <label><span className={ETIQUETA}>Pases (Green Fees)</span><input type="number" min={1} value={f.pases_total} onChange={poner('pases_total')} className={CAMPO} data-testid="f-pases" /></label>

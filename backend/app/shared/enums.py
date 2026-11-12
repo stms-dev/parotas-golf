@@ -193,6 +193,9 @@ class EmailKind(str, Enum):
 
     PASE = "PASE"
     RECIBO = "RECIBO"
+    # Cuponeras: la tarjeta con su código y el aviso de «te quedan N pases».
+    CUPONERA = "CUPONERA"
+    CUPONERA_USO = "CUPONERA_USO"
 
 
 class EmailStatus(str, Enum):
