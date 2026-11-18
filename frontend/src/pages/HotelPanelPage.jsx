@@ -2,13 +2,16 @@
  * Dashboard del Hotel — sigue el mockup `dashboard_del_hotel_desktop`.
  *
  * Estructura del diseño, de arriba hacia abajo:
- *   1. Banner del partner con la acción principal.
- *   2. Cuatro indicadores operativos (ninguna cifra de dinero).
- *   3. Rejilla de horarios con leyenda.
- *   4. Expedientes de reservas del hotel + canal directo con operaciones.
+ *   1. Banner del partner con la acción principal y la línea directa al campo.
+ *   2. Catálogo y precios, idénticos a los del sitio, para que el hotel venda.
+ *   3. Cuatro indicadores operativos.
+ *   4. Rejilla de horarios con leyenda.
+ *   5. Expedientes de reservas del hotel, con el valor de cada una y la
+ *      comisión que le toca, más lo del día y lo acumulado.
  *
- * La tabla no lleva columnas de pago ni de QR: el hotel solicita, el campo
- * cobra. Y de una salida ajena solo se sabe que está ocupada, nunca de quién.
+ * El hotel ve la comisión en pesos, nunca el porcentaje. La tabla no lleva
+ * columnas de pago ni de QR: el hotel solicita, el campo cobra. Y de una
+ * salida ajena solo se sabe que está ocupada, nunca de quién.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -18,7 +21,6 @@ import { useAuth } from '../context/AuthContext';
 import { EVENTOS, useRealtimeEvent } from '../context/RealtimeContext';
 import { Alert, Badge, Paginador, Spinner, usePaginacion } from '../components/ui';
 import Icono from '../components/Icono';
-import { esFinDeSemana, tarifaDelDia } from '../utils/tarifas';
 import { ESTADO_RESERVA, MODALIDAD, fechaCorta, hora, hoy, mxn, fechaLocal, recorrido } from '../utils/format';
 
 const FILTROS = [
@@ -28,6 +30,13 @@ const FILTROS = [
   { key: 'confirmadas', label: 'Confirmadas' },
 ];
 
+/** La línea directa con el campo. */
+const TELEFONO_CAMPO = '55 2721 9345';
+const TELEFONO_CAMPO_TEL = '+525527219345';
+
+/** El historial se trae de 200 en 200: si llega a ese tope, los totales lo avisan. */
+const TOPE_HISTORIAL = 200;
+
 /** Hasta dónde puede mirar el expediente hacia adelante. */
 const LIMITE_MESES = 6;
 
@@ -35,6 +44,7 @@ export default function HotelPanelPage() {
   const { user } = useAuth();
   const [config, setConfig] = useState(null);
   const [tarifas, setTarifas] = useState([]);
+  const [servicios, setServicios] = useState([]);
   const [slots, setSlots] = useState([]);
   const [semana, setSemana] = useState([]);
   const [reservas, setReservas] = useState([]);
@@ -59,7 +69,7 @@ export default function HotelPanelPage() {
       fin.setDate(fin.getDate() + 6);
       const finDeSemana = fechaLocal(fin);
 
-      const [configs, dia, rango, lista, precios] = await Promise.all([
+      const [configs, dia, rango, lista, precios, extras] = await Promise.all([
         catalogApi.schedule(),
         bookingApi.availability({ slot_date: today }),
         bookingApi.availabilityRange({ start: today, end: finDeSemana }),
@@ -72,9 +82,11 @@ export default function HotelPanelPage() {
           term: folio.trim() || undefined,
         }),
         catalogApi.rates(),
+        catalogApi.services(),
       ]);
       setConfig(configs[0] || null);
       setTarifas(precios.filter((r) => r.is_active));
+      setServicios(extras);
       setSlots(dia.slots);
       setSemana(rango);
       setReservas(lista);
@@ -143,6 +155,23 @@ export default function HotelPanelPage() {
     };
   }, [reservas, slots, proximas, today]);
 
+  // Lo que el hotel lleva ganado. Solo cuentan las reservas vigentes: una
+  // cancelada o que no se presentó no vale ni genera comisión.
+  const dinero = useMemo(() => {
+    const suma = (lista) =>
+      lista
+        .filter((r) => r.cuenta_vigente !== false && r.status !== 'CANCELADA')
+        .reduce(
+          (t, r) => ({
+            reservas: t.reservas + 1,
+            valor: t.valor + Number(r.total || 0),
+            comision: t.comision + Number(r.commission_amount || 0),
+          }),
+          { reservas: 0, valor: 0, comision: 0 },
+        );
+    return { hoy: suma(reservas.filter((r) => r.slot_date === today)), todo: suma(reservas) };
+  }, [reservas, today]);
+
   const reservasFiltradas = useMemo(() => {
     if (filtro === 'hoy') return reservas.filter((r) => r.slot_date === today);
     if (filtro === 'proximas') return reservas.filter((r) => r.slot_date > today);
@@ -152,6 +181,20 @@ export default function HotelPanelPage() {
       );
     return reservas;
   }, [reservas, filtro, today]);
+
+  const totalFiltrado = useMemo(
+    () =>
+      reservasFiltradas
+        .filter((r) => r.cuenta_vigente !== false && r.status !== 'CANCELADA')
+        .reduce(
+          (t, r) => ({
+            valor: t.valor + Number(r.total || 0),
+            comision: t.comision + Number(r.commission_amount || 0),
+          }),
+          { valor: 0, comision: 0 },
+        ),
+    [reservasFiltradas],
+  );
 
   const pag = usePaginacion(reservasFiltradas, 10, `${filtro}|${folio}|${desde}|${hasta}`);
 
@@ -186,15 +229,25 @@ export default function HotelPanelPage() {
             </h1>
           </div>
         </div>
-        <Link to="/reservas/nueva" className="shrink-0">
-          <button className="flex items-center gap-2 rounded bg-primary-container px-6 py-2.5 text-title-md text-on-primary shadow-card transition hover:bg-primary">
-<Icono nombre="add" size={18} className="text-secondary-fixed" /> Crear Nueva Reserva
-          </button>
-        </Link>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          {/* Línea directa: un solo botón que llama al campo. */}
+          <a
+            href={`tel:${TELEFONO_CAMPO_TEL}`}
+            className="flex items-center gap-2 rounded border border-primary-container px-5 py-2.5 text-title-md text-primary transition hover:bg-primary-container hover:text-on-primary"
+          >
+            <Icono nombre="call" size={18} className="text-secondary" /> Línea directa{' '}
+            <span className="font-mono">{TELEFONO_CAMPO}</span>
+          </a>
+          <Link to="/reservas/nueva" className="shrink-0">
+            <button className="flex items-center gap-2 rounded bg-primary-container px-6 py-2.5 text-title-md text-on-primary shadow-card transition hover:bg-primary">
+              <Icono nombre="add" size={18} className="text-secondary-fixed" /> Crear Nueva Reserva
+            </button>
+          </Link>
+        </div>
       </header>
 
       {/* ------------------------------------------------ Tarifas de hoy */}
-      <TarifasDeHoy tarifas={tarifas} />
+      <CatalogoDelHotel tarifas={tarifas} servicios={servicios} />
 
       {/* ------------------------------------------ 2. Indicadores operativos */}
       <section className="grid gap-gutter sm:grid-cols-2 xl:grid-cols-4">
@@ -270,8 +323,8 @@ export default function HotelPanelPage() {
       </section>
 
       {/* ------------------------ 4. Expedientes + canal directo con el campo */}
-      <div className="grid items-start gap-gutter xl:grid-cols-12">
-        <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-6 shadow-card xl:col-span-9">
+      <div>
+        <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-6 shadow-card">
           <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div>
               <h2 className="font-serif text-headline-md leading-tight text-primary">
@@ -298,6 +351,28 @@ export default function HotelPanelPage() {
             </div>
           </div>
 
+          {/* Lo del día y lo acumulado: el valor de sus reservas y la comisión
+              que les toca, en pesos. */}
+          <div className="mb-4 grid gap-3 md:grid-cols-2">
+            <Total
+              titulo="Total del día"
+              pie={`${dinero.hoy.reservas} ${dinero.hoy.reservas === 1 ? 'reserva' : 'reservas'} para hoy`}
+              valor={dinero.hoy.valor}
+              comision={dinero.hoy.comision}
+            />
+            <Total
+              titulo="Acumulado"
+              pie={`${dinero.todo.reservas} ${dinero.todo.reservas === 1 ? 'reserva' : 'reservas'}${
+                desde || hasta
+                  ? ` · ${desde ? fechaCorta(desde) : 'inicio'} – ${hasta ? fechaCorta(hasta) : 'hoy'}`
+                  : ' · historial'
+              }${reservas.length >= TOPE_HISTORIAL ? ` · últimas ${TOPE_HISTORIAL}` : ''}`}
+              valor={dinero.todo.valor}
+              comision={dinero.todo.comision}
+              destacado
+            />
+          </div>
+
           {/* Periodo y folio: para un día concreto, lo que ya pasó o lo que
               viene, y para ir directo a una reserva cuando se sabe el folio. */}
           <Periodo
@@ -315,13 +390,21 @@ export default function HotelPanelPage() {
             <table className="tabla-lineas text-left">
               <thead>
                 <tr className="text-on-surface-variant">
-                  {['Folio & fecha', 'Huésped titular', 'Paquete & pax', 'Tee time', 'Estado'].map(
+                  {[
+                    'Folio & fecha',
+                    'Huésped titular',
+                    'Paquete & pax',
+                    'Tee time',
+                    'Valor',
+                    'Comisión',
+                    'Estado',
+                  ].map(
                     (c, i) => (
                       <th
                         key={c}
                         className={`whitespace-nowrap px-3 py-3 text-label-sm uppercase tracking-wider ${
                           i === 1 ? 'w-full' : ''
-                        } ${i === 4 ? 'text-right' : ''}`}
+                        } ${i >= 4 ? 'text-right' : ''}`}
                       >
                         {c}
                       </th>
@@ -332,7 +415,7 @@ export default function HotelPanelPage() {
               <tbody>
                 {reservasFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-10 text-center text-body-lg text-outline">
+                    <td colSpan={7} className="px-3 py-10 text-center text-body-lg text-outline">
                       Sin reservas en este filtro.
                     </td>
                   </tr>
@@ -392,6 +475,20 @@ export default function HotelPanelPage() {
                             {recorrido(r)}
                           </span>
                         </td>
+                        <td
+                          className={`whitespace-nowrap px-3 py-4 text-right align-middle font-mono text-body-lg ${
+                            cancelada ? 'text-outline line-through' : 'text-on-surface'
+                          }`}
+                        >
+                          {mxn(r.total)}
+                        </td>
+                        <td
+                          className={`whitespace-nowrap px-3 py-4 text-right align-middle font-mono text-body-lg ${
+                            cancelada ? 'text-outline' : 'text-estado-ok-text'
+                          }`}
+                        >
+                          {cancelada ? '—' : mxn(r.commission_amount)}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-4 text-right align-middle">
                           <Badge variant={estado.variant}>{estado.label}</Badge>
                         </td>
@@ -400,6 +497,22 @@ export default function HotelPanelPage() {
                   })
                 )}
               </tbody>
+              {reservasFiltradas.length > 0 && (
+                <tfoot>
+                  <tr className="border-t border-outline-variant text-title-md text-primary">
+                    <td colSpan={4} className="px-3 py-3 text-right text-label-sm uppercase tracking-wider text-on-surface-variant">
+                      Total de lo que se muestra
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right font-mono">
+                      {mxn(totalFiltrado.valor)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-estado-ok-text">
+                      {mxn(totalFiltrado.comision)}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
           <Paginador pag={pag} etiqueta="reservas" />
@@ -417,45 +530,6 @@ export default function HotelPanelPage() {
           </p>
         </section>
 
-        {/* Canal directo con operaciones */}
-        <section className="rounded-lg bg-primary-container p-6 text-on-primary shadow-card xl:col-span-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="whitespace-nowrap text-label-sm uppercase tracking-widest text-secondary-fixed">
-              Canal prioritario
-            </span>
-            <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-label-sm text-secondary-fixed-dim">
-              <span className="h-2 w-2 rounded-full bg-estado-ok-border" />
-              En línea
-            </span>
-          </div>
-          <h3 className="font-serif text-headline-md text-on-primary">
-            Línea Directa con Operaciones
-          </h3>
-          <p className="mt-1 text-body-md text-on-primary-container">
-            Contacto con la Mesa de Salidas y el Caddie Master para cualquier incidencia de sus
-            huéspedes.
-          </p>
-
-          <div className="mt-4 flex flex-col gap-2.5">
-            <Contacto
-              titulo="Mesa de Salidas"
-              detalle="Extensión interna para concierge"
-              icono="phone_in_talk"
-              accion="call"
-            />
-            <Contacto
-              titulo="Caddie Master"
-              detalle="Asignación de salidas y caddies"
-              icono="sports_golf"
-              accion="chat"
-            />
-          </div>
-
-          <p className="mt-4 border-t border-on-primary-container/30 pt-3 text-body-md text-on-primary-container">
-            Las solicitudes enviadas desde este portal las confirma la Dirección Deportiva; el aviso
-            llega aquí en cuanto cambia el estado.
-          </p>
-        </section>
       </div>
     </div>
   );
@@ -562,85 +636,189 @@ function Franja({ slot }) {
 }
 
 /**
+ * Catálogo y precios, idénticos a los del sitio.
+ *
+ * El hotelero vende con lo mismo que lee el huésped en la página: las mismas
+ * filas (18 hoyos, twilight, junior, 9 hoyos, práctica), las dos columnas de
+ * precio y los extras. Salen de las tarifas y los servicios vigentes del
+ * sistema, con la misma regla que usa el sitio para elegirlas, así que si el
+ * club cambia un precio cambia en los dos lados.
+ */
+const INCLUIDO = ['carrito compartido', 'tarjeta de score', '10 tees', 'zona de práctica con 20 pelotas'];
+
+const NOTAS_EXTRA = {
+  CADDIE: 'Se le paga directo al caddie; no incluye propina.',
+  BASTONES: 'Set básico de 10 bastones: putter, madera, driver y hierros. Uno por jugador.',
+  ACOMPANANTE: 'Para quien va en el carrito sin jugar. No incluye equipo.',
+  PRACTICA: '120 pelotas o 90 minutos. No incluye bastones ni tees.',
+};
+
+/** Lo mismo que hace el sitio (`tarifasDe`): primero el día exacto y el paquete Grupo. */
+function filasDelCatalogo(tarifas, servicios) {
+  const lista = (tarifas || []).filter((r) => r.modality !== 'INDIVIDUAL');
+  const buscar = (hoyos, categoria, franja, dia) => {
+    const aptas = lista.filter(
+      (x) =>
+        Number(x.holes) === hoyos &&
+        x.category === categoria &&
+        (x.time_band || 'TODAS') === franja &&
+        (x.day_type === dia || !x.day_type || x.day_type === 'TODOS'),
+    );
+    const mejor =
+      aptas.find((x) => x.day_type === dia && x.modality === 'GRUPO') ??
+      aptas.find((x) => x.day_type === dia) ??
+      aptas.find((x) => x.modality === 'GRUPO') ??
+      aptas[0];
+    return mejor ? Number(mejor.price) : null;
+  };
+  const fila = (clave, titulo, quien, hoyos, categoria, franja = 'TODAS') => {
+    const semana = buscar(hoyos, categoria, franja, 'ENTRE_SEMANA');
+    const fin = buscar(hoyos, categoria, franja, 'FIN_DE_SEMANA');
+    if (semana == null && fin == null) return null;
+    return { clave, titulo, quien, semana: semana ?? fin, fin: fin ?? null };
+  };
+
+  const practica = (servicios || []).find((s) => s.code === 'PRACTICA');
+  return [
+    fila('18-adulto', '18 hoyos', 'Adulto', 18, 'ADULTO'),
+    fila('18-twilight', '18 hoyos', 'Twilight · salidas de 2:00 a 3:00 pm', 18, 'ADULTO', 'TWILIGHT'),
+    fila('18-junior', '18 hoyos', 'Junior · 16 años o menos', 18, 'INFANTIL'),
+    fila('9-adulto', '9 hoyos', 'Adulto', 9, 'ADULTO'),
+    practica && {
+      clave: 'practica',
+      titulo: 'Zona de práctica',
+      quien: '120 pelotas o 90 minutos',
+      semana: Number(practica.price),
+      fin: Number(practica.weekend_price ?? practica.price),
+    },
+  ].filter(Boolean);
+}
+
+function CatalogoDelHotel({ tarifas, servicios }) {
+  const filas = filasDelCatalogo(tarifas, servicios);
+  // El replay se vende en el mostrador; la práctica ya va en la tabla.
+  const extras = (servicios || []).filter((s) => s.code !== 'REPLAY' && s.code !== 'PRACTICA');
+
+  if (filas.length === 0 && extras.length === 0) return null;
+
+  return (
+    <section className="rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-6 shadow-card">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="flex items-center gap-2 font-serif text-headline-md leading-tight text-primary">
+          <Icono nombre="sell" size={20} className="text-secondary" />
+          Catálogo y precios
+        </h2>
+        <p className="text-body-md text-on-surface-variant">
+          Precios por jugador en MXN, impuestos incluidos.
+        </p>
+      </div>
+      <p className="mb-4 text-body-md text-on-surface-variant">
+        El Green Fee incluye {INCLUIDO.slice(0, -1).join(', ')} y {INCLUIDO[INCLUIDO.length - 1]}.
+      </p>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="caja-lineas">
+          <table className="tabla-lineas w-full text-left">
+            <thead>
+              <tr className="text-on-surface-variant">
+                <th className="px-3 py-2 text-label-sm uppercase tracking-wider">Ronda</th>
+                <th className="px-3 py-2 text-right text-label-sm uppercase tracking-wider">Lun a jue</th>
+                <th className="px-3 py-2 text-right text-label-sm uppercase tracking-wider">Vie a dom</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f) => (
+                <tr key={f.clave}>
+                  <td className="px-3 py-2.5">
+                    <span className="block text-title-md text-primary">{f.titulo}</span>
+                    <span className="text-label-sm text-on-surface-variant">{f.quien}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-title-md text-primary">
+                    {mxn0(f.semana)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-title-md text-primary">
+                    {f.fin == null ? (
+                      <span className="text-label-sm font-sans text-on-surface-variant">paga adulto</span>
+                    ) : (
+                      mxn0(f.fin)
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <p className="mb-2 text-label-sm uppercase tracking-wider text-on-surface-variant">Extras</p>
+          <ul className="space-y-2.5">
+            {extras.map((e) => (
+              <li key={e.code} className="flex items-baseline justify-between gap-4">
+                <span className="min-w-0 text-body-lg text-on-surface">
+                  {e.name}
+                  {e.code === 'CADDIE' && (
+                    <span className="ml-2 rounded bg-surface-container-high px-2 py-0.5 text-label-sm font-medium text-secondary">
+                      se le paga directo
+                    </span>
+                  )}
+                  <span className="block text-label-sm text-on-surface-variant">
+                    {NOTAS_EXTRA[e.code] || e.description || ''}
+                  </span>
+                </span>
+                <span className="shrink-0 font-mono text-title-md text-primary">{mxn0(e.price)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Una tarjeta de totales: lo que valen las reservas y lo que le toca al hotel. */
+function Total({ titulo, pie, valor, comision, destacado = false }) {
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        destacado
+          ? 'border-secondary/50 bg-secondary-fixed/30'
+          : 'border-outline-variant/50 bg-surface-container-low'
+      }`}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-label-sm uppercase tracking-wider text-on-surface-variant">{titulo}</span>
+        <span className="text-label-sm text-on-surface-variant">{pie}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-label-sm text-on-surface-variant">Valor de las reservas</p>
+          <p className="font-serif text-headline-md leading-tight text-primary">{mxn(valor)}</p>
+        </div>
+        <div>
+          <p className="text-label-sm text-on-surface-variant">Su comisión</p>
+          <p className="font-serif text-headline-md leading-tight text-estado-ok-text">{mxn(comision)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pesos sin centavos, como se leen los precios del catálogo. */
+const mxn0 = (n) =>
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(n || 0));
+
+/**
  * Selector de periodo del expediente.
  *
  * Los atajos cubren lo que se consulta a diario; las dos fechas quedan para
  * cuando se busca algo puntual. Vacío significa sin límite, no "hoy": el hotel
  * entra a ver todo lo suyo y desde ahí acota.
  */
-/**
- * Tarifas vigentes, a la vista.
- *
- * El concierge contesta precios por teléfono todo el día; tenerlos arriba le
- * evita entrar a la solicitud solo para consultarlos. Son los mismos que
- * aplica el sistema al cotizar, no una copia escrita aparte.
- */
-function TarifasDeHoy({ tarifas }) {
-  const [hoyos, setHoyos] = useState(18);
-
-  // "Tarifas de hoy": el precio que aplica hoy, que cambia en fin de semana.
-  const precio = (modalidad, categoria) => {
-    const t = tarifaDelDia(tarifas, { modalidad, hoyos, categoria, fecha: hoy() });
-    return t ? Number(t.price) : null;
-  };
-
-  if (tarifas.length === 0) return null;
-
-  // Es un vistazo, no una tabla de precios: una sola franja que se lee de
-  // corrido sin empujar la agenda hacia abajo.
-  return (
-    <section className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-outline-variant/50 bg-surface-container-lowest px-4 py-2.5 shadow-card">
-      <p className="flex items-center gap-1.5 text-label-sm uppercase tracking-wider text-primary">
-        <Icono nombre="sell" size={14} className="text-secondary" />
-        Tarifas
-      </p>
-
-      <div className="flex overflow-hidden rounded border border-outline-variant">
-        {[9, 18].map((h) => (
-          <button
-            key={h}
-            onClick={() => setHoyos(h)}
-            className={`px-2.5 py-1 text-label-sm uppercase tracking-wider transition ${
-              hoyos === h
-                ? 'bg-primary-container text-on-primary'
-                : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low'
-            }`}
-          >
-            {h}h
-          </button>
-        ))}
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
-        {Object.entries(MODALIDAD).map(([clave, nombre]) => {
-          const adulto = precio(clave, 'ADULTO');
-          const infantil = precio(clave, 'INFANTIL');
-          if (adulto === null) return null;
-          return (
-            <span key={clave} className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span className="text-label-sm uppercase tracking-wider text-outline">{nombre}</span>
-              <span className="font-mono text-title-md text-primary">{mxn(adulto)}</span>
-              {infantil !== null && (
-                <span className="font-mono text-label-sm text-outline">
-                  · junior {mxn(infantil)}
-                </span>
-              )}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* El precio de hoy depende del día: se dice cuál aplica. */}
-      <span className="text-label-sm text-outline">
-        Green Fee por jugador ·{' '}
-        <span className="font-medium text-secondary">
-          {esFinDeSemana(hoy()) ? 'precio de fin de semana' : 'precio entre semana'}
-        </span>
-      </span>
-    </section>
-  );
-}
-
 function Periodo({ desde, hasta, folio, onDesde, onHasta, onFolio, hoyISO }) {
   function corre(dias) {
     const d = new Date(`${hoyISO}T00:00:00`);
@@ -748,24 +926,6 @@ function Periodo({ desde, hasta, folio, onDesde, onHasta, onFolio, hoyISO }) {
 
 const ENTRADA_FECHA =
   'rounded border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 font-mono text-label-md text-on-surface focus:border-primary-container focus:outline-none';
-
-function Contacto({ titulo, detalle, icono, accion }) {
-  return (
-    <div className="flex items-center justify-between gap-2.5 rounded bg-tertiary-container p-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Icono nombre={icono} size={22} className="shrink-0 text-secondary-fixed" />
-        <div className="min-w-0">
-          <p className="text-title-md leading-snug text-on-primary">{titulo}</p>
-          {/* El detalle envuelve: recortarlo dejaba la extensión a medias. */}
-          <p className="text-label-sm leading-snug text-on-primary-container">{detalle}</p>
-        </div>
-      </div>
-      <span className="shrink-0 rounded bg-primary p-2 text-secondary-fixed">
-        <Icono nombre={accion} size={18} />
-      </span>
-    </div>
-  );
-}
 
 function iniciales(nombre = '') {
   return nombre

@@ -121,8 +121,8 @@ export const TEXTOS = {
     'reservar.habitacion': 'Número de habitación',
     'falta.hotel': 'Elige el hotel donde te hospedas.',
     'falta.habitacion': 'Escribe tu número de habitación.',
-    'reservar.apartado': 'Le apartamos la salida durante {minutos} minutos mientras paga',
-    'reservar.apartadoSinMinutos': 'Le apartamos la salida mientras paga',
+    'reservar.apartado': 'Le apartamos su reserva durante {minutos} minutos mientras paga',
+    'reservar.apartadoSinMinutos': 'Le apartamos su reserva mientras paga',
     'reservar.paso1': 'Paquete',
     'reservar.paso2': 'Día y hora',
     'reservar.paso3': 'Jugadores',
@@ -195,7 +195,7 @@ export const TEXTOS = {
       'se le paga directo a él, no va en esta cuenta',
     'reservar.incluye':
       'Incluye carrito compartido, tarjeta de score, 10 tees y zona de práctica con 20 pelotas. Preséntese en la casa ' +
-      'club quince minutos antes de su salida.',
+      'club quince minutos antes de su reserva.',
     'reservar.conocimientos': 'Al reservar acepta que tiene los conocimientos básicos para jugar golf.',
     'reservar.pagoSeguro': 'Pago seguro con Stripe',
     'reservar.pagoNota':
@@ -206,7 +206,7 @@ export const TEXTOS = {
     'reservar.total.stripe': ' · paga en Stripe',
     'reservar.sinCuenta': 'Su cuenta se calcula cuando estén los jugadores.',
     'reservar.pagar': 'Pagar con tarjeta',
-    'reservar.apartar': 'Apartar esta salida',
+    'reservar.apartar': 'Apartar esta reserva',
     'reservar.unMomento': 'Un momento…',
     'reservar.noDisponible': 'Reservas no disponibles',
 
@@ -223,14 +223,14 @@ export const TEXTOS = {
       'El {dia} el campo no está armando partidas abiertas. Se cambió el paquete a En Grupo.',
     'reservar.sinConexion':
       'No pudimos conectar con el sistema de reservas. Llámenos y con gusto le ' +
-      'apartamos su salida.',
+      'apartamos su reserva.',
 
     // el final
     'listo.sinReserva': 'Sin reserva',
     'listo.pagado': 'Pago recibido',
     'listo.confirmando': 'Confirmando su pago',
     'listo.cancelado':
-      'No se completó el pago, así que la salida volvió a estar disponible. No se ' +
+      'No se completó el pago, así que el horario volvió a estar disponible. No se ' +
       'le cobró nada. Puede elegir otro horario cuando quiera.',
     'listo.detalle':
       '{dia} a las {hora}, {n} {quien}. Le enviamos su pase y el detalle de su ' +
@@ -239,13 +239,13 @@ export const TEXTOS = {
       'Su pago está entrando. En cuanto nos lo confirmen —normalmente son segundos— ' +
       'le llega su pase por correo. No hace falta que vuelva a pagar.',
     'listo.otroHorario': 'Elegir otro horario',
-    'listo.otraSalida': 'Reservar otra salida',
+    'listo.otraSalida': 'Hacer otra reserva',
     'listo.noEncontrada': 'No encontramos esa reserva.',
 
     // el diálogo de cancelación
     'cancelado.titulo': 'No se hizo la reserva',
     'cancelado.cuerpo':
-      'Se canceló el pago, así que la salida volvió a estar disponible. No se le ' +
+      'Se canceló el pago, así que el horario volvió a estar disponible. No se le ' +
       'cobró nada y no hay nada que cancelar. Puede elegir otro horario cuando quiera.',
     'dialogo.entendido': 'Entendido',
 

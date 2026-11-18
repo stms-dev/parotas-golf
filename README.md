@@ -850,3 +850,18 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - Sin correo en la cuponera no se manda nada (el campo ahora es "recomendado").
 - Check-In: si la reserva se apartó con cuponera, se carga sola su ficha. Si se intenta cobrar normal a jugadores que la cuponera podría cubrir, el sistema avisa antes.
 - Migración: `b8d0f2a4c6e8` (outbox_emails.cuponera_id y datos).
+
+## v22 · Correos, vista del hotel con comisión y topes de jugadores
+
+- **Correo de la cuponera**: debajo del folio y el código dice cómo usarla (reservar al 5527219345 con 24 horas de anticipación) y trae las políticas (lunes a miércoles 7 am–1 pm, intransferible, carrito compartido sin caddie ni propina).
+- **«Salida» → «reserva»** en los correos y en los textos que lee el cliente (sitio y avisos del pago en línea). «Hora de salida» / tee time no cambia.
+- **Correo de reserva pagada**: ya no lleva la referencia del pago (`pi_…`). El pie dice «responda a este correo o marque al 55 2721 9345».
+- **Vista del hotel**:
+  - Se quitan Mesa de Salidas, Caddie Master y el texto de la Dirección Deportiva. Queda un solo botón **Línea directa** que llama al 55 2721 9345.
+  - Arriba va el **Catálogo y precios** idéntico al del sitio (mismas filas, mismas dos columnas y extras), para que el hotelero venda.
+  - La tabla de reservas suma las columnas **Valor** y **Comisión** (en pesos; el porcentaje no se muestra ni viaja al hotel) y un total al pie.
+  - Dos totales: **del día** (reservas con juego hoy) y **acumulado** (lo que se muestra, con aviso si llega al tope de 200). No cuentan las canceladas ni los no-show.
+  - La comisión sale igual que en la liquidación (solo Green Fee, con la tasa congelada al reservar) y es la del hotel de origen cuando el huésped reserva en el sitio y elige su hotel.
+- **Partida abierta**: máximo 4 en total (titular + 3). Si la salida ya trae jugadores, solo caben los lugares que quedan.
+- **Grupo en el sitio**: de 4 a 10 jugadores (antes 8).
+- Sin migración. Pruebas: `backend/prueba_v22.py`; se actualizaron `prueba_stripe.py`, `prueba_cambios_v14.py` y `verificar.py`.

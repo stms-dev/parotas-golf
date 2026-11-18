@@ -181,7 +181,18 @@ export default function NewReservationPage() {
   const [loading, setLoading] = useState(true);
 
   const paquete = PAQUETES.find((p) => p.value === form.modality);
-  const maxExtras = paquete.max - 1;
+  // En una partida abierta con lugares ya tomados, el tope es lo que queda de
+  // la salida: titular + los que alcancen, nunca más que el cupo de cuatro.
+  const salidaElegida = slots.find((s) => s.id === form.tee_slot_id);
+  const lugaresLibres =
+    form.modality === 'PARTIDA_ABIERTA' && salidaElegida?.status === 'ABIERTA'
+      ? Number(salidaElegida.capacity) - Number(salidaElegida.occupied)
+      : null;
+  const topeJugadores =
+    lugaresLibres != null && lugaresLibres > 0
+      ? Math.min(paquete.max, lugaresLibres)
+      : paquete.max;
+  const maxExtras = topeJugadores - 1;
   const minExtras = Math.max(paquete.min - 1, 0);
 
   useEffect(() => {
@@ -295,7 +306,7 @@ export default function NewReservationPage() {
         (elegida.status === 'ABIERTA' && form.modality === 'PARTIDA_ABIERTA');
       return compatible ? prev : { ...prev, tee_slot_id: null };
     });
-  }, [form.modality]);
+  }, [form.modality, topeJugadores]);
 
   // Si se cambia a un día que no arma partidas abiertas, la selección se
   // devuelve a grupo sola: dejarla puesta solo lleva a un rechazo al guardar.
@@ -466,8 +477,6 @@ export default function NewReservationPage() {
 
   const total = subtotalAdultos + subtotalMenores + subtotalAcompanantes + subtotalServicios;
 
-  const salidaElegida = slots.find((s) => s.id === form.tee_slot_id);
-
   const fallaCorreo = errorDeCorreo(form.holder_email);
   const fallaTelefono = errorDeTelefono(form.holder_phone);
 
@@ -478,7 +487,7 @@ export default function NewReservationPage() {
     !fallaCorreo &&
     !fallaTelefono &&
     jugadores.length >= paquete.min &&
-    jugadores.length <= paquete.max;
+    jugadores.length <= topeJugadores;
 
   const pasoActual = !form.tee_slot_id ? 2 : !listo ? 3 : 4;
 
@@ -1159,7 +1168,7 @@ export default function NewReservationPage() {
                         ? `Este paquete admite desde ${paquete.min} jugadores, sin límite, contando al titular.`
                         : paquete.min === paquete.max
                           ? `Este paquete admite ${paquete.max} jugadores en total, contando al titular.`
-                          : `Este paquete admite de ${paquete.min} a ${paquete.max} jugadores en total, contando al titular.`}
+                          : `Este paquete admite de ${paquete.min} a ${topeJugadores} jugadores en total, contando al titular.`}
                     </p>
                   </div>
                   <Contador

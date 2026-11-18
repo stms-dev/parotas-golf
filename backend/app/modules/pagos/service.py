@@ -341,7 +341,7 @@ class ReservaPublicaService:
     # /campo en lugar de traerlo repetido en su propio código: el día que el
     # club cambie el mínimo de un grupo, cambia en los dos lados a la vez.
     PAQUETES = {
-        BookingModality.GRUPO: {"minimo": 4, "maximo": 8},
+        BookingModality.GRUPO: {"minimo": 4, "maximo": 10},
         # La partida abierta se comparte: nunca puede pedir más que el cupo de
         # la franja, porque los demás lugares son de quien se junte.
         BookingModality.PARTIDA_ABIERTA: {"minimo": 1, "maximo": 4},
@@ -697,7 +697,7 @@ class ReservaPublicaService:
         if not stripe_gateway.disponible():
             raise BusinessRuleError(
                 "El cobro en línea todavía no está configurado. Comuníquese "
-                "con el club para confirmar su salida."
+                "con el club para confirmar su reserva."
             )
 
         slot = reserva.tee_slot

@@ -119,10 +119,18 @@ cuerpo2 = {**cuerpo, "jugadores": jug(1, "Otro"), "correo": "dos@ejemplo.com"}
 r = c.post("/api/public/reservas", json=cuerpo2)
 check("Otro huésped se une a la misma partida abierta", r.status_code == 201, r.text[:100])
 grupo_libre = next(x for x in c.get(f"/api/public/disponibilidad?fecha={dia}&modalidad=GRUPO").json()["salidas"] if x["libres"] > 0)
-check("Un grupo ve cupo para el tamaño máximo (8)", grupo_libre["libres"] == 8, f"libres={grupo_libre['libres']}")
+check("Un grupo ve cupo para el tamaño máximo (10)", grupo_libre["libres"] == 10, f"libres={grupo_libre['libres']}")
 r = c.post("/api/public/reservas", json={"tee_slot_id": grupo_libre["id"], "fecha": dia, "modalidad": "GRUPO", "hoyos": 18,
                                           "jugadores": jug(6, "Grupo"), "correo": "g@ejemplo.com", "telefono": None})
 check("Un grupo de 6 cabe en una salida libre", r.status_code == 201, r.text[:100])
+grupo_10 = next(x for x in c.get(f"/api/public/disponibilidad?fecha={dia}&modalidad=GRUPO").json()["salidas"] if x["libres"] > 0)
+r = c.post("/api/public/reservas", json={"tee_slot_id": grupo_10["id"], "fecha": dia, "modalidad": "GRUPO", "hoyos": 18,
+                                          "jugadores": jug(10, "Grupo10"), "correo": "g10@ejemplo.com", "telefono": None})
+check("Un grupo de 10 cabe en el sitio", r.status_code == 201, r.text[:100])
+grupo_11 = next(x for x in c.get(f"/api/public/disponibilidad?fecha={dia}&modalidad=GRUPO").json()["salidas"] if x["libres"] > 0)
+r = c.post("/api/public/reservas", json={"tee_slot_id": grupo_11["id"], "fecha": dia, "modalidad": "GRUPO", "hoyos": 18,
+                                          "jugadores": jug(11, "Grupo11"), "correo": "g11@ejemplo.com", "telefono": None})
+check("Un grupo de 11 ya no cabe en el sitio", r.status_code in (400, 409, 422), f"HTTP {r.status_code}")
 
 print("\n6. Ventas totales por sección y forma de pago")
 r = admin.get("/api/treasury/sales-breakdown", params={"start": date.today().isoformat(), "end": date.today().isoformat()}, headers=rec)

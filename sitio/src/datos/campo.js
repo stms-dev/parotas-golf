@@ -216,7 +216,7 @@ export const REGLAS = {
  * es el respaldo para cuando el sistema no contesta.
  */
 export const PAQUETES = [
-  { modalidad: 'GRUPO', minimo: 4, maximo: 8 },
+  { modalidad: 'GRUPO', minimo: 4, maximo: 10 },
   { modalidad: 'PARTIDA_ABIERTA', minimo: 1, maximo: 4 },
   { modalidad: 'PRACTICA', minimo: 1, maximo: 8 },
 ];

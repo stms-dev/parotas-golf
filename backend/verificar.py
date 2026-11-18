@@ -181,7 +181,9 @@ check("Estado inicial PENDIENTE", reserva["status"] == "PENDIENTE")
 check("Folio generado", reserva["folio"].startswith("LP-"), reserva["folio"])
 check("QR por partida", bool(reserva["qr_token"]))
 check("TC congelado en la reserva", Decimal(reserva["exchange_rate_applied"]) == Decimal("17.2000"))
-check("Comisión congelada", Decimal(reserva["commission_rate_applied"]) == Decimal("5.0000"))
+check("Comisión congelada (el administrador ve la tasa)",
+      Decimal(client.get(f"/api/booking/reservations/{reserva['id']}", headers=admin).json()["commission_rate_applied"]) == Decimal("5.0000"))
+check("El hotel no ve el porcentaje de su comisión", Decimal(reserva["commission_rate_applied"]) == Decimal("0"))
 check("Acompañante no cobra Green Fee", len(reserva["companions"]) == 1 and len(reserva["players"]) == 4)
 
 # Cupo tomado

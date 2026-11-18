@@ -258,6 +258,8 @@ def _reservation_out(reservation: Reservation, scope: Optional[int] = None) -> R
         # saldo, que además incluirían la venta de mostrador y no cuadrarían
         # contra el total que sí le corresponde.
         out.subtotal_services, out.total = _cuenta_del_hotel(reservation)
+        # El hotel ve montos, no el porcentaje con que se calculó su comisión.
+        out.commission_rate_applied = ZERO
         out.payments = []
         out.total_paid = out.balance = ZERO
         return out
@@ -275,7 +277,21 @@ def _reservation_out(reservation: Reservation, scope: Optional[int] = None) -> R
 
 
 def _list_item(reservation: Reservation, scope: Optional[int] = None) -> ReservationListItem:
+    from app.modules.treasury.service import base_de_comision
+    from app.shared.money import apply_percentage
+
     out = ReservationListItem.model_validate(reservation)
+    # La comisión sale igual que en la liquidación (solo Green Fee, con la tasa
+    # congelada al reservar), para que lo que el hotel ve coincida con lo que
+    # después se le liquida. Una reserva cancelada o que no se presentó no
+    # genera comisión.
+    out.cuenta_vigente = reservation.status not in (
+        ReservationStatus.CANCELADA, ReservationStatus.NO_SHOW,
+    )
+    out.commission_amount = (
+        apply_percentage(base_de_comision(reservation), reservation.commission_rate_applied)
+        if out.cuenta_vigente else ZERO
+    )
     if scope is not None:
         out.status = estado_para_hotel(reservation.status)
     out.hotel_name = reservation.hotel.name if reservation.hotel else None

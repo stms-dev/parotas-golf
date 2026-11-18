@@ -105,7 +105,7 @@ def _cliente():
     if not disponible():
         raise BusinessRuleError(
             "El cobro en línea todavía no está configurado. Comuníquese con "
-            "el club para confirmar su salida."
+            "el club para confirmar su reserva."
         )
     mal = problema_de_configuracion()
     if mal:
@@ -114,7 +114,7 @@ def _cliente():
         logger.error("Stripe mal configurado: %s", mal)
         raise BusinessRuleError(
             "El cobro en línea no está disponible en este momento. "
-            "Comuníquese con el club para confirmar su salida."
+            "Comuníquese con el club para confirmar su reserva."
         )
     stripe.api_key = settings.STRIPE_SECRET_KEY.strip()
     return stripe
@@ -143,7 +143,7 @@ def _traducir(error: Exception, haciendo: str) -> BusinessRuleError:
 
     detalle = getattr(error, "user_message", None) or str(error)
     return BusinessRuleError(
-        "No pudimos abrir la página de pago. Su salida sigue apartada; "
+        "No pudimos abrir la página de pago. Su reserva sigue apartada; "
         "inténtelo de nuevo o llámenos y la confirmamos por teléfono.",
         detail=detalle,
     )

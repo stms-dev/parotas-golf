@@ -154,7 +154,7 @@ class CotizarIn(BaseModel):
     tee_slot_id: int
     modalidad: str
     hoyos: int = Field(default=18)
-    jugadores: List[JugadorIn] = Field(min_length=1, max_length=8)
+    jugadores: List[JugadorIn] = Field(min_length=1, max_length=10)
 
 
 class RenglonOut(BaseModel):
@@ -186,7 +186,7 @@ class ApartarIn(BaseModel):
     fecha: date
     modalidad: str
     hoyos: int = Field(default=18)
-    jugadores: List[JugadorIn] = Field(min_length=1, max_length=8)
+    jugadores: List[JugadorIn] = Field(min_length=1, max_length=10)
     correo: EmailStr
     telefono: Optional[str] = Field(default=None, max_length=40)
     # Si el huésped viene de un hotel con convenio: cuál y su habitación. Solo

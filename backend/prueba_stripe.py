@@ -259,7 +259,7 @@ for tipo, como_se_llama in [
     r = c.post(f"/api/public/reservas/{ap4['folio']}/checkout")
     check(f"{como_se_llama} → 409, no 500", r.status_code == 409, f"HTTP {r.status_code}")
     check(f"{como_se_llama} → el huésped lee algo útil",
-          "salida sigue apartada" in r.json()["error"]["message"], r.json()["error"]["message"][:60])
+          "reserva sigue apartada" in r.json()["error"]["message"], r.json()["error"]["message"][:60])
 
 stripe_gateway.crear_sesion = original
 check("Y la reserva no se perdió por el error",

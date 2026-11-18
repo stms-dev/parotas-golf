@@ -17,6 +17,7 @@ from app.core.config import settings
 # El identificador con el que el HTML llama a la imagen del código de barras.
 CID_CODIGO = "cuponera-codigo"
 
+TELEFONO_CLUB = "55 2721 9345"
 VERDE = "#16382C"
 ARENA = "#8f7145"
 
@@ -169,7 +170,7 @@ def _marco(contenido: str) -> str:
     <p style="margin-top:26px;padding-top:14px;border-top:1px solid #e7e4dc;
               font-family:system-ui,sans-serif;font-size:11px;color:#8a8a80">
       Las Parotas Club de Golf · Bahías de Huatulco, Oaxaca<br>
-      Este mensaje se generó solo. Para cualquier aclaración, responda a este correo.
+      Para cualquier aclaración, responda a este correo o marque al {TELEFONO_CLUB}.
     </p>
   </div>
 </body></html>"""
@@ -194,7 +195,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     pago = _pago_en_linea(reservation)
     llegada = (
         "Le pedimos llegar 15 minutos antes de su hora." if practica
-        else "Le pedimos llegar 15 minutos antes de su salida."
+        else "Le pedimos llegar 15 minutos antes de su reserva."
     )
 
     servicios = [s for s in reservation.services if s.quantity > 0]
@@ -202,7 +203,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     texto = (
         f"Hola {reservation.holder_name}:\n\n"
         + ("Su visita a la zona de práctica quedó registrada.\n\n" if practica
-           else "Su salida quedó registrada.\n\n")
+           else "Su reserva quedó registrada.\n\n")
         + f"Folio: {reservation.folio}\n"
         f"Fecha y hora: {cuando}\n"
         f"{'Paquete' if practica else 'Recorrido'}: {que}\n"
@@ -218,7 +219,6 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
                 for s in servicios
             )
             + f"Total pagado: ${pago['pagado']} MXN\n"
-            + (f"Referencia: {pago['referencia']}\n" if pago["referencia"] else "")
             + "\n"
         )
     texto += (
@@ -259,10 +259,6 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
             f"font-family:ui-monospace,monospace'>${money(s.total)}</td></tr>"
             for s in servicios
         )
-        referencia = (
-            f"<p style='margin:8px 0 0;font-size:11px;color:#8a8a80'>Referencia: {pago['referencia']}</p>"
-            if pago["referencia"] else ""
-        )
         bloque_pago = f"""
     <div style="border:1px solid #cfe3d6;border-radius:12px;padding:18px;margin:18px 0;
                 font-family:system-ui,sans-serif">
@@ -278,12 +274,11 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
             <td style="padding-top:10px;text-align:right;font-size:17px;
                        font-family:ui-monospace,monospace">${pago['pagado']} MXN</td></tr>
       </table>
-      {referencia}
     </div>"""
 
     nota_final = (
         f"Le pedimos llegar <strong>15 minutos antes</strong> de su "
-        f"{'hora' if practica else 'salida'}. "
+        f"{'hora' if practica else 'reserva'}. "
         + ("Su reserva ya está pagada: en recepción solo registramos su llegada."
            if pago else
            ("El cobro se hace en recepción." if practica
@@ -293,7 +288,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     html = _marco(f"""
     <p style="font-family:system-ui,sans-serif;font-size:15px">
       Hola {reservation.holder_name}, {'su visita a la zona de práctica quedó registrada'
-      if practica else 'su salida quedó registrada'}.
+      if practica else 'su reserva quedó registrada'}.
     </p>
 
     <div style="background:#f2f7f4;border-radius:12px;padding:22px;margin:18px 0;text-align:center">
@@ -441,13 +436,21 @@ def _bloqueos_txt(c) -> str:
     return "; ".join(partes)
 
 
+POLITICAS_CUPONERA = (
+    "Válido de lunes a miércoles en un horario de 7 am a 1 pm, sujeto a disponibilidad.",
+    "Cuponera intransferible, es indispensable que se presente el titular el día de la reserva.",
+    "Cada pase incluye carrito compartido. No incluye caddie, propina o renta de equipo, "
+    "cualquier servicio adicional será cobrado en el club.",
+)
+
+
 def cuerpo_cuponera(c) -> tuple[str, str]:
     """Correo con la cuponera y su código de barras. Sin precios."""
     bloqueos = _bloqueos_txt(c)
     uso = (
-        "Para jugar, mande un WhatsApp al club con el día y la hora en que quiere ir; "
-        "nosotros apartamos su salida. Ese día, muestre este código en recepción y se "
-        "descuentan los pases de quienes lleguen."
+        f"Para usar la cuponera, es indispensable realizar previa reservación al "
+        f"{TELEFONO_CLUB.replace(' ', '')} con al menos 24 horas de anticipación; "
+        f"sujeto a disponibilidad."
     )
     texto = (
         f"Hola {c.titular_nombre}:\n\n"
@@ -456,7 +459,9 @@ def cuerpo_cuponera(c) -> tuple[str, str]:
         f"Pases: {c.pases_total} ({_modalidad(c)})\n"
         f"Vigencia: hasta el {_fecha_larga(c.vence_el)}\n"
         + (f"No válida: {bloqueos}\n" if bloqueos else "")
-        + f"\n{uso}\n\nLas Parotas Club de Golf"
+        + f"\n{uso}\n\nPolíticas:\n"
+        + "".join(f"- {p}\n" for p in POLITICAS_CUPONERA)
+        + "\nLas Parotas Club de Golf"
     )
     filas = [
         ("Folio", c.folio),
@@ -470,6 +475,7 @@ def cuerpo_cuponera(c) -> tuple[str, str]:
         f"<td style='padding:7px 0;border-bottom:1px solid #eeece6;text-align:right'>{v}</td></tr>"
         for k, v in filas
     )
+    politicas = "".join(f"<li style='margin-bottom:4px'>{p}</li>" for p in POLITICAS_CUPONERA)
     contenido = f"""
     <p style="font-size:18px;margin:0 0 6px">Hola {c.titular_nombre},</p>
     <p style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;margin:0 0 16px">
@@ -479,7 +485,10 @@ def cuerpo_cuponera(c) -> tuple[str, str]:
       <img src="cid:{CID_CODIGO}" alt="Código de barras {c.folio}" style="max-width:100%">
       <p style="font-family:ui-monospace,monospace;font-size:13px;letter-spacing:2px;margin:4px 0 0">{c.folio}</p>
     </div>
-    <p style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#55534b">{uso}</p>"""
+    <p style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#55534b">{uso}</p>
+    <p style="font-size:18px;margin:22px 0 6px">Políticas</p>
+    <ul style="font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;color:#55534b;
+               margin:0;padding-left:20px">{politicas}</ul>"""
     return texto, _marco(contenido)
 
 

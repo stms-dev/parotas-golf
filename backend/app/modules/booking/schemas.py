@@ -348,6 +348,11 @@ class ReservationListItem(BaseModel):
     player_count: int = 0
     total: Decimal
     balance: Decimal = Decimal("0.00")
+    # Lo que le toca al hotel de esta reserva, en pesos. El porcentaje no
+    # viaja: el hotel ve su monto, no la tasa con la que se calculó.
+    commission_amount: Decimal = Decimal("0.00")
+    # False si la reserva se canceló o no se presentó: no suma ni cuenta.
+    cuenta_vigente: bool = True
     booked_by_name: Optional[str] = None
     created_at: datetime
 
