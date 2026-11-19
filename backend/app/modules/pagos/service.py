@@ -31,6 +31,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.shared.politicas import POLITICAS
 from app.core.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.modules.billing.models import Payment
@@ -238,6 +239,9 @@ class ReservaPublicaService:
             "paquetes": self.paquetes(),
             "practica": self._precio_practica(),
             "contacto": self.contacto(),
+            # Políticas y Reglamento, en los dos idiomas: el sitio las muestra
+            # antes de pagar y el correo las repite.
+            "politicas": POLITICAS,
             # El día de hoy del campo y hasta qué hora se reserva para hoy: el
             # sitio no debe adivinarlos con el reloj del navegador.
             "hoy": hoy_local(),
@@ -583,7 +587,10 @@ class ReservaPublicaService:
             booked_by_name=QUIEN_RESERVA,
             players=players,
             services=servicios,
-            notes=f"Reserva desde el sitio del club{f' · {ip}' if ip else ''}",
+            notes=(
+                f"Reserva desde el sitio del club{f' · {ip}' if ip else ''}"
+                + (f"\nComentario del cliente: {datos.comentario}" if datos.comentario else "")
+            ),
         )
 
         # Sin pase todavía: esto es un apartado, no una reserva. El QR sale
@@ -599,6 +606,7 @@ class ReservaPublicaService:
         )
         # La llave del huésped. El folio solo no alcanza: se adivina.
         reserva.public_token = secrets.token_urlsafe(24)
+        reserva.idioma = datos.idioma
         self.db.commit()
         self.db.refresh(reserva)
         return reserva

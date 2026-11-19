@@ -29,7 +29,6 @@ function filasDe(campo) {
     { clave: '18-adulto', hoyos: 18, quien: 'tarifas.adulto', precios: tarifas.adulto18 },
     { clave: '18-twilight', hoyos: 18, quien: 'tarifas.twilight', precios: tarifas.twilight18 },
     { clave: '18-menores', hoyos: 18, quien: 'tarifas.menores', precios: tarifas.menor18 },
-    { clave: '9-adulto', hoyos: 9, quien: 'tarifas.adulto', precios: tarifas.adulto9 },
     practica && {
       clave: 'practica',
       titulo: 'extra.PRACTICA',

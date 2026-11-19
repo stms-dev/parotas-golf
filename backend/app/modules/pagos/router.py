@@ -14,10 +14,10 @@ hacen falta puertas adentro:
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -104,6 +104,8 @@ class CampoOut(BaseModel):
     practica: Optional[PracticaOut] = None
     # Teléfono, correo y domicilio que el sitio muestra; se editan en Configuración.
     contacto: Optional[ContactoOut] = None
+    # Políticas y Reglamento en español e inglés, que el sitio muestra antes de pagar.
+    politicas: Optional[dict] = None
     # El día del campo y hasta qué hora se reserva para hoy; el interruptor PGA.
     hoy: Optional[date] = None
     limite_mismo_dia: Optional[str] = None
@@ -188,19 +190,38 @@ class ApartarIn(BaseModel):
     hoyos: int = Field(default=18)
     jugadores: List[JugadorIn] = Field(min_length=1, max_length=10)
     correo: EmailStr
-    telefono: Optional[str] = Field(default=None, max_length=40)
-    # Si el huésped viene de un hotel con convenio: cuál y su habitación. Solo
-    # se guarda de dónde salió la reserva; el precio y la comisión no cambian.
+    # El teléfono es obligatorio en toda reserva del sitio: es con lo que el club
+    # localiza al cliente si algo cambia (lluvia, reprogramación).
+    telefono: str = Field(min_length=7, max_length=40)
+    # Si el huésped viene de un hotel con convenio: cuál y, si quiere, su
+    # habitación. Solo se guarda de dónde salió la reserva; el precio y la
+    # comisión no cambian.
     hotel_id: Optional[int] = None
     habitacion: Optional[str] = Field(default=None, max_length=60)
+    # "Comentario adicional" del cliente: 50 caracteres.
+    comentario: Optional[str] = Field(default=None, max_length=50)
+    # Idioma del sitio con el que reservó: define el idioma del pase.
+    idioma: Literal["es", "en"] = "es"
+    # Que leyó las Políticas y Reglamento. El sitio no deja avanzar sin esto y el
+    # servidor tampoco lo da por hecho.
+    acepto_politicas: bool = False
+
+    @field_validator("telefono")
+    @classmethod
+    def _telefono_con_digitos(cls, valor: str) -> str:
+        valor = valor.strip()
+        if sum(c.isdigit() for c in valor) < 7:
+            raise ValueError("Escriba un teléfono válido")
+        return valor
 
     @model_validator(mode="after")
     def _hotel_y_habitacion(self):
         self.habitacion = (self.habitacion or "").strip() or None
-        if self.hotel_id is not None and not self.habitacion:
-            raise ValueError("Escriba su número de habitación")
+        self.comentario = (self.comentario or "").strip() or None
         if self.hotel_id is None:
             self.habitacion = None
+        if not self.acepto_politicas:
+            raise ValueError("Confirme que leyó las Políticas y Reglamento")
         return self
 
 
@@ -418,8 +439,8 @@ async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
     if sesion.get("payment_status") != "paid":
         return {"recibido": True, "nota": "todavía sin pagar"}
 
-    tarjeta = {}
     intento = sesion.get("payment_intent")
+    tarjeta = stripe_gateway.datos_de_tarjeta(str(intento) if intento else None)
     resultado = ReservaPublicaService(db).confirmar_pago(
         folio=folio,
         referencia=str(intento or sesion.get("id")),

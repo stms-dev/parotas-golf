@@ -225,6 +225,29 @@ def leer_evento(cuerpo: bytes, firma: str):
         raise BusinessRuleError("Aviso de pago no verificable") from error
 
 
+def datos_de_tarjeta(payment_intent: Optional[str]) -> dict:
+    """Marca y últimos cuatro dígitos de la tarjeta con que se pagó.
+
+    Sirve solo para el comprobante. Si no se alcanza a leer —la llave no tiene
+    permiso para ver cobros, Stripe tarda— el pago se registra igual, sin esos
+    datos: un comprobante sin los dígitos es mejor que un cobro sin registrar.
+    """
+    if not payment_intent:
+        return {}
+    try:
+        s = _cliente()
+        intento = s.PaymentIntent.retrieve(payment_intent, expand=["latest_charge"])
+        tarjeta = intento["latest_charge"]["payment_method_details"]["card"]
+        return {"marca": tarjeta["brand"], "ultimos4": tarjeta["last4"]}
+    except Exception as error:  # noqa: BLE001 — nunca debe tirar el aviso del pago
+        logger.warning(
+            "No se pudo leer la tarjeta del pago %s (%s). Si es por permisos, la llave "
+            "restringida necesita lectura de PaymentIntents y Charges.",
+            payment_intent, error,
+        )
+        return {}
+
+
 def devolver(payment_intent: str, motivo: str = "requested_by_customer") -> Optional[str]:
     """Regresa el dinero de un cobro.
 

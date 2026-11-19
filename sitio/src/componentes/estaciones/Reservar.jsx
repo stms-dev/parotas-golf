@@ -29,7 +29,6 @@ import {
   EXTRAS,
   HORARIO,
   PAQUETES,
-  PAR_NUEVE,
   enDolares,
   esFinDeSemana,
   pesos,
@@ -121,6 +120,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const [huesped, setHuesped] = useState(false);
   const [hotelId, setHotelId] = useState('');
   const [habitacion, setHabitacion] = useState('');
+  const [comentario, setComentario] = useState('');
+  const [leyoPoliticas, setLeyoPoliticas] = useState(false);
   const hoteles = campo?.hoteles ?? [];
 
   const [dia, setDia] = useState(null);
@@ -336,13 +337,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       const sinEdad = jugadores.findIndex((j) => !j.edad);
       if (sinEdad >= 0) return t('falta.edad', { n: sinEdad + 1 });
       if (!CORREO.test(contacto.correo.trim())) return t('falta.correo');
+      if (contacto.telefono.replace(/\D/g, '').length < 7) return t('falta.telefono');
       if (huesped && !hotelId) return t('falta.hotel');
-      if (huesped && !habitacion.trim()) return t('falta.habitacion');
       return null;
     }
     if (!cotizacion) return t('falta.cuenta');
+    if (!leyoPoliticas) return t('falta.politicas');
     return null;
-  }, [paso, slot, jugadores, contacto.correo, huesped, hotelId, habitacion, cotizacion, t]);
+  }, [paso, slot, jugadores, contacto.correo, contacto.telefono, huesped, hotelId, cotizacion, leyoPoliticas, t]);
 
   function cuantos(n) {
     setJugadores((actuales) => {
@@ -370,7 +372,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         hoyos: Number(hoyos),
         jugadores: aCuerpo(jugadores),
         correo: contacto.correo.trim(),
-        telefono: contacto.telefono.trim() || null,
+        telefono: contacto.telefono.trim(),
+        comentario: comentario.trim() || null,
+        idioma,
+        acepto_politicas: leyoPoliticas,
         hotel_id: huesped && hotelId ? Number(hotelId) : null,
         habitacion: huesped ? habitacion.trim() || null : null,
       });
@@ -418,6 +423,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           setHuesped(false);
           setHotelId('');
           setHabitacion('');
+          setComentario('');
+          setLeyoPoliticas(false);
           ultimaFirma.current = null;
           onLimpiarLlegada?.();
         }}
@@ -428,10 +435,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   return (
     <div>
       {/* --------------------------------------------------------- cabeza */}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+      <div>
         <h2 className="font-titulo text-rotulo-lg text-arena">{t('reservar.titulo')}</h2>
         {hoteles.length > 0 && (
-          <div className="flex items-center gap-3 pb-1">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <span className="font-texto text-[0.95rem] font-semibold text-arena">
               {t('reservar.huesped')}
             </span>
@@ -544,17 +551,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             ) : (
             <Campo etiqueta={t('reservar.recorrido')}>
               <Alternador
-                opciones={[
-                  { valor: 9, texto: t('reservar.nueve') },
-                  { valor: 18, texto: t('reservar.dieciocho') },
-                ]}
-                valor={Number(hoyos)}
+                opciones={[{ valor: 18, texto: t('reservar.dieciocho') }]}
+                valor={18}
                 onElegir={setHoyos}
               />
               <p className="mt-1.5 font-texto text-menudo text-arena/80">
-                {Number(hoyos) === 9
-                  ? t('reservar.par9', { par: PAR_NUEVE })
-                  : t('reservar.completa')}
+                {t('reservar.completa')}
               </p>
             </Campo>
             )}
@@ -762,12 +764,23 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                   className={`${entrada} w-full`}
                 />
                 <input
+                  type="tel"
+                  required
                   value={contacto.telefono}
                   onChange={(e) => setContacto({ ...contacto, telefono: e.target.value })}
                   placeholder={t('reservar.telefono')}
+                  aria-label={t('reservar.telefono')}
                   className={`${entrada} w-full`}
                 />
               </div>
+              <input
+                value={comentario}
+                maxLength={50}
+                onChange={(e) => setComentario(e.target.value)}
+                placeholder={t('reservar.comentario')}
+                aria-label={t('reservar.comentario')}
+                className={`${entrada} mt-2.5 w-full`}
+              />
               <p className="mt-2 font-texto text-menudo text-arena/80">
                 {t('reservar.noLlego', { telefono: telefonoClub })}
               </p>
@@ -908,6 +921,13 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
             <p className="font-texto text-menudo leading-relaxed text-arena/80">
               {t('reservar.conocimientos')}
             </p>
+
+            <Politicas
+              textos={campo?.politicas?.[idioma] || campo?.politicas?.es}
+              t={t}
+              leido={leyoPoliticas}
+              onLeido={setLeyoPoliticas}
+            />
           </Paso>
         )}
       </div>
@@ -1275,6 +1295,64 @@ function Listo({ reserva, onOtra, t, idioma, telefono }) {
       >
         {cancelada ? t('listo.otroHorario') : t('listo.otraSalida')}
       </button>
+    </div>
+  );
+}
+
+
+/** Políticas y Reglamento: se leen aquí, antes de pagar, y hay que confirmarlas.
+ *  El texto llega del servidor (`/public/campo`) para que el sitio y el correo
+ *  digan siempre lo mismo. Si por algo no llega, no se bloquea la reserva: se
+ *  deja solo la casilla. */
+function Politicas({ textos, t, leido, onLeido }) {
+  const apartados = (lista) => (
+    <ol className="mt-2 list-decimal space-y-2 pl-5">
+      {lista.map((a) => (
+        <li key={a.titulo}>
+          <strong className="font-semibold text-arena">{a.titulo}</strong> {a.texto}
+          {a.items?.length > 0 && (
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {a.items.map((i) => (
+                <li key={i}>{i}</li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+  return (
+    <div className="rounded-sm border border-arena/15 bg-arena/[0.045] px-3.5 py-3">
+      <p className="font-texto text-[0.95rem] font-semibold text-arena">
+        {t('reservar.politicasTitulo')}
+      </p>
+      <p className="font-texto text-menudo text-arena/80">{t('reservar.politicasLeer')}</p>
+      {textos && (
+        <div
+          tabIndex={0}
+          className="mt-2 max-h-56 overflow-y-auto rounded-sm border border-arena/10 bg-sombra-honda/40 p-3 font-texto text-menudo leading-relaxed text-arena/80"
+        >
+          <p>{textos.intro}</p>
+          <p className="mt-3 font-semibold uppercase tracking-wide text-arena">
+            {textos.politicas_titulo}
+          </p>
+          {apartados(textos.politicas)}
+          <p className="mt-3 font-semibold uppercase tracking-wide text-arena">
+            {textos.reglamento_titulo}
+          </p>
+          {apartados(textos.reglamento)}
+          <p className="mt-3">{textos.cierre}</p>
+        </div>
+      )}
+      <label className="mt-3 flex cursor-pointer items-start gap-2.5 font-texto text-[0.95rem] text-arena">
+        <input
+          type="checkbox"
+          checked={leido}
+          onChange={(e) => onLeido(e.target.checked)}
+          className="mt-1 h-4 w-4 accent-hoja"
+        />
+        <span>{t('reservar.politicasAcepto')}</span>
+      </label>
     </div>
   );
 }

@@ -865,3 +865,11 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Partida abierta**: máximo 4 en total (titular + 3). Si la salida ya trae jugadores, solo caben los lugares que quedan.
 - **Grupo en el sitio**: de 4 a 10 jugadores (antes 8).
 - Sin migración. Pruebas: `backend/prueba_v22.py`; se actualizaron `prueba_stripe.py`, `prueba_cambios_v14.py` y `verificar.py`.
+
+## v23 · Reservar: políticas, teléfono obligatorio y correo del QR
+
+- Sitio: «¿Eres huésped de un hotel?» queda debajo del título (web y móvil); se quita la opción de 9 hoyos del formulario y la fila de 9 hoyos de la tabla de Green Fee; con hotel, la habitación es opcional; el teléfono es obligatorio (≥ 7 dígitos); nuevo «Comentario adicional» de 50 caracteres (se guarda en las notas de la reserva); en inglés «Rent» en lugar de «Renta».
+- Antes de pagar, el paso de revisión muestra las Políticas y Reglamento (español/inglés según el idioma del sitio) con casilla «He leído y acepto». El servidor también lo exige (`acepto_politicas`). Texto en `backend/app/shared/politicas.py`, llega en `/api/public/campo`.
+- Correo del pase QR: mismo formato que la cuponera, bilingüe (el idioma se guarda en la reserva: columna `idioma`, migración `c9e1a3b5d7f0`), «reserva», sin referencia de pago, pie con teléfono y bloque completo de Políticas y Reglamento.
+- Comprobante de pago: se intenta leer marca y últimos 4 dígitos de la tarjeta; requiere que la llave restringida de Stripe tenga lectura de PaymentIntents y Charges. Si no, el pago se registra igual sin los dígitos.
+- Pruebas: `backend/prueba_v23.py`; `_cliente_publico.py` manda teléfono y políticas como el sitio; ajustadas `prueba_cambios_v14.py` y `prueba_cambios_v18.py`.

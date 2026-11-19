@@ -120,7 +120,13 @@ class MailingService:
 
         practica = str(reservation.modality) == "PRACTICA"
         pagada = any(not p.is_voided for p in (reservation.payments or []))
-        if kind == EmailKind.PASE:
+        en_ingles = getattr(reservation, "idioma", "es") == "en"
+        if kind == EmailKind.PASE and en_ingles:
+            asunto = (
+                f"{'Pass · Practice area' if practica else 'Your booking pass'}"
+                f"{' · paid' if pagada else ''} · {reservation.folio} · Las Parotas"
+            )
+        elif kind == EmailKind.PASE:
             asunto = (
                 f"{'Pase · Zona de práctica' if practica else 'Pase de la partida'}"
                 f"{' · pagado' if pagada else ''} · {reservation.folio} · Las Parotas"

@@ -127,6 +127,9 @@ class Reservation(Base):
     holder_email: Mapped[str] = mapped_column(String(180), nullable=False)
     holder_phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, index=True)
     holder_room: Mapped[Optional[str]] = mapped_column(String(60), nullable=True)
+    # Idioma con el que el cliente hizo su reserva en el sitio ("es" o "en"): en
+    # ese idioma le llegan el pase y los avisos.
+    idioma: Mapped[str] = mapped_column(String(2), nullable=False, default="es", server_default="es")
     # Carritos que ocupa la partida. No se elige: sale de cuánta gente va.
     carts_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Caddies asignados: uno por carrito, hasta donde alcancen los que hay. No

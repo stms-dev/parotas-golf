@@ -13,7 +13,7 @@ subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True,
 subprocess.run([sys.executable, "seed.py"], check=True, capture_output=True)
 
 from datetime import date, timedelta  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from _cliente_publico import ClienteDelSitio as TestClient  # noqa: E402
 from app.core.config import settings  # noqa: E402
 settings.PAGOS_SIMULADOS = True
 from app.main import app  # noqa: E402
@@ -94,7 +94,7 @@ check("Sin hotel queda como venta directa", res0.hotel_id != hotel["id"] and res
 db.close()
 
 _, r2 = apartar({"hotel_id": hotel["id"]}, usadas)
-check("Con hotel pero sin habitación se rechaza", r2.status_code == 422, f"HTTP {r2.status_code}")
+check("Con hotel y sin habitación se acepta (la habitación es opcional)", r2.status_code == 201, f"HTTP {r2.status_code}")
 _, r3 = apartar({"hotel_id": 99999, "habitacion": "1"}, usadas)
 check("Un hotel que no existe se rechaza", r3.status_code in (404, 422), f"HTTP {r3.status_code}")
 _, r4 = apartar({"habitacion": "77"}, usadas)

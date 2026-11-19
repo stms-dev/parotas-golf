@@ -13,7 +13,7 @@ subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True,
 subprocess.run([sys.executable, "seed.py"], check=True, capture_output=True)
 
 from datetime import date, timedelta  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from _cliente_publico import ClienteDelSitio as TestClient  # noqa: E402
 from app.core.config import settings  # noqa: E402
 settings.PAGOS_SIMULADOS = True
 from app.main import app  # noqa: E402

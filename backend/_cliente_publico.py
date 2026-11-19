@@ -23,6 +23,13 @@ class ClienteDelSitio(TestClient):
             cabeceras = dict(kw.get("headers") or {})
             cabeceras.setdefault("X-Reserva-Token", self.tokens[coincide.group(1)])
             kw["headers"] = cabeceras
+        # Como el sitio: el teléfono y la confirmación de las políticas siempre van.
+        if method.upper() == "POST" and str(url).rstrip("/") == "/api/public/reservas":
+            cuerpo_json = kw.get("json")
+            if isinstance(cuerpo_json, dict):
+                if not cuerpo_json.get("telefono"):
+                    cuerpo_json["telefono"] = "9581234567"
+                cuerpo_json.setdefault("acepto_politicas", True)
         r = super().request(method, url, **kw)
         if (method.upper() == "POST" and str(url).rstrip("/") == "/api/public/reservas"
                 and r.status_code == 201):

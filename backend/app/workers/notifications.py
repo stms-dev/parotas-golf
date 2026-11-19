@@ -99,10 +99,23 @@ def generar_qr_base64(token: str) -> str:
     return base64.b64encode(generar_qr_png(token)).decode("ascii")
 
 
-def _fecha_y_hora(reservation) -> str:
+def _idioma_de(reservation) -> str:
+    """El idioma en que reservó el cliente: 'es' o 'en'. Las reservas anteriores no lo traen."""
+    return "en" if getattr(reservation, "idioma", "es") == "en" else "es"
+
+
+def _hora_12(hora) -> str:
+    """7:00 a.m. · 2:45 p.m. — como se lee en inglés."""
+    h12 = hora.hour % 12 or 12
+    return f"{h12}:{hora.minute:02d} {'a.m.' if hora.hour < 12 else 'p.m.'}"
+
+
+def _fecha_y_hora(reservation, idioma: str = "es") -> str:
     slot = reservation.tee_slot
     if not slot:
         return ""
+    if idioma == "en":
+        return f"{slot.slot_date.strftime('%m/%d/%Y')} · {_hora_12(slot.slot_time)}"
     return f"{slot.slot_date.strftime('%d/%m/%Y')} · {slot.slot_time.strftime('%H:%M')} hrs"
 
 
@@ -110,12 +123,14 @@ def _es_practica(reservation) -> bool:
     return str(reservation.modality) == "PRACTICA"
 
 
-def _que_juega(reservation) -> str:
+def _que_juega(reservation, idioma: str = "es") -> str:
     """"18 hoyos" o "Zona de práctica": lo que se reservó."""
+    if idioma == "en":
+        return "Practice area" if _es_practica(reservation) else f"{reservation.holes} holes"
     return "Zona de práctica" if _es_practica(reservation) else f"{reservation.holes} hoyos"
 
 
-def _hora_local(momento) -> str:
+def _hora_local(momento, idioma: str = "es") -> str:
     """Un datetime guardado en UTC, en la hora del campo: "07/10/2026 a las 14:32"."""
     if momento is None:
         return ""
@@ -125,10 +140,12 @@ def _hora_local(momento) -> str:
 
     tz = zona()
     local = momento.replace(tzinfo=timezone.utc).astimezone(tz) if tz else momento
+    if idioma == "en":
+        return f"{local.strftime('%m/%d/%Y')} at {_hora_12(local)}"
     return f"{local.strftime('%d/%m/%Y')} a las {local.strftime('%H:%M')}"
 
 
-def _pago_en_linea(reservation):
+def _pago_en_linea(reservation, idioma: str = "es"):
     """Lo que ya se pagó de la reserva antes de llegar: cuándo, cómo y cuánto.
 
     Devuelve None si todavía no hay ningún cobro (la reserva del hotel, que se
@@ -142,11 +159,14 @@ def _pago_en_linea(reservation):
         return None
     pagado = money(sum((p.neto_mxn for p in pagos), start=ZERO))
     ultimo = max(pagos, key=lambda p: p.paid_at or datetime_min())
-    # La nota del cobro en línea dice "Pago en línea · visa ····4242".
-    forma = (ultimo.notes or "").replace("Pago en línea · ", "").strip() or "Tarjeta"
+    # La nota del cobro en línea dice "Pago en línea · visa ····4242". Si no se
+    # alcanzó a leer la tarjeta, trae "····----": sin dígitos no se muestra nada.
+    forma = (ultimo.notes or "").replace("Pago en línea · ", "").replace("····----", "").strip()
+    if not forma or forma.lower() == "tarjeta":
+        forma = "Card" if idioma == "en" else "Tarjeta"
     return {
         "pagado": pagado,
-        "cuando": _hora_local(ultimo.paid_at),
+        "cuando": _hora_local(ultimo.paid_at, idioma),
         "forma": forma[:1].upper() + forma[1:],
         "referencia": ultimo.reference or "",
     }
@@ -158,9 +178,15 @@ def datetime_min():
     return datetime.min
 
 
-def _marco(contenido: str) -> str:
+def _marco(contenido: str, idioma: str = "es") -> str:
+    if idioma == "en":
+        pie = f"For any questions, reply to this email or call +52 {TELEFONO_CLUB}."
+        sede = "Las Parotas Golf Club · Bahías de Huatulco, Oaxaca"
+    else:
+        pie = f"Para cualquier aclaración, responda a este correo o marque al {TELEFONO_CLUB}."
+        sede = "Las Parotas Club de Golf · Bahías de Huatulco, Oaxaca"
     return f"""<!DOCTYPE html>
-<html lang="es"><body style="margin:0;padding:24px;background:#f6f5f1">
+<html lang="{idioma}"><body style="margin:0;padding:24px;background:#f6f5f1">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;
               padding:28px;font-family:Georgia,'Times New Roman',serif;color:{VERDE}">
     <p style="margin:0;font-size:24px">Las Parotas</p>
@@ -169,11 +195,109 @@ def _marco(contenido: str) -> str:
     {contenido}
     <p style="margin-top:26px;padding-top:14px;border-top:1px solid #e7e4dc;
               font-family:system-ui,sans-serif;font-size:11px;color:#8a8a80">
-      Las Parotas Club de Golf · Bahías de Huatulco, Oaxaca<br>
-      Para cualquier aclaración, responda a este correo o marque al {TELEFONO_CLUB}.
+      {sede}<br>
+      {pie}
     </p>
   </div>
 </body></html>"""
+
+
+def _bloque_politicas(idioma: str) -> tuple[str, str]:
+    """Las políticas y el reglamento completos: (texto plano, HTML)."""
+    from html import escape
+
+    from app.shared.politicas import politicas_de
+
+    d = politicas_de(idioma)
+
+    def numerado(titulo: str, apartados: list) -> tuple[str, str]:
+        texto = [f"\n{titulo.upper()}"]
+        lis = []
+        for n, a in enumerate(apartados, 1):
+            texto.append(f"{n}. {a['titulo']} {a['texto']}".rstrip())
+            texto += [f"   * {x}" for x in a["items"]]
+            cuerpo = f"<strong>{escape(a['titulo'])}</strong>"
+            if a["texto"]:
+                cuerpo += " " + escape(a["texto"])
+            if a["items"]:
+                viñetas = "".join(f"<li style='margin:2px 0'>{escape(x)}</li>" for x in a["items"])
+                cuerpo += (
+                    "<ul style='margin:5px 0 0;padding-left:18px;list-style:disc'>"
+                    + viñetas + "</ul>"
+                )
+            lis.append(f"<li style='margin:0 0 7px'>{cuerpo}</li>")
+        html = (
+            f"<p style='margin:18px 0 6px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;"
+            f"color:#8a8a80'>{escape(titulo)}</p>"
+            f"<ol style='margin:0;padding-left:20px'>{''.join(lis)}</ol>"
+        )
+        return "\n".join(texto) + "\n", html
+
+    t1, h1 = numerado(d["politicas_titulo"], d["politicas"])
+    t2, h2 = numerado(d["reglamento_titulo"], d["reglamento"])
+    texto = f"\n{d['titulo']}\n{d['intro']}\n{t1}{t2}\n{d['cierre']}\n"
+    html = (
+        f"<div style='margin-top:24px;padding-top:18px;border-top:1px solid #e7e4dc;"
+        f"font-family:system-ui,sans-serif;font-size:12.5px;line-height:1.5;color:#55534b'>"
+        f"<p style='margin:0 0 4px;font-size:17px;color:{VERDE};font-family:Georgia,serif'>{escape(d['titulo'])}</p>"
+        f"<p style='margin:0'>{escape(d['intro'])}</p>"
+        f"{h1}{h2}"
+        f"<p style='margin:18px 0 0;font-weight:600;color:{VERDE}'>{escape(d['cierre'])}</p></div>"
+    )
+    return texto, html
+
+
+# Lo que dice el pase, en cada idioma.
+_PASE = {
+    "es": {
+        "hola": "Hola {nombre}",
+        "reg": "su reserva quedó registrada",
+        "reg_practica": "su visita a la zona de práctica quedó registrada",
+        "paquete": "Paquete", "recorrido": "Recorrido",
+        "personas": "Personas", "jugadores": "Jugadores",
+        "folio": "Folio", "fecha": "Fecha y hora",
+        "pago": "PAGO RECIBIDO", "pagado_el": "Pagado el", "total": "Total pagado",
+        "pase_uno": "Un solo pase para {que}",
+        "grupo": "todo el grupo", "partida": "toda la partida",
+        "adulto": "Adulto", "junior": "Junior",
+        "gf": "Green Fee", "zona": "Zona de práctica", "serv": "Servicio",
+        "acomp": "Acompañantes (no juegan)",
+        "llegada": "Le pedimos presentarse <strong>15 minutos previo</strong> a su {que}. "
+                   "Para ingresar, deberá mostrar el código QR acompañado de una identificación "
+                   "oficial física o digital. Para menores de edad, es obligatorio mostrar "
+                   "identificación oficial acompañado de un padre o tutor.",
+        "llegada_txt": "Le pedimos presentarse 15 minutos previo a su {que}. Para ingresar, deberá "
+                       "mostrar el código QR acompañado de una identificación oficial física o digital. "
+                       "Para menores de edad, es obligatorio mostrar identificación oficial "
+                       "acompañado de un padre o tutor.",
+        "su_hora": "hora", "su_reserva": "reserva",
+        "cobro": "El cobro se hace en recepción.",
+        "adjunto": "Presente el pase adjunto en recepción. Es uno solo para {que}.",
+    },
+    "en": {
+        "hola": "Hello {nombre}",
+        "reg": "your reservation has been confirmed",
+        "reg_practica": "your visit to the practice area has been confirmed",
+        "paquete": "Package", "recorrido": "Round",
+        "personas": "People", "jugadores": "Players",
+        "folio": "Booking number", "fecha": "Date and time",
+        "pago": "PAYMENT RECEIVED", "pagado_el": "Paid on", "total": "Total paid",
+        "pase_uno": "One pass for the entire {que}",
+        "grupo": "group", "partida": "round",
+        "adulto": "Adult", "junior": "Junior",
+        "gf": "Green Fee", "zona": "Practice area", "serv": "Service",
+        "acomp": "Companions (not playing)",
+        "llegada": "Please arrive <strong>15 minutes</strong> before your {que}. To enter, you must "
+                   "show your QR code along with a valid official ID, either physical or digital. "
+                   "Minors must show an official ID and be accompanied by a parent or guardian.",
+        "llegada_txt": "Please arrive 15 minutes before your {que}. To enter, you must show your QR "
+                       "code along with a valid official ID, either physical or digital. Minors must "
+                       "show an official ID and be accompanied by a parent or guardian.",
+        "su_hora": "arrival time", "su_reserva": "reservation",
+        "cobro": "Payment is made at the front desk.",
+        "adjunto": "Show the attached pass at the front desk. It is one pass for the {que}.",
+    },
+}
 
 
 def cuerpo_pase(reservation) -> tuple[str, str]:
@@ -182,56 +306,59 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     El texto plano no es un adorno: hay clientes de correo que no muestran
     HTML, y un pase que no se puede leer no sirve de nada.
 
+    Sale en el idioma con que el cliente hizo su reserva en el sitio (español si
+    no se sabe) y cierra con las Políticas y Reglamento completos.
+
     Si la reserva ya viene pagada (la del sitio, pagada con tarjeta), el pase
     lleva también el detalle del pago: cuándo se pagó, con qué y el desglose.
     Así el huésped tiene su comprobante en el mismo correo.
     """
     from app.shared.money import money
 
-    cuando = _fecha_y_hora(reservation)
+    idioma = _idioma_de(reservation)
+    L = _PASE[idioma]
+    cuando = _fecha_y_hora(reservation, idioma)
     jugadores = [p.full_name for p in reservation.players]
     practica = _es_practica(reservation)
-    que = _que_juega(reservation)
-    pago = _pago_en_linea(reservation)
-    llegada = (
-        "Le pedimos llegar 15 minutos antes de su hora." if practica
-        else "Le pedimos llegar 15 minutos antes de su reserva."
-    )
-
+    que = _que_juega(reservation, idioma)
+    pago = _pago_en_linea(reservation, idioma)
+    de_que = L["su_hora"] if practica else L["su_reserva"]
+    quien = L["grupo"] if practica else L["partida"]
     servicios = [s for s in reservation.services if s.quantity > 0]
+    saludo = L["hola"].format(nombre=reservation.holder_name)
+    registro = L["reg_practica"] if practica else L["reg"]
 
     texto = (
-        f"Hola {reservation.holder_name}:\n\n"
-        + ("Su visita a la zona de práctica quedó registrada.\n\n" if practica
-           else "Su reserva quedó registrada.\n\n")
-        + f"Folio: {reservation.folio}\n"
-        f"Fecha y hora: {cuando}\n"
-        f"{'Paquete' if practica else 'Recorrido'}: {que}\n"
-        f"{'Personas' if practica else 'Jugadores'}: {', '.join(jugadores)}\n\n"
+        f"{saludo}, {registro}.\n\n"
+        f"{L['folio']}: {reservation.folio}\n"
+        f"{L['fecha']}: {cuando}\n"
+        f"{L['paquete'] if practica else L['recorrido']}: {que}\n"
+        f"{L['personas'] if practica else L['jugadores']}: {', '.join(jugadores)}\n\n"
     )
     if pago:
         texto += (
-            f"PAGO RECIBIDO\n"
-            f"Pagado el {pago['cuando']} · {pago['forma']}\n"
+            f"{L['pago']}\n"
+            f"{L['pagado_el']} {pago['cuando']} · {pago['forma']}\n"
             + "".join(f"  {p.full_name}: ${money(p.rate_applied)} MXN\n" for p in reservation.players)
             + "".join(
-                f"  {(s.service.name if s.service else 'Servicio')} x{s.quantity}: ${money(s.total)} MXN\n"
+                f"  {(s.service.name if s.service else L['serv'])} x{s.quantity}: ${money(s.total)} MXN\n"
                 for s in servicios
             )
-            + f"Total pagado: ${pago['pagado']} MXN\n"
+            + f"{L['total']}: ${pago['pagado']} MXN\n"
             + "\n"
         )
-    texto += (
-        f"Presente el pase adjunto en recepción. Es uno solo para "
-        f"{'todo el grupo' if practica else 'toda la partida'}.\n"
-        f"{llegada}\n\n"
-        f"Las Parotas Club de Golf"
+    texto += L["adjunto"].format(que=quien) + "\n" + L["llegada_txt"].format(que=de_que) + "\n"
+    if not pago:
+        texto += L["cobro"] + "\n"
+    texto_politicas, html_politicas = _bloque_politicas(idioma)
+    texto += texto_politicas + (
+        "\nLas Parotas Golf Club" if idioma == "en" else "\nLas Parotas Club de Golf"
     )
 
     filas = "".join(
         f"<tr><td style='padding:7px 0;border-bottom:1px solid #eeece6'>{p.full_name}</td>"
         f"<td style='padding:7px 0;border-bottom:1px solid #eeece6;color:#77756c;text-align:right'>"
-        f"{'Junior' if p.category == 'INFANTIL' else 'Adulto'}</td></tr>"
+        f"{L['junior'] if p.category == 'INFANTIL' else L['adulto']}</td></tr>"
         for p in reservation.players
     )
     acompanantes = ""
@@ -239,7 +366,7 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
         nombres = ", ".join(c.full_name for c in reservation.companions)
         acompanantes = (
             f"<p style='font-family:system-ui,sans-serif;font-size:13px;color:#77756c;margin:10px 0 0'>"
-            f"Acompañantes (no juegan): {nombres}</p>"
+            f"{L['acomp']}: {nombres}</p>"
         )
 
     bloque_pago = ""
@@ -247,14 +374,14 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
         renglones = "".join(
             f"<tr><td style='padding:6px 0;border-bottom:1px solid #e3ece6'>"
             f"{p.full_name}<span style='color:#77756c'> · "
-            f"{'Zona de práctica' if practica else ('Junior' if p.category == 'INFANTIL' else 'Green Fee')}"
+            f"{L['zona'] if practica else (L['junior'] if p.category == 'INFANTIL' else L['gf'])}"
             f"</span></td>"
             f"<td style='padding:6px 0;border-bottom:1px solid #e3ece6;text-align:right;"
             f"font-family:ui-monospace,monospace'>${money(p.rate_applied)}</td></tr>"
             for p in reservation.players
         ) + "".join(
             f"<tr><td style='padding:6px 0;border-bottom:1px solid #e3ece6'>"
-            f"{s.service.name if s.service else 'Servicio'} × {s.quantity}</td>"
+            f"{s.service.name if s.service else L['serv']} × {s.quantity}</td>"
             f"<td style='padding:6px 0;border-bottom:1px solid #e3ece6;text-align:right;"
             f"font-family:ui-monospace,monospace'>${money(s.total)}</td></tr>"
             for s in servicios
@@ -263,32 +390,24 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     <div style="border:1px solid #cfe3d6;border-radius:12px;padding:18px;margin:18px 0;
                 font-family:system-ui,sans-serif">
       <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#37634e">
-        &#10003; Pago recibido
+        &#10003; {L['pago'].capitalize() if idioma == 'es' else L['pago']}
       </p>
       <p style="margin:6px 0 12px;font-size:14px;color:{VERDE}">
-        Pagado el <strong>{pago['cuando']}</strong> · {pago['forma']}
+        {L['pagado_el']} <strong>{pago['cuando']}</strong> · {pago['forma']}
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         {renglones}
-        <tr><td style="padding-top:10px;font-size:15px">Total pagado</td>
+        <tr><td style="padding-top:10px;font-size:15px">{L['total']}</td>
             <td style="padding-top:10px;text-align:right;font-size:17px;
                        font-family:ui-monospace,monospace">${pago['pagado']} MXN</td></tr>
       </table>
     </div>"""
 
-    nota_final = (
-        f"Le pedimos llegar <strong>15 minutos antes</strong> de su "
-        f"{'hora' if practica else 'reserva'}. "
-        + ("Su reserva ya está pagada: en recepción solo registramos su llegada."
-           if pago else
-           ("El cobro se hace en recepción." if practica
-            else "El cobro se hace en recepción."))
-    )
+    nota_final = L["llegada"].format(que=de_que) + ("" if pago else f" {L['cobro']}")
 
     html = _marco(f"""
     <p style="font-family:system-ui,sans-serif;font-size:15px">
-      Hola {reservation.holder_name}, {'su visita a la zona de práctica quedó registrada'
-      if practica else 'su reserva quedó registrada'}.
+      {saludo}, {registro}.
     </p>
 
     <div style="background:#f2f7f4;border-radius:12px;padding:22px;margin:18px 0;text-align:center">
@@ -296,16 +415,16 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
       <p style="margin:6px 0 16px;font-family:system-ui,sans-serif;font-size:14px;color:#37634e">
         {cuando} · {que}
       </p>
-      <img src="cid:pase-qr" alt="Pase" style="width:190px;height:190px"/>
+      <img src="cid:pase-qr" alt="QR" style="width:190px;height:190px"/>
       <p style="margin:12px 0 0;font-family:system-ui,sans-serif;font-size:12px;color:#77756c">
-        Un solo pase para {'todo el grupo' if practica else 'toda la partida'}
+        {L['pase_uno'].format(que=quien)}
       </p>
     </div>
 
     <table style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:14px">
       <tr><th colspan="2" style="text-align:left;padding-bottom:6px;font-size:11px;
           letter-spacing:1px;text-transform:uppercase;color:#8a8a80">
-          {'Personas' if practica else 'Jugadores'}</th></tr>
+          {L['personas'] if practica else L['jugadores']}</th></tr>
       {filas}
     </table>
     {acompanantes}
@@ -314,7 +433,8 @@ def cuerpo_pase(reservation) -> tuple[str, str]:
     <p style="font-family:system-ui,sans-serif;font-size:13px;color:#77756c;margin-top:20px">
       {nota_final}
     </p>
-    """)
+    {html_politicas}
+    """, idioma)
 
     return texto, html
 

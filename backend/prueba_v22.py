@@ -95,9 +95,9 @@ with SessionLocal() as db:
     texto, html = cuerpo_pase(res)
 check("pase pagado: no trae la referencia pi_", "pi_3Ub7" not in texto and "pi_3Ub7" not in html and "Referencia" not in html + texto)
 check("pase pagado: sigue el detalle del pago", "Total pagado" in texto and "Pago recibido" in html)
-check("pase: «su reserva quedó registrada»", "su reserva quedó registrada" in html and "Su reserva quedó registrada" in texto)
+check("pase: «su reserva quedó registrada»", "su reserva quedó registrada" in html and "su reserva quedó registrada" in texto)
 check("pase: no dice «su salida»", "su salida" not in html and "su salida" not in texto.lower().replace("salida quedó", ""))
-check("pase: «15 minutos antes de su reserva»", "15 minutos antes de su reserva" in texto)
+check("pase: «15 minutos previo a su reserva»", "15 minutos previo a su reserva" in texto)
 check("pase: pie con el teléfono", "marque al 55 2721 9345" in html)
 
 print("3. Vista del hotel: valor, comisión y sin porcentaje")
