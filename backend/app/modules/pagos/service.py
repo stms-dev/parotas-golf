@@ -36,7 +36,7 @@ from app.core.config import settings
 from app.core.exceptions import BusinessRuleError, NotFoundError, ValidationError
 from app.modules.billing.models import Payment
 from app.modules.booking.models import Reservation
-from app.modules.booking.schemas import PlayerIn, ReservationCreate
+from app.modules.booking.schemas import CompanionIn, PlayerIn, ReservationCreate
 from app.modules.booking.service import AvailabilityService, ReservationService_
 from app.modules.catalog.service import (
     AdditionalServiceService,
@@ -449,6 +449,12 @@ class ReservaPublicaService:
         precio_practica = money(practica.price_on(slot.slot_date)) if practica else ZERO
         subtotal_practica = precio_practica * pases
 
+        # Quien acompaña y no juega: $800 por persona (servicio ACOMPANANTE).
+        acompanantes = len(getattr(datos, "acompanantes", None) or [])
+        servicio_acomp = self._servicio("ACOMPANANTE")
+        precio_acomp = money(servicio_acomp.price) if servicio_acomp else ZERO
+        subtotal_acomp = precio_acomp * acompanantes if servicio_acomp else ZERO
+
         return {
             "modalidad": modalidad.value,
             "hoyos": 0 if modalidad == BookingModality.PRACTICA else datos.hoyos,
@@ -466,7 +472,10 @@ class ReservaPublicaService:
             "pases_practica": pases,
             "precio_practica": precio_practica if practica else None,
             "subtotal_practica": subtotal_practica,
-            "total": green_fees + precio_sets + subtotal_practica,
+            "acompanantes": acompanantes if servicio_acomp else 0,
+            "precio_acompanante": precio_acomp if servicio_acomp else None,
+            "subtotal_acompanantes": subtotal_acomp,
+            "total": green_fees + precio_sets + subtotal_practica + subtotal_acomp,
             # Aparte del total a propósito: el club no cobra el caddie, se le
             # paga directo a él. Va en la respuesta solo para que el sitio
             # pueda decir cuánto traer.
@@ -586,6 +595,10 @@ class ReservaPublicaService:
             holder_room=(datos.habitacion or "").strip() or None,
             booked_by_name=QUIEN_RESERVA,
             players=players,
+            companions=[
+                CompanionIn(full_name=a.nombre.strip(), age=a.edad)
+                for a in (getattr(datos, "acompanantes", None) or [])
+            ],
             services=servicios,
             notes=(
                 f"Reserva desde el sitio del club{f' · {ip}' if ip else ''}"

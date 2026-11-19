@@ -873,3 +873,10 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - Correo del pase QR: mismo formato que la cuponera, bilingüe (el idioma se guarda en la reserva: columna `idioma`, migración `c9e1a3b5d7f0`), «reserva», sin referencia de pago, pie con teléfono y bloque completo de Políticas y Reglamento.
 - Comprobante de pago: se intenta leer marca y últimos 4 dígitos de la tarjeta; requiere que la llave restringida de Stripe tenga lectura de PaymentIntents y Charges. Si no, el pago se registra igual sin los dígitos.
 - Pruebas: `backend/prueba_v23.py`; `_cliente_publico.py` manda teléfono y políticas como el sitio; ajustadas `prueba_cambios_v14.py` y `prueba_cambios_v18.py`.
+
+## v23.1 · acompañantes en el sitio
+
+- El sitio tiene su apartado "Acompañantes (no juegan)": no toman lugar en la salida ni pagan Green Fee; cada uno paga el servicio ACOMPANANTE ($800 por persona, el mismo del sistema).
+- `/public/cotizacion` y `/public/reservas` reciben `acompanantes`; la cotización devuelve `acompanantes`, `precio_acompanante`, `subtotal_acompanantes` y el total ya los incluye (el cobro de Stripe sale del total de la reserva).
+- Arreglo del ticket de Tienda (`useEffect` sin importar).
+- Prueba: `python prueba_v231.py`.

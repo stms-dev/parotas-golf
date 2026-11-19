@@ -152,11 +152,20 @@ class JugadorIn(BaseModel):
     practica: bool = False
 
 
+class AcompananteIn(BaseModel):
+    """Quien acompaña y no juega: no toma lugar en la salida ni paga Green Fee,
+    pero sí paga su lugar en el carrito (servicio ACOMPANANTE, por persona)."""
+
+    nombre: str = Field(min_length=3, max_length=180)
+    edad: Optional[int] = Field(default=None, ge=1, le=120)
+
+
 class CotizarIn(BaseModel):
     tee_slot_id: int
     modalidad: str
     hoyos: int = Field(default=18)
     jugadores: List[JugadorIn] = Field(min_length=1, max_length=10)
+    acompanantes: List[AcompananteIn] = Field(default_factory=list, max_length=10)
 
 
 class RenglonOut(BaseModel):
@@ -179,6 +188,9 @@ class CotizacionOut(BaseModel):
     pases_practica: int = 0
     precio_practica: Optional[Decimal] = None
     subtotal_practica: Decimal = Decimal("0")
+    acompanantes: int = 0
+    precio_acompanante: Optional[Decimal] = None
+    subtotal_acompanantes: Decimal = Decimal("0")
     total: Decimal
     caddie_por_persona: Optional[Decimal] = None
 
@@ -189,6 +201,7 @@ class ApartarIn(BaseModel):
     modalidad: str
     hoyos: int = Field(default=18)
     jugadores: List[JugadorIn] = Field(min_length=1, max_length=10)
+    acompanantes: List[AcompananteIn] = Field(default_factory=list, max_length=10)
     correo: EmailStr
     # El teléfono es obligatorio en toda reserva del sitio: es con lo que el club
     # localiza al cliente si algo cambia (lluvia, reprogramación).

@@ -114,6 +114,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const pgaActivo = Boolean(campo?.pga_activo);
   const [slot, setSlot] = useState(null);
   const [jugadores, setJugadores] = useState([jugadorNuevo()]);
+  // Quien acompaña y no juega: no toma lugar en la salida, paga su lugar en el carrito.
+  const [acompanantes, setAcompanantes] = useState([]);
   const [contacto, setContacto] = useState({ correo: '', telefono: '' });
   // ¿Viene de un hotel con convenio? Solo sirve para que ese hotel reconozca la
   // reserva; el precio es el mismo.
@@ -256,12 +258,15 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   // Se vuelve a pedir cada vez que cambia algo que mueve el precio. Con un
   // respiro de por medio: escribir una edad dispara tres cambios de estado y
   // no hay por qué hacer tres viajes.
-  const nombresListos = jugadores.every((j) => j.nombre.trim().length >= 3);
+  const nombresListos =
+    jugadores.every((j) => j.nombre.trim().length >= 3) &&
+    acompanantes.every((a) => a.nombre.trim().length >= 3);
   const firma = JSON.stringify([
     slot,
     paquete,
     hoyos,
     jugadores.map((j) => [j.nombre.trim(), j.edad, j.bastones, j.local, j.practica]),
+    acompanantes.map((a) => [a.nombre.trim(), a.edad]),
   ]);
   const ultimaFirma = useRef(null);
 
@@ -280,6 +285,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           modalidad: paquete,
           hoyos: Number(hoyos),
           jugadores: aCuerpo(jugadores),
+          acompanantes: aAcompanantes(acompanantes),
         })
         .then((q) => {
           if (!vigente) return;
@@ -321,6 +327,12 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         : 0),
   );
 
+  const precioAcomp = Number(
+    cotizacion?.precio_acompanante ??
+      campo?.extras?.find((e) => e.code === 'ACOMPANANTE')?.precio ??
+      800,
+  );
+
   const telefonoClub = campo?.contacto?.telefono || '';
   const sinSistema = dia === null && !cargando && !listo;
 
@@ -336,6 +348,8 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       if (sinNombre >= 0) return t('falta.nombre', { n: sinNombre + 1 });
       const sinEdad = jugadores.findIndex((j) => !j.edad);
       if (sinEdad >= 0) return t('falta.edad', { n: sinEdad + 1 });
+      const acompSinNombre = acompanantes.findIndex((a) => a.nombre.trim().length < 3);
+      if (acompSinNombre >= 0) return t('falta.nombreAcomp', { n: acompSinNombre + 1 });
       if (!CORREO.test(contacto.correo.trim())) return t('falta.correo');
       if (contacto.telefono.replace(/\D/g, '').length < 7) return t('falta.telefono');
       if (huesped && !hotelId) return t('falta.hotel');
@@ -344,7 +358,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     if (!cotizacion) return t('falta.cuenta');
     if (!leyoPoliticas) return t('falta.politicas');
     return null;
-  }, [paso, slot, jugadores, contacto.correo, contacto.telefono, huesped, hotelId, cotizacion, leyoPoliticas, t]);
+  }, [paso, slot, jugadores, acompanantes, contacto.correo, contacto.telefono, huesped, hotelId, cotizacion, leyoPoliticas, t]);
 
   function cuantos(n) {
     setJugadores((actuales) => {
@@ -371,6 +385,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         modalidad: paquete,
         hoyos: Number(hoyos),
         jugadores: aCuerpo(jugadores),
+        acompanantes: aAcompanantes(acompanantes),
         correo: contacto.correo.trim(),
         telefono: contacto.telefono.trim(),
         comentario: comentario.trim() || null,
@@ -419,6 +434,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           setPaso(0);
           setSlot(null);
           setJugadores([jugadorNuevo()]);
+          setAcompanantes([]);
           setContacto({ correo: '', telefono: '' });
           setHuesped(false);
           setHotelId('');
@@ -758,9 +774,68 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                 onClick={() => cuantos(jugadores.length + 1)}
                 className="w-full rounded-sm border border-dashed border-hoja/60 py-2.5 font-texto text-[0.95rem] font-semibold text-hoja transition hover:bg-hoja/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
               >
-                + {t('reservar.agregarAcompanante')}
+                + {t('reservar.agregarJugador')}
               </button>
             )}
+
+            {/* Acompañantes: no juegan, no toman lugar en la salida y pagan su
+                lugar en el carrito. El precio sale del sistema (ACOMPANANTE). */}
+            <div className="rounded-sm border border-arena/20 bg-arena/[0.04] p-3">
+              <p className="font-texto text-[0.95rem] font-semibold text-arena">
+                {t('reservar.acompanantes')}
+              </p>
+              <p className="mt-0.5 font-texto text-menudo text-arena/80">
+                {t('reservar.acompanantesNota', { precio: pesos(precioAcomp) })}
+              </p>
+              {acompanantes.length > 0 && (
+                <ul className="mt-2.5 space-y-2">
+                  {acompanantes.map((a, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-2">
+                      <span className="w-5 shrink-0 font-titulo text-[0.95rem] text-arena/75">{i + 1}</span>
+                      <input
+                        value={a.nombre}
+                        onChange={(e) =>
+                          setAcompanantes((act) => act.map((x, k) => (k === i ? { ...x, nombre: e.target.value } : x)))
+                        }
+                        placeholder={t('reservar.nombreAcomp')}
+                        className={`${entrada} min-w-0 flex-1`}
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={a.edad}
+                        onChange={(e) =>
+                          setAcompanantes((act) => act.map((x, k) => (k === i ? { ...x, edad: e.target.value } : x)))
+                        }
+                        placeholder={t('reservar.edad')}
+                        className={`${entrada} w-[5.5rem]`}
+                      />
+                      <span className="shrink-0 font-texto text-menudo tabular-nums text-arena/80">
+                        {pesos(precioAcomp)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAcompanantes((act) => act.filter((_, k) => k !== i))}
+                        aria-label={t('reservar.quitarAcomp')}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-arena/25 text-arena transition hover:border-hoja hover:text-hoja"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {acompanantes.length < 10 && (
+                <button
+                  type="button"
+                  onClick={() => setAcompanantes((act) => [...act, { nombre: '', edad: '' }])}
+                  className="mt-2.5 w-full rounded-sm border border-dashed border-hoja/60 py-2.5 font-texto text-[0.95rem] font-semibold text-hoja transition hover:bg-hoja/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+                >
+                  + {t('reservar.agregarAcompanante')} · {pesos(precioAcomp)}
+                </button>
+              )}
+            </div>
 
             <p className="font-texto text-menudo text-arena/80">{t('reservar.notaEdad')}</p>
 
@@ -871,6 +946,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
                       </dt>
                       <dd className="text-right text-arena/90">
                         {pesos(Number(cotizacion.subtotal_bastones))}
+                      </dd>
+                    </>
+                  )}
+                  {cotizacion.acompanantes > 0 && (
+                    <>
+                      <dt className="text-arena/85">
+                        {t('reservar.acompRenglon', { n: cotizacion.acompanantes })}
+                      </dt>
+                      <dd className="text-right text-arena/90">
+                        {pesos(Number(cotizacion.subtotal_acompanantes))}
                       </dd>
                     </>
                   )}
@@ -1011,6 +1096,14 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
       </div>
     </div>
   );
+}
+
+/** Los acompañantes que no juegan, como los espera el servidor. */
+function aAcompanantes(acompanantes) {
+  return acompanantes.map((a) => ({
+    nombre: a.nombre.trim(),
+    edad: a.edad ? Number(a.edad) : null,
+  }));
 }
 
 /** Lo que el servidor espera de cada jugador. */
