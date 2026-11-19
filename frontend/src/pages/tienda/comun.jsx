@@ -1,7 +1,7 @@
 /**
  * Piezas compartidas de la tienda: estilos, cifras, el ticket imprimible.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import Icono from '../../components/Icono';
 import { fechaHora, mxn, usd } from '../../utils/format';
