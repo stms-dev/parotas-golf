@@ -752,6 +752,16 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               ))}
             </ul>
 
+            {jugadores.length < (topes?.maximo ?? 8) && (
+              <button
+                type="button"
+                onClick={() => cuantos(jugadores.length + 1)}
+                className="w-full rounded-sm border border-dashed border-hoja/60 py-2.5 font-texto text-[0.95rem] font-semibold text-hoja transition hover:bg-hoja/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brote"
+              >
+                + {t('reservar.agregarAcompanante')}
+              </button>
+            )}
+
             <p className="font-texto text-menudo text-arena/80">{t('reservar.notaEdad')}</p>
 
             <Campo etiqueta={t('reservar.pase')}>
