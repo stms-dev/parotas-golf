@@ -602,6 +602,7 @@ class ReservaPublicaService:
             services=servicios,
             notes=(
                 f"Reserva desde el sitio del club{f' · {ip}' if ip else ''}"
+                " · Aceptó políticas y aviso de privacidad"
                 + (f"\nComentario del cliente: {datos.comentario}" if datos.comentario else "")
             ),
         )

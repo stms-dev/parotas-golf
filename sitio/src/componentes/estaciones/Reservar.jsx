@@ -124,6 +124,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   const [habitacion, setHabitacion] = useState('');
   const [comentario, setComentario] = useState('');
   const [leyoPoliticas, setLeyoPoliticas] = useState(false);
+  const [leyoAviso, setLeyoAviso] = useState(false);
   const hoteles = campo?.hoteles ?? [];
 
   const [dia, setDia] = useState(null);
@@ -357,8 +358,9 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
     }
     if (!cotizacion) return t('falta.cuenta');
     if (!leyoPoliticas) return t('falta.politicas');
+    if (!leyoAviso) return t('falta.aviso');
     return null;
-  }, [paso, slot, jugadores, acompanantes, contacto.correo, contacto.telefono, huesped, hotelId, cotizacion, leyoPoliticas, t]);
+  }, [paso, slot, jugadores, acompanantes, contacto.correo, contacto.telefono, huesped, hotelId, cotizacion, leyoPoliticas, leyoAviso, t]);
 
   function cuantos(n) {
     setJugadores((actuales) => {
@@ -391,6 +393,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         comentario: comentario.trim() || null,
         idioma,
         acepto_politicas: leyoPoliticas,
+        acepto_privacidad: leyoAviso,
         hotel_id: huesped && hotelId ? Number(hotelId) : null,
         habitacion: huesped ? habitacion.trim() || null : null,
       });
@@ -441,6 +444,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
           setHabitacion('');
           setComentario('');
           setLeyoPoliticas(false);
+          setLeyoAviso(false);
           ultimaFirma.current = null;
           onLimpiarLlegada?.();
         }}
@@ -1023,6 +1027,29 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
               leido={leyoPoliticas}
               onLeido={setLeyoPoliticas}
             />
+
+            {/* Aviso de Privacidad: solo el enlace al PDF y su casilla. */}
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-sm border border-arena/15 bg-arena/[0.045] px-3.5 py-3 font-texto text-[0.95rem] text-arena">
+              <input
+                type="checkbox"
+                checked={leyoAviso}
+                onChange={(e) => setLeyoAviso(e.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0 accent-hoja"
+              />
+              <span>
+                {t('reservar.avisoAcepto')}{' '}
+                <a
+                  href="/aviso-de-privacidad.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-hoja underline underline-offset-2 hover:text-brote"
+                >
+                  {t('reservar.avisoLink')}
+                </a>
+                .
+              </span>
+            </label>
           </Paso>
         )}
       </div>

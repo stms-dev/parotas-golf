@@ -30,6 +30,7 @@ class ClienteDelSitio(TestClient):
                 if not cuerpo_json.get("telefono"):
                     cuerpo_json["telefono"] = "9581234567"
                 cuerpo_json.setdefault("acepto_politicas", True)
+                cuerpo_json.setdefault("acepto_privacidad", True)
         r = super().request(method, url, **kw)
         if (method.upper() == "POST" and str(url).rstrip("/") == "/api/public/reservas"
                 and r.status_code == 201):

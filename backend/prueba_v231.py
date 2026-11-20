@@ -45,7 +45,7 @@ r = c.post("/api/public/cotizacion", json={**base, "acompanantes": [{"nombre": "
 check("nombre corto se rechaza", r.status_code == 422)
 
 print("2. Apartar")
-cuerpo = {**base, "fecha": dia, "correo": "cliente@ejemplo.com", "telefono": "958 123 4567", "acepto_politicas": True,
+cuerpo = {**base, "fecha": dia, "correo": "cliente@ejemplo.com", "telefono": "958 123 4567", "acepto_politicas": True, "acepto_privacidad": True,
           "acompanantes": [{"nombre": "Ana Acompaña", "edad": 30}]}
 r = c.post("/api/public/reservas", json=cuerpo)
 check("aparta", r.status_code in (200, 201), r.text[:200])

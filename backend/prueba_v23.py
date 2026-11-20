@@ -45,7 +45,7 @@ def cuerpo(**extra):
     usadas.append(s["id"])
     base = {"tee_slot_id": s["id"], "fecha": dia, "modalidad": "GRUPO", "hoyos": 18,
             "jugadores": [{"nombre": f"Jugador {i} Prueba", "edad": 35} for i in range(4)],
-            "correo": "cliente@ejemplo.com", "telefono": "958 123 4567", "acepto_politicas": True}
+            "correo": "cliente@ejemplo.com", "telefono": "958 123 4567", "acepto_politicas": True, "acepto_privacidad": True}
     base.update(extra)
     return base
 
@@ -65,6 +65,9 @@ check("teléfono sin dígitos: rechaza", r.status_code == 422, str(r.status_code
 usadas.pop()
 r = c.post("/api/public/reservas", json=cuerpo(acepto_politicas=False))
 check("sin aceptar las políticas: rechaza", r.status_code == 422, str(r.status_code))
+usadas.pop()
+r = c.post("/api/public/reservas", json=cuerpo(acepto_privacidad=False))
+check("sin aceptar el aviso de privacidad: rechaza", r.status_code == 422, str(r.status_code))
 usadas.pop()
 r = c.post("/api/public/reservas", json=cuerpo(comentario="x" * 51))
 check("comentario de 51 caracteres: rechaza", r.status_code == 422, str(r.status_code))

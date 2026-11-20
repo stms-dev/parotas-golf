@@ -218,6 +218,8 @@ class ApartarIn(BaseModel):
     # Que leyó las Políticas y Reglamento. El sitio no deja avanzar sin esto y el
     # servidor tampoco lo da por hecho.
     acepto_politicas: bool = False
+    # Que marcó haber leído el Aviso de Privacidad (el sitio muestra el PDF).
+    acepto_privacidad: bool = False
 
     @field_validator("telefono")
     @classmethod
@@ -235,6 +237,8 @@ class ApartarIn(BaseModel):
             self.habitacion = None
         if not self.acepto_politicas:
             raise ValueError("Confirme que leyó las Políticas y Reglamento")
+        if not self.acepto_privacidad:
+            raise ValueError("Confirme que leyó el Aviso de Privacidad")
         return self
 
 
