@@ -274,6 +274,10 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
   useEffect(() => {
     if (!slot || !nombresListos || listo) {
       setCotizacion(null);
+      // Sin esto, borrar una letra del nombre y volver a escribirla dejaba la
+      // misma firma que la última cotización: el efecto se saltaba la
+      // petición y el total se quedaba en «Calculando…» para siempre.
+      ultimaFirma.current = null;
       return undefined;
     }
     if (ultimaFirma.current === firma) return undefined;
@@ -296,6 +300,7 @@ export default function Reservar({ campo, llegada, onLimpiarLlegada }) {
         })
         .catch((e) => {
           if (!vigente) return;
+          ultimaFirma.current = null;
           setCotizacion(null);
           setAviso(e.message);
         });

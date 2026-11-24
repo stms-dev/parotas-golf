@@ -937,3 +937,14 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - **Crear la cuenta:** desde Control del sistema → nuevo usuario → rol «Dirección · Resumen ejecutivo». No hay
   migración: el rol es texto.
 - Sitio: el aviso de «Tarifa local» sigue oculto (`MOSTRAR_AVISO_LOCAL = false` en `Tarifas.jsx`).
+
+## v23.9 · sitio: el total ya no se queda en «Calculando…»
+
+- **Falla:** en el último paso de Reservar, si el huésped borraba una letra de un nombre (o el nombre quedaba de menos
+  de 3 letras) y la volvía a escribir, la pantalla se quedaba en «Calculando su cuenta…» y el botón de pagar nunca
+  se activaba. El servidor ni se enteraba: no salía ninguna petición a `/api/public/cotizacion`.
+- **Causa:** `Reservar.jsx` guarda la «firma» de la última cotización para no repetir la petición. Al borrar la letra
+  se limpiaba la cotización pero no la firma, así que al volver a escribirla la firma coincidía y se saltaba la
+  petición.
+- **Arreglo:** la firma se limpia siempre que se limpia la cotización (también si la petición falla).
+- Con esto va todo lo de v23.8.
