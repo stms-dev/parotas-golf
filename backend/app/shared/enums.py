@@ -7,6 +7,8 @@ class UserRole(str, Enum):
     ADMIN_OPERACIONES = "ADMIN_OPERACIONES"
     RECEPCION = "RECEPCION"
     HOTEL = "HOTEL"
+    # Dirección: ve solo el resumen ejecutivo de ventas y nada más.
+    RESUMEN_EJECUTIVO = "RESUMEN_EJECUTIVO"
     # Cuenta interna a cuyo nombre quedan las reservas del sitio. No es una
     # persona ni entra al sistema: no tiene permiso para nada.
     SISTEMA = "SISTEMA"

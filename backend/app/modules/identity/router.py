@@ -4,6 +4,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
+import logging
+
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import RequirePermission, get_client_ip, get_current_user
 from app.core.permissions import Permission, home_route_for, permissions_for
@@ -21,6 +24,8 @@ from app.core.exceptions import AuthenticationError
 from app.modules.identity.service import IdentityService
 from app.shared import limites
 from app.shared.enums import UserRole
+
+logger = logging.getLogger("parotas.acceso")
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 users_router = APIRouter(prefix="/users", tags=["Usuarios"])
@@ -63,13 +68,27 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
             "y vuelva a intentar."
         )
 
+    # Segundo freno, por cuenta: el de arriba cuenta por dirección y quien
+    # tiene muchas direcciones lo rodea. Este cuenta por correo.
+    cuenta = f"cuenta:{payload.email.strip().lower()}"
+    if limites.cuantos(cuenta, ventana_minutos=settings.LOGIN_BLOQUEO_MINUTOS) >= settings.LOGIN_FALLOS_POR_CUENTA:
+        logger.warning("Acceso bloqueado temporalmente por fallos: %s desde %s", cuenta, ip)
+        raise AuthenticationError(
+            f"Demasiados intentos fallidos. Espere {settings.LOGIN_BLOQUEO_MINUTOS} "
+            "minutos y vuelva a intentar."
+        )
+
     try:
         result = IdentityService(db).authenticate(payload.email, payload.password, ip=ip)
     except AuthenticationError:
         limites.registrar(clave, ventana_minutos=VENTANA_MINUTOS)
+        fallos = limites.registrar(cuenta, ventana_minutos=settings.LOGIN_BLOQUEO_MINUTOS)
+        logger.warning("Acceso fallido (%s de %s): %s desde %s",
+                       fallos, settings.LOGIN_FALLOS_POR_CUENTA, cuenta, ip)
         raise
 
     limites.limpiar(clave)
+    limites.limpiar(cuenta)
     return TokenResponse(
         access_token=result["access_token"],
         user=_to_out(result["user"]),

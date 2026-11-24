@@ -312,6 +312,7 @@ export const treasuryApi = {
 
   summary: (params) => api.get('/treasury/summary', params),
   ventas: (params) => api.get('/treasury/sales-breakdown', params),
+  resumenEjecutivo: (params) => api.get('/treasury/executive-summary', params),
   miDia: () => api.get('/treasury/my-day'),
   pgaBenefits: (params) => api.get('/treasury/pga-benefits', params),
 };

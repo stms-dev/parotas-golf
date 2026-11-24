@@ -91,6 +91,25 @@ class Settings(BaseSettings):
     # Cuántas reservas puede intentar una misma dirección por hora. Sin esto,
     # un script llena el tee sheet de reservas falsas en diez minutos.
     PUBLICO_INTENTOS_POR_HORA: int = 12
+    # Hasta cuántos días adelante se puede consultar disponibilidad en el sitio.
+    # Sin tope, cualquiera pide fechas de años lejanos y el sistema fabrica
+    # horarios para todas.
+    DISPONIBILIDAD_DIAS_MAX: int = 400
+
+    # --- Dirección del visitante ---
+    # Cuántos proxies nuestros hay entre el visitante y la aplicación. Se toma
+    # la dirección que el último de ellos anotó en X-Forwarded-For. Con
+    # LOG_CADENA_IP=true se registra la cadena para verificarlo en producción.
+    PROXIES_DE_CONFIANZA: int = 1
+    LOG_CADENA_IP: bool = False
+
+    # --- Bloqueo del acceso por cuenta ---
+    # Además del tope por dirección: tras tantos fallos seguidos con el mismo
+    # correo, esa cuenta no admite intentos por unos minutos, venga de donde
+    # venga. Es temporal a propósito: si fuera permanente, cualquiera podría
+    # dejar fuera a un operador a propósito.
+    LOGIN_FALLOS_POR_CUENTA: int = 5
+    LOGIN_BLOQUEO_MINUTOS: int = 15
 
     # --- Seguridad ---
     SECRET_KEY: str = LLAVE_DE_EJEMPLO

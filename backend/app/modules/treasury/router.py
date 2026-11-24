@@ -179,6 +179,27 @@ def sales_breakdown(
     return desglose(db, start, end, group, base=base)
 
 
+@router.get("/executive-summary")
+def executive_summary(
+    start: Optional[date] = Query(default=None),
+    end: Optional[date] = Query(default=None),
+    db: Session = Depends(get_db),
+    _: User = Depends(RequirePermission(Permission.FINANCE_RESUMEN)),
+):
+    """Resumen ejecutivo: ventas por día y concepto, con el número de partidas."""
+    from app.core.exceptions import ValidationError
+    from app.modules.treasury.resumen import resumen
+    from app.shared.tiempo import hoy
+
+    end = end or hoy()
+    start = start or end.replace(day=1)
+    if start > end:
+        raise ValidationError("La fecha inicial no puede ser posterior a la final")
+    if (end - start).days > 366:
+        raise ValidationError("Elija un periodo de un año o menos")
+    return resumen(db, start, end)
+
+
 @router.get("/my-day")
 def my_day(
     db: Session = Depends(get_db),

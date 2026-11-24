@@ -51,8 +51,9 @@ class ConnectionManager:
         self._loop = loop
 
     # ------------------------------------------------------------ conexiones
-    async def connect(self, subscriber: Subscriber) -> None:
-        await subscriber.websocket.accept()
+    async def connect(self, subscriber: Subscriber, *, ya_aceptado: bool = False) -> None:
+        if not ya_aceptado:
+            await subscriber.websocket.accept()
         self._subscribers[subscriber.websocket] = subscriber
         logger.info(
             "WS conectado: %s (%s) · %d conexiones activas",

@@ -16,7 +16,23 @@ from app.shared.enums import UserRole
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_PREFIX}/auth/login")
 
 
+# Lo único que puede tocar una cuenta de solo resumen ejecutivo, además de su
+# propia sesión. Es una lista corta de rutas permitidas y TODO lo demás se
+# niega: así un endpoint nuevo, o uno viejo que solo pide estar firmado, no se
+# vuelve una puerta para esa cuenta.
+RUTAS_DEL_RESUMEN = (
+    "/auth/me", "/auth/refresh", "/auth/logout-all",
+    "/treasury/executive-summary",
+)
+
+
+def _ruta_permitida_al_resumen(path: str) -> bool:
+    ruta = path[len(settings.API_PREFIX):] if path.startswith(settings.API_PREFIX) else path
+    return ruta.rstrip("/") in RUTAS_DEL_RESUMEN
+
+
 def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -40,6 +56,8 @@ def get_current_user(
     # leen como 0, igual que el valor inicial de todos los usuarios.
     if int(payload.get("tv", 0) or 0) != (user.token_version or 0):
         raise AuthenticationError("La sesión se cerró. Vuelva a iniciar sesión.")
+    if user.role == UserRole.RESUMEN_EJECUTIVO and not _ruta_permitida_al_resumen(request.url.path):
+        raise PermissionDeniedError("Esta cuenta solo ve el resumen ejecutivo")
     return user
 
 
@@ -89,7 +107,6 @@ def get_hotel_scope(user: User = Depends(get_current_user)) -> Optional[int]:
 
 
 def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "desconocido"
+    from app.core.ip import ip_del_cliente
+
+    return ip_del_cliente(request)

@@ -32,7 +32,8 @@ class Terminal:
     def __init__(self, nombre: str, token: str):
         self.nombre = nombre
         self.recibidos = []
-        self.ws = connect(f"{WS}?token={token}")
+        self.ws = connect(WS)
+        self.ws.send(f"auth:{token}")
         self._activo = True
         self._hilo = threading.Thread(target=self._escuchar, daemon=True)
         self._hilo.start()
@@ -131,7 +132,9 @@ def main():
     check("Tres terminales conectadas", all(t.buscar("conexion.establecida") for t in (celeste, barcelo, recepcion)))
 
     try:
-        connect(f"{WS}?token=token-basura")
+        malo = connect(WS)
+        malo.send("auth:token-basura")
+        malo.recv(timeout=3)
         check("Token inválido rechazado", False, "aceptó una conexión sin credencial válida")
     except Exception:
         check("Token inválido rechazado", True)

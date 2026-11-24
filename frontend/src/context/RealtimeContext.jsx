@@ -44,15 +44,18 @@ function leerGuardadas(llave) {
 }
 const INTERVALO_PING = 25000;
 
-function urlDelSocket(token) {
+// La dirección NO lleva el token: lo que va en la URL queda escrito en los logs
+// de cada servidor por el que pasa. El token se manda como primer mensaje
+// (`auth:<jwt>`) una vez abierta la conexión.
+function urlDelSocket() {
   const protocolo = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const base = import.meta.env.VITE_WS_URL;
-  if (base) return `${base}?token=${encodeURIComponent(token)}`;
-  return `${protocolo}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`;
+  if (base) return base;
+  return `${protocolo}//${window.location.host}/api/ws`;
 }
 
 export function RealtimeProvider({ children }) {
-  const { isAuthenticated, user, isHotel } = useAuth();
+  const { isAuthenticated, user, isHotel, isResumen } = useAuth();
 
   const [estado, setEstado] = useState(ESTADOS.DESCONECTADO);
   const [ultimoEvento, setUltimoEvento] = useState(null);
@@ -129,6 +132,7 @@ export function RealtimeProvider({ children }) {
     if (!token) return;
 
     cerradoAdredeRef.current = false;
+    reconexionRef.current = null;
     setEstado(intentosRef.current === 0 ? ESTADOS.CONECTANDO : ESTADOS.RECONECTANDO);
 
     // Si quedó un socket anterior (React monta dos veces en desarrollo, o una
@@ -142,24 +146,34 @@ export function RealtimeProvider({ children }) {
     }
     clearInterval(pingRef.current);
 
-    const socket = new WebSocket(urlDelSocket(token));
+    const socket = new WebSocket(urlDelSocket());
     socketRef.current = socket;
+    let identificado = false;
 
     socket.onopen = () => {
       if (socketRef.current !== socket) return;
-      intentosRef.current = 0;
-      setEstado(ESTADOS.CONECTADO);
-      // Ping periódico: mantiene viva la conexión a través de proxies que
-      // cierran sockets inactivos.
-      pingRef.current = setInterval(() => {
-        if (socket.readyState === WebSocket.OPEN) socket.send('ping');
-      }, INTERVALO_PING);
+      // Lo primero: identificarse. Se manda el token MÁS RECIENTE, no el de
+      // cuando se pidió conectar: si hubo una espera de reconexión, el de
+      // entonces puede haber vencido ya.
+      socket.send(`auth:${tokenStore.get() || token}`);
     };
 
     socket.onmessage = (evento) => {
       if (socketRef.current !== socket) return;
       try {
         const mensaje = JSON.parse(evento.data);
+        if (!identificado) {
+          // El servidor contesta con `conexion.establecida` cuando aceptó el
+          // token: hasta entonces no se muestra "conectado" ni se pinguea.
+          identificado = true;
+          intentosRef.current = 0;
+          setEstado(ESTADOS.CONECTADO);
+          // Ping periódico: mantiene viva la conexión a través de proxies que
+          // cierran sockets inactivos.
+          pingRef.current = setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) socket.send('ping');
+          }, INTERVALO_PING);
+        }
         if (mensaje.type === 'pong') return;
         repartir(mensaje);
       } catch (error) {
@@ -204,14 +218,26 @@ export function RealtimeProvider({ children }) {
     const enviar = () => {
       const socket = socketRef.current;
       const token = tokenStore.get();
-      if (socket && socket.readyState === WebSocket.OPEN && token) socket.send(`token:${token}`);
+      if (socket && socket.readyState === WebSocket.OPEN && token) {
+        socket.send(`token:${token}`);
+        return;
+      }
+      // El canal estaba caído porque el token había vencido (4001) y la sesión
+      // acaba de renovarse: se vuelve a abrir con el token nuevo en lugar de
+      // quedarse sin avisos hasta recargar la página.
+      const cerrado = !socket || socket.readyState === WebSocket.CLOSED;
+      if (token && cerrado && !cerradoAdredeRef.current && !reconexionRef.current) {
+        intentosRef.current = 0;
+        conectar();
+      }
     };
     window.addEventListener(EVENTO_TOKEN_RENOVADO, enviar);
     return () => window.removeEventListener(EVENTO_TOKEN_RENOVADO, enviar);
-  }, []);
+  }, [conectar]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // La cuenta de solo resumen no recibe avisos del campo: no abre el canal.
+    if (!isAuthenticated || isResumen) {
       cerradoAdredeRef.current = true;
       clearTimeout(reconexionRef.current);
       clearInterval(pingRef.current);
@@ -227,7 +253,7 @@ export function RealtimeProvider({ children }) {
       clearInterval(pingRef.current);
       socketRef.current?.close();
     };
-  }, [isAuthenticated, conectar]);
+  }, [isAuthenticated, isResumen, conectar]);
 
   /** Suscribe una pantalla. Devuelve la función para darse de baja. */
   const suscribir = useCallback((tipos, callback) => {

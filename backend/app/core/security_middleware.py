@@ -115,11 +115,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._marcas: Dict[str, Deque[float]] = defaultdict(deque)
 
     def _ip(self, request: Request) -> str:
-        # Detrás del proxy de Railway la IP real viene en X-Forwarded-For.
-        reenviada = request.headers.get("X-Forwarded-For")
-        if reenviada:
-            return reenviada.split(",")[0].strip()
-        return request.client.host if request.client else "desconocida"
+        # Detrás del proxy de Railway la IP real viene en X-Forwarded-For, pero
+        # solo lo que agregó el proxy: ver app/core/ip.py.
+        from app.core.ip import ip_del_cliente
+
+        return ip_del_cliente(request)
 
     def _excedido(self, llave: str, limite: int) -> bool:
         ahora = time.monotonic()

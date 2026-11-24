@@ -35,6 +35,7 @@ const NAV = [
   { to: '/cuponeras', label: 'Cuponeras', icono: 'pago', permission: 'screen:cuponeras' },
   // Precios y Configuración eran dos pantallas con los mismos catálogos.
   { to: '/precios', label: 'Precios & Configuración', icono: 'sell', permission: 'screen:settings' },
+  { to: '/resumen', label: 'Resumen ejecutivo', icono: 'sell', permission: 'screen:resumen' },
 ];
 
 /**
@@ -43,6 +44,7 @@ const NAV = [
  */
 const NAV_ADMIN = [
   { to: '/control', label: 'Control del sistema', icono: 'ajustes', exact: true },
+  { to: '/resumen', label: 'Resumen ejecutivo', icono: 'sell', permission: 'screen:resumen' },
   { to: '/ventas', label: 'Ventas totales', icono: 'sell', permission: 'finance:sales_totals' },
   { to: '/tienda', label: 'Tienda', icono: 'carrito', permission: 'screen:tienda' },
   { to: '/cuponeras', label: 'Cuponeras', icono: 'pago', permission: 'screen:cuponeras' },
@@ -50,7 +52,7 @@ const NAV_ADMIN = [
 ];
 
 export default function AppLayout() {
-  const { user, logout, can, isHotel, isAdmin } = useAuth();
+  const { user, logout, can, isHotel, isAdmin, isResumen } = useAuth();
   const navigate = useNavigate();
   const ubicacion = useLocation();
   const [rate, setRate] = useState(null);
@@ -79,14 +81,14 @@ export default function AppLayout() {
   }
 
   useEffect(() => {
-    if (isHotel) return;
+    if (isHotel || isResumen) return;
     catalogApi.exchangeRate().then(setRate).catch(() => setRate(null));
     contarPendientes();
     bookingApi
       .availability({ slot_date: hoy() })
       .then((dia) => setPrimeraSalida(dia.slots[0]?.slot_time || null))
       .catch(() => setPrimeraSalida(null));
-  }, [isHotel]);
+  }, [isHotel, isResumen]);
 
   useRealtimeEvent([EVENTOS.TIPO_CAMBIO_ACTUALIZADO], (mensaje) => {
     if (isHotel) return;
@@ -255,7 +257,7 @@ export default function AppLayout() {
           </div>
 
           <div className="flex shrink-0 items-center gap-5">
-            <RealtimeIndicator />
+            {!isResumen && <RealtimeIndicator />}
             <Campanita />
             <span className="h-5 w-px bg-outline-variant" />
             <div className="text-right">

@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -22,6 +22,17 @@ class Payment(Base):
     """
 
     __tablename__ = "payments"
+    # Un mismo cobro en línea no puede registrarse dos veces para la misma
+    # reserva, aunque Stripe repita el aviso y lleguen dos a la vez. Solo aplica
+    # a los pagos en línea: en el mostrador una referencia (voucher) sí puede
+    # repetirse legítimamente.
+    __table_args__ = (
+        Index(
+            "uq_pago_en_linea_unico", "reservation_id", "reference", unique=True,
+            sqlite_where=text("method = 'PAGO_EN_LINEA'"),
+            postgresql_where=text("method = 'PAGO_EN_LINEA'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     reservation_id: Mapped[int] = mapped_column(

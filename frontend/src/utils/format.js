@@ -151,6 +151,7 @@ export const ROL = {
   ADMIN_OPERACIONES: 'Dirección de Operaciones',
   RECEPCION: 'Recepción',
   HOTEL: 'Hotel Asociado',
+  RESUMEN_EJECUTIVO: 'Dirección · Resumen ejecutivo',
 };
 
 export const METODO_PAGO = {

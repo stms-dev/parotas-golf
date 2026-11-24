@@ -41,6 +41,10 @@ function filasDe(campo) {
   return filas.filter((fila) => fila && fila.precios);
 }
 
+// El aviso de la tarifa local está oculto por ahora. Para volver a mostrarlo:
+// poner esto en true.
+const MOSTRAR_AVISO_LOCAL = false;
+
 export default function Tarifas({ onIr, campo = null }) {
   const { t } = useIdioma();
   const filas = filasDe(campo);
@@ -60,6 +64,7 @@ export default function Tarifas({ onIr, campo = null }) {
       {/* Hasta arriba de todo: la tarifa local. No lleva precio a propósito —se
           trata directo—, así que en vez de cifra hay un botón que manda a
           Evento privado, donde se pide la información. */}
+      {MOSTRAR_AVISO_LOCAL && (
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-hoja/40 bg-hoja/10 px-4 py-3.5 corta:mb-4 corta:py-3">
         <div className="min-w-0">
           <p className="font-texto text-[0.95rem] font-semibold text-arena">
@@ -76,6 +81,7 @@ export default function Tarifas({ onIr, campo = null }) {
           {t('tarifas.localBoton')}
         </button>
       </div>
+      )}
 
       <h2 className="font-titulo text-rotulo-lg text-arena corta:text-rotulo-md">
         {t('tarifas.titulo')}

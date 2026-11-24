@@ -880,3 +880,60 @@ Decisiones tomadas para esta versión, listas para retomarse:
 - `/public/cotizacion` y `/public/reservas` reciben `acompanantes`; la cotización devuelve `acompanantes`, `precio_acompanante`, `subtotal_acompanantes` y el total ya los incluye (el cobro de Stripe sale del total de la reserva).
 - Arreglo del ticket de Tienda (`useEffect` sin importar).
 - Prueba: `python prueba_v231.py`.
+
+## v23.6 · auditoría de pagos y acceso
+
+- **Monto del cobro.** El webhook de Stripe compara lo cobrado (y la moneda) con
+  el total de la reserva. Si no coincide, el pago se registra con la nota
+  `REVISAR`, la reserva queda PENDIENTE y no vence sola; no se confirma.
+- **Candado de pagos.** Índice único `uq_pago_en_linea_unico` (reserva +
+  referencia, solo pagos en línea). La migración `d1f3a5c7e9b2` se detiene con
+  un mensaje claro si ya hubiera duplicados.
+- **Webhook rápido.** Corre en un hilo aparte y la marca/últimos 4 de la tarjeta
+  se anotan DESPUÉS de contestar (si fallan, el pago no se afecta).
+- **IP real.** `app/core/ip.py` toma la dirección que agregó el último proxy
+  (derecha de `X-Forwarded-For`), no la que escribe el visitante. Se usa en el
+  límite general, el de login y el de reservas del sitio.
+  Variables: `PROXIES_DE_CONFIANZA` (1) y `LOG_CADENA_IP` (false; poner `true`
+  un rato en Railway para ver cómo llega la cadena y apagarlo).
+- **Login.** Además del tope por dirección, 5 fallos seguidos con el mismo correo
+  bloquean esa cuenta 15 minutos (`LOGIN_FALLOS_POR_CUENTA`,
+  `LOGIN_BLOQUEO_MINUTOS`). Un acceso bueno limpia los fallos.
+- **Tope de fechas** en la disponibilidad del sitio: `DISPONIBILIDAD_DIAS_MAX`
+  (400 días).
+- Prueba nueva: `python prueba_v236.py`.
+
+## v23.7 · WebSocket sin token en la URL
+
+- La conexión de tiempo real (`/api/ws`) ya NO lleva el token en la dirección,
+  donde quedaba escrito en los logs. Se abre sin credenciales y lo primero que
+  manda el panel es `auth:<jwt>`; si no llega en 10 s, o no es válido, se cierra
+  con el código 4001. Se acepta antes de cerrar para que el navegador reciba el
+  código (antes recibía un 403 mudo).
+- El panel manda el token MÁS RECIENTE al abrir (no el de cuando pidió
+  conectar) y no muestra "conectado" hasta que el servidor lo acepta.
+- Si el canal quedó cerrado por token vencido y la sesión se renueva, se vuelve
+  a abrir solo, sin recargar la página.
+- Un token en la URL (`?token=`) ya no sirve. Las pestañas abiertas con la
+  versión anterior pierden los avisos hasta recargar la página.
+- Pruebas actualizadas: `prueba_tokens.py`, `prueba_sesiones.py`,
+  `verificar_tiempo_real.py`.
+
+## v23.8 · resumen ejecutivo y cuenta de dirección
+
+- **Partida abierta, tope de 4 por horario.** El servidor ya lo exigía (los jugadores de todas las reservas de la
+  salida suman máximo 4) y ahora queda cubierto con `prueba_v238.py`: 2+2 pasa, 3 y luego 3 se rechaza (la
+  segunda va a otro horario) y los acompañantes se suman aparte, no cuentan para el 4.
+- **Resumen ejecutivo** (`/sistema/resumen`, `GET /api/treasury/executive-summary`): ventas por día y concepto
+  (Cuponeras, Reservas en línea, Transferencias, Pro Shop, Alimentos y bebidas, Otros), número de partidas detrás
+  de cada ingreso, pesos sin decimales y gráfica de tendencia. Lo que entró el día del cobro.
+  - *Alimentos y bebidas* sale de la Tienda. Como los productos están todos en «Accesorios», se reconocen por el
+    nombre (agua, cerveza, refresco, botana…). Si se crea la categoría «Alimentos y bebidas», también se respeta.
+    La lista de palabras está en `treasury/resumen.py`.
+- **Rol nuevo `RESUMEN_EJECUTIVO`**: solo ve esa pantalla. Además de los permisos, `get_current_user` niega todo
+  lo que no sea el resumen y la propia sesión, así que un endpoint que solo pida «estar firmado» no le sirve de
+  puerta (se encontró uno: `/booking/reservations`). No abre el canal de tiempo real.
+  Operaciones y Administración también ven el resumen.
+- **Crear la cuenta:** desde Control del sistema → nuevo usuario → rol «Dirección · Resumen ejecutivo». No hay
+  migración: el rol es texto.
+- Sitio: el aviso de «Tarifa local» sigue oculto (`MOSTRAR_AVISO_LOCAL = false` en `Tarifas.jsx`).

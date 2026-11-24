@@ -35,6 +35,8 @@ class Permission:
     # La tienda (Pro-Shop): punto de venta, productos, caja propia y reportes.
     SCREEN_TIENDA = "screen:tienda"
     SCREEN_REQUESTS = "screen:requests"
+    # El resumen ejecutivo: ventas por día y concepto, con tendencia.
+    SCREEN_RESUMEN = "screen:resumen"
 
     # ------------------------------------------------------------- reservas
     RESERVATION_VIEW_ALL = "reservation:view_all"
@@ -77,6 +79,8 @@ class Permission:
     # Ventas totales: lo cobrado por sección y forma de pago. Solo la dirección.
     FINANCE_SALES_TOTALS = "finance:sales_totals"
     FINANCE_VIEW_OWN_HOTEL = "finance:view_own_hotel"
+    # Las cifras del resumen ejecutivo (solo lectura, sin detalle de clientes).
+    FINANCE_RESUMEN = "finance:resumen"
     # Ver la caja y cobrar contra ella es una cosa; abrir y cerrar el turno es
     # otra, y la hace operaciones. Recepción cobra dentro de un turno que ya
     # alguien más abrió, así que solo necesita verlo.
@@ -202,6 +206,8 @@ _ADMIN_OPERACIONES: Set[str] = {
 
     Permission.FINANCE_VIEW_GLOBAL,
     Permission.FINANCE_SALES_TOTALS,
+    Permission.SCREEN_RESUMEN,
+    Permission.FINANCE_RESUMEN,
     # Operaciones es quien abre y cierra el turno de caja.
     Permission.CASH_SESSION_VIEW,
     Permission.CASH_SESSION_MANAGE,
@@ -225,6 +231,17 @@ _ADMIN_OPERACIONES: Set[str] = {
 
 
 # ---------------------------------------------------------------------------
+# RESUMEN EJECUTIVO
+# Una sola pantalla de lectura: las ventas por día y concepto. No ve reservas,
+# clientes, caja ni configuración.
+# ---------------------------------------------------------------------------
+_RESUMEN_EJECUTIVO: Set[str] = {
+    Permission.SCREEN_RESUMEN,
+    Permission.FINANCE_RESUMEN,
+}
+
+
+# ---------------------------------------------------------------------------
 # SUPER ADMIN — todo, incluida la configuración financiera y los usuarios.
 # ---------------------------------------------------------------------------
 _SUPER_ADMIN: Set[str] = {
@@ -239,6 +256,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
     UserRole.ADMIN_OPERACIONES: _ADMIN_OPERACIONES,
     UserRole.RECEPCION: _RECEPCION,
     UserRole.HOTEL: _HOTEL,
+    UserRole.RESUMEN_EJECUTIVO: _RESUMEN_EJECUTIVO,
     # Sin un solo permiso a propósito: es una firma, no un usuario.
     UserRole.SISTEMA: set(),
 }
@@ -264,4 +282,5 @@ def home_route_for(role: UserRole) -> str:
         UserRole.ADMIN_OPERACIONES: "/",
         UserRole.RECEPCION: "/recepcion",
         UserRole.HOTEL: "/",
+        UserRole.RESUMEN_EJECUTIVO: "/resumen",
     }.get(role, "/")

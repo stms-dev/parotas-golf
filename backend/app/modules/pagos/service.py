@@ -24,10 +24,12 @@ abierta, las tarifas de twilight y el caddie que no se cobra. Este módulo solo
 traduce entre el mundo público y ese servicio.
 """
 import secrets
+import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -65,6 +67,8 @@ CUENTA_DEL_SITIO = "sitio@parotasgolf.com"
 # eso es lo que tiene que leer el operador en la pantalla.
 QUIEN_RESERVA = "Reserva en línea"
 
+
+logger = logging.getLogger("parotas.pagos")
 
 class ReservaPublicaService:
     def __init__(self, db: Session):
@@ -274,6 +278,8 @@ class ReservaPublicaService:
 
         if dia < hoy_local():
             raise BusinessRuleError("Esa fecha ya pasó")
+        if dia > hoy_local() + timedelta(days=settings.DISPONIBILIDAD_DIAS_MAX):
+            raise BusinessRuleError("Todavía no abrimos reservaciones para esa fecha")
 
         admite_abiertas = self.reservas.dia_admite_abiertas(dia)
         twilight = self.ajustes.twilight_desde()
@@ -753,7 +759,8 @@ class ReservaPublicaService:
     # ------------------------------------------------- lo que avisa Stripe
     def confirmar_pago(self, *, folio: str, referencia: str, monto_centavos: int,
                        marca: Optional[str] = None, ultimos4: Optional[str] = None,
-                       payment_intent: Optional[str] = None) -> dict:
+                       payment_intent: Optional[str] = None,
+                       moneda: str = "mxn") -> dict:
         """Registra el cobro y confirma la reserva. Lo llama el webhook.
 
         Tiene que aguantar que lo llamen dos veces con lo mismo: Stripe reintenta
@@ -800,10 +807,29 @@ class ReservaPublicaService:
                 ),
                 received_by_id=self.cuenta_del_sitio().id,
             ))
-            self.db.commit()
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                return {"estado": "ya_estaba", "folio": reserva.folio}
             return {"estado": "devuelto", "folio": reserva.folio}
 
         monto = money(Decimal(monto_centavos) / Decimal(100))
+
+        # Lo cobrado tiene que ser lo que la reserva vale. Si no coincide, el
+        # dinero se registra (existe, y hay que poder verlo) pero la reserva NO
+        # se confirma: queda pendiente y marcada para que una persona decida.
+        # Se le quita el vencimiento para que no se cancele sola con el dinero
+        # ya cobrado.
+        esperado = money(Decimal(reserva.total))
+        distinto = (str(moneda).lower() != "mxn") or (monto != esperado)
+
+        notas = f"Pago en línea · {marca or 'tarjeta'} ····{ultimos4 or '----'}"
+        if distinto:
+            notas = (
+                f"REVISAR: se cobró {monto} {str(moneda).upper()} y la reserva vale "
+                f"{esperado} MXN. La reserva no se confirmó sola. · {notas}"
+            )
         self.db.add(Payment(
             reservation_id=reserva.id,
             # Sin turno de caja: un cobro por internet no entra al cajón del
@@ -816,11 +842,24 @@ class ReservaPublicaService:
             change_mxn=ZERO,
             method=PaymentMethod.PAGO_EN_LINEA,
             reference=referencia,
-            notes=f"Pago en línea · {marca or 'tarjeta'} ····{ultimos4 or '----'}",
+            notes=notas,
             received_by_id=self.cuenta_del_sitio().id,
         ))
         reserva.hold_expires_at = None
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # Otro aviso idéntico ganó la carrera y ya registró este pago: el
+            # candado de la base lo rechazó. No es un error, es el repetido.
+            self.db.rollback()
+            return {"estado": "ya_estaba", "folio": reserva.folio}
+
+        if distinto:
+            logger.error(
+                "Pago con monto distinto en %s: cobrado %s %s, esperado %s MXN (%s)",
+                reserva.folio, monto, moneda, esperado, referencia,
+            )
+            return {"estado": "monto_distinto", "folio": reserva.folio}
 
         if estado == ReservationStatus.PENDIENTE:
             # Confirmar pasa por la máquina de estados y avisa a las pantallas

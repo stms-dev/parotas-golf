@@ -141,7 +141,8 @@ corto = firmar({"sub": "1", "exp": int(time.time()) + 3, "type": "access", "tv":
 cerro = False
 inicio = time.time()
 try:
-    with c.websocket_connect(f"/api/ws?token={corto}") as ws:
+    with c.websocket_connect("/api/ws") as ws:
+        ws.send_text("auth:" + corto)
         ws.receive_text()                      # conexión establecida
         ws.receive_text()                      # se queda esperando: debe cerrarse solo
 except WebSocketDisconnect as e:
@@ -150,7 +151,8 @@ check("Un canal con token por vencer se cierra solo (código 4001)", cerro, f"a 
 
 corto = firmar({"sub": "1", "exp": int(time.time()) + 3, "type": "access", "tv": 0})
 larga = entrar("admin@lasparotas.mx").json()["access_token"]
-with c.websocket_connect(f"/api/ws?token={corto}") as ws:
+with c.websocket_connect("/api/ws") as ws:
+    ws.send_text("auth:" + corto)
     ws.receive_text()
     ws.send_text("token:" + larga)             # el panel avisa que renovó la sesión
     time.sleep(4)                              # pasa la hora del token viejo
@@ -161,7 +163,8 @@ otro = entrar("operaciones@lasparotas.mx").json()["access_token"]
 corto = firmar({"sub": "1", "exp": int(time.time()) + 3, "type": "access", "tv": 0})
 cerro = False
 try:
-    with c.websocket_connect(f"/api/ws?token={corto}") as ws:
+    with c.websocket_connect("/api/ws") as ws:
+        ws.send_text("auth:" + corto)
         ws.receive_text()
         ws.send_text("token:" + otro)          # un token de OTRA persona no sirve para renovar
         ws.receive_text()
@@ -173,7 +176,8 @@ cerrada = entrar("admin@lasparotas.mx").json()["access_token"]
 c.post("/api/auth/logout-all", headers=cab(cerrada))
 cerro = False
 try:
-    with c.websocket_connect(f"/api/ws?token={cerrada}") as ws:
+    with c.websocket_connect("/api/ws") as ws:
+        ws.send_text("auth:" + cerrada)
         ws.receive_text()
 except WebSocketDisconnect as e:
     cerro = e.code == 4001

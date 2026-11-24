@@ -1,15 +1,18 @@
 """Endpoint WebSocket.
 
-La autenticación va por query string y no por cabecera porque el WebSocket del
-navegador no permite mandar cabeceras personalizadas. El token es el mismo JWT
-de la API y se valida igual; si no es válido, se cierra antes de aceptar.
+El WebSocket del navegador no permite mandar cabeceras personalizadas, y poner
+el token en la dirección (`?token=...`) lo deja escrito en los logs de todos los
+servidores por los que pasa. Por eso la conexión se abre SIN credenciales y lo
+primero que el cliente manda es un mensaje `auth:<jwt>`. El token es el mismo
+de la API y se valida igual; si no llega en unos segundos, o no es válido, se
+cierra con el código 4001.
 """
 import asyncio
 import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
@@ -25,6 +28,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Tiempo real"])
 
 CODIGO_NO_AUTENTICADO = 4001
+# Cuánto se espera el mensaje `auth:` antes de cerrar. Una conexión que no se
+# identifica no debe quedarse abierta ocupando un lugar.
+SEGUNDOS_PARA_IDENTIFICARSE = 10
 
 
 def _resolver_identidad(token: str) -> Optional[dict]:
@@ -56,6 +62,9 @@ def _resolver_identidad(token: str) -> Optional[dict]:
         # Una sesión cerrada (cambio de contraseña, "cerrar sesiones") no entra.
         if int(payload.get("tv", 0) or 0) != (user.token_version or 0):
             return None
+        # La cuenta de solo resumen no recibe avisos de reservas ni de caja.
+        if str(user.role) == "RESUMEN_EJECUTIVO":
+            return None
         return {
             "_vence": float(vence) if vence else 0.0,
             "user_id": user.id,
@@ -67,17 +76,37 @@ def _resolver_identidad(token: str) -> Optional[dict]:
         db.close()
 
 
+async def _cerrar(websocket: WebSocket, motivo: str) -> None:
+    try:
+        await websocket.close(code=CODIGO_NO_AUTENTICADO, reason=motivo)
+    except Exception:  # noqa: BLE001 — el cliente ya se había ido
+        pass
+
+
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
+async def websocket_endpoint(websocket: WebSocket):
     """Canal de avisos.
 
-    El servidor empuja cambios; el cliente solo manda `ping` para mantener viva
-    la conexión. Las escrituras siguen yendo por REST, que es lo que devuelve
-    éxito o error de forma confiable.
+    El servidor empuja cambios; el cliente manda `auth:<jwt>` al abrir, `ping`
+    para mantener viva la conexión y `token:<jwt>` al renovar la sesión. Las
+    escrituras siguen yendo por REST, que es lo que devuelve éxito o error de
+    forma confiable.
     """
-    identidad = _resolver_identidad(token)
+    # Se acepta primero para poder cerrar con un código que el navegador SÍ
+    # recibe (4001). Cerrar antes de aceptar da un 403 mudo, y el cliente no
+    # distingue "token vencido" de "servidor caído".
+    await websocket.accept()
+    try:
+        primero = await asyncio.wait_for(
+            websocket.receive_text(), timeout=SEGUNDOS_PARA_IDENTIFICARSE
+        )
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await _cerrar(websocket, "No se identificó a tiempo")
+        return
+
+    identidad = _resolver_identidad(primero[len("auth:"):]) if primero.startswith("auth:") else None
     if identidad is None:
-        await websocket.close(code=CODIGO_NO_AUTENTICADO, reason="Token inválido o expirado")
+        await _cerrar(websocket, "Token inválido o expirado")
         return
 
     # La conexión vale mientras vale el token con el que se abrió. El panel
@@ -85,7 +114,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     # nadie lo renueva, el canal se cierra solo al vencer.
     vence = identidad.pop("_vence")
     subscriber = Subscriber(websocket=websocket, **identidad)
-    await manager.connect(subscriber)
+    await manager.connect(subscriber, ya_aceptado=True)
 
     try:
         while True:

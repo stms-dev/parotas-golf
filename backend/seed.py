@@ -322,6 +322,7 @@ def sembrar(produccion: bool = False):
                 ("admin@lasparotas.mx", "Administrador General", UserRole.SUPER_ADMIN, None),
                 ("operaciones@lasparotas.mx", "Dirección de Operaciones", UserRole.ADMIN_OPERACIONES, None),
                 ("recepcion@lasparotas.mx", "Recepción Casa Club", UserRole.RECEPCION, None),
+                ("direccion@lasparotas.mx", "Dirección · Resumen ejecutivo", UserRole.RESUMEN_EJECUTIVO, None),
                 # Uno con comisión y otro sin ella, para probar los dos casos.
                 ("concierge@celeste.mx", "Concierge Celeste", UserRole.HOTEL, hoteles["CELESTE"].id),
                 ("concierge@barcelo.mx", "Concierge Barceló", UserRole.HOTEL, hoteles["BARCELO"].id),

@@ -26,6 +26,7 @@ import CheckInPage from '../pages/CheckInPage';
 import SolicitudesPage from '../pages/SolicitudesPage';
 import FinancePage from '../pages/FinancePage';
 import VentasTotalesPage from '../pages/VentasTotalesPage';
+import ResumenEjecutivoPage from '../pages/ResumenEjecutivoPage';
 import SettingsPage from '../pages/SettingsPage';
 import AdminPage from '../pages/AdminPage';
 import CuponerasPage from '../pages/CuponerasPage';
@@ -169,6 +170,15 @@ export default function AppRouter() {
           element={
             <Protected permission={PERMISOS.CHECKIN}>
               <CheckInPage />
+            </Protected>
+          }
+        />
+
+        <Route
+          path="/resumen"
+          element={
+            <Protected permission="screen:resumen">
+              <ResumenEjecutivoPage />
             </Protected>
           }
         />

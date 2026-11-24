@@ -16,13 +16,17 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, status
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.exceptions import BusinessRuleError
+from app.core.ip import ip_del_cliente
 from app.modules.pagos import stripe_gateway
 from app.modules.pagos.service import ReservaPublicaService
 
@@ -306,7 +310,7 @@ _INTENTOS: dict = defaultdict(list)
 
 
 def _frenar(request: Request, cuantos: int) -> None:
-    quien = request.client.host if request.client else "desconocido"
+    quien = ip_del_cliente(request)
     ahora = datetime.utcnow()
     hace_una_hora = ahora - timedelta(hours=1)
     _INTENTOS[quien] = [t for t in _INTENTOS[quien] if t > hace_una_hora]
@@ -362,7 +366,7 @@ def apartar(payload: ApartarIn, request: Request, db: Session = Depends(get_db))
     """
     _frenar(request, settings.PUBLICO_INTENTOS_POR_HORA)
 
-    ip = request.client.host if request.client else None
+    ip = ip_del_cliente(request)
     reserva = ReservaPublicaService(db).apartar(payload, ip=ip)
     slot = reserva.tee_slot
     return ApartadoOut(
@@ -422,15 +426,26 @@ def soltar(folio: str, request: Request, db: Session = Depends(get_db), token: O
 
 
 @router.post("/stripe/webhook", include_in_schema=False)
-async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
+async def webhook_de_stripe(
+    request: Request, tareas: BackgroundTasks, db: Session = Depends(get_db),
+):
     """Stripe avisa que un pago se completó. **Esto es lo que confirma.**
 
     Que el huésped vuelva a la página de "listo" no prueba nada: esa dirección
     se puede teclear. Lo único que confirma una reserva es este aviso, y solo
     después de comprobar que la firma es de Stripe.
+
+    El aviso tiene que ser rápido: se verifica, se registra el pago, se confirma
+    y se contesta. Todo eso es trabajo bloqueante (base de datos, correo), así
+    que corre en un hilo aparte para no frenar a los demás visitantes. Lo que
+    es solo adorno —saber con qué tarjeta se pagó— se pide DESPUÉS de contestar.
     """
     cuerpo = await request.body()
     firma = request.headers.get("stripe-signature", "")
+    return await run_in_threadpool(_procesar_aviso, cuerpo, firma, db, tareas)
+
+
+def _procesar_aviso(cuerpo: bytes, firma: str, db: Session, tareas: BackgroundTasks) -> dict:
     evento = stripe_gateway.leer_evento(cuerpo, firma)
 
     if evento["type"] != "checkout.session.completed":
@@ -456,17 +471,44 @@ async def webhook_de_stripe(request: Request, db: Session = Depends(get_db)):
     if sesion.get("payment_status") != "paid":
         return {"recibido": True, "nota": "todavía sin pagar"}
 
-    intento = sesion.get("payment_intent")
-    tarjeta = stripe_gateway.datos_de_tarjeta(str(intento) if intento else None)
+    intento = str(sesion["payment_intent"]) if sesion.get("payment_intent") else None
+    referencia = str(intento or sesion.get("id"))
     resultado = ReservaPublicaService(db).confirmar_pago(
         folio=folio,
-        referencia=str(intento or sesion.get("id")),
+        referencia=referencia,
         monto_centavos=int(sesion.get("amount_total") or 0),
-        marca=tarjeta.get("marca"),
-        ultimos4=tarjeta.get("ultimos4"),
-        payment_intent=str(intento) if intento else None,
+        payment_intent=intento,
+        moneda=str(sesion.get("currency") or "mxn"),
     )
+    if intento and resultado.get("estado") in ("confirmada", "monto_distinto"):
+        tareas.add_task(_anotar_tarjeta, referencia, intento)
     return {"recibido": True, **resultado}
+
+
+def _anotar_tarjeta(referencia: str, payment_intent: str) -> None:
+    """Agrega al pago la marca y los últimos 4 dígitos, ya contestado el aviso.
+
+    Es solo para el comprobante: si Stripe no responde o la llave no tiene
+    permiso, el pago se queda como estaba y no pasa nada.
+    """
+    try:
+        tarjeta = stripe_gateway.datos_de_tarjeta(payment_intent)
+        if not tarjeta.get("marca"):
+            return
+        from app.core.database import SessionLocal
+        from app.modules.billing.models import Payment
+
+        with SessionLocal() as s:
+            pago = s.query(Payment).filter(Payment.reference == referencia).first()
+            if pago and pago.notes:
+                pago.notes = pago.notes.replace(
+                    "tarjeta ····----", f"{tarjeta['marca']} ····{tarjeta.get('ultimos4') or '----'}", 1
+                )
+                s.commit()
+    except Exception:  # noqa: BLE001 — adorno: nunca debe molestar
+        logging.getLogger("parotas.pagos").warning(
+            "No se pudo anotar la tarjeta del pago %s", referencia, exc_info=True
+        )
 
 
 @router.post("/reservas/{folio}/pago", response_model=CobroOut)

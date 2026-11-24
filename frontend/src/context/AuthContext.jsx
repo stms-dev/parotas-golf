@@ -142,6 +142,7 @@ export function AuthProvider({ children }) {
       can,
       isAuthenticated: Boolean(user),
       isHotel: user?.role === 'HOTEL',
+      isResumen: user?.role === 'RESUMEN_EJECUTIVO',
       // Recepción atiende el mostrador: solo levanta reservas de público
       // general. Asignarle una reserva a un hotel con convenio le genera
       // comisión a ese hotel, y eso lo decide operaciones.

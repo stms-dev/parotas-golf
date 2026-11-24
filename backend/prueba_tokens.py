@@ -101,7 +101,8 @@ check("El login entrega un token que la API acepta",
 check("El token es de tres partes y no lleva la contraseña", acceso.count(".") == 2 and "Reserva2026" not in acceso)
 
 print("\n6. El canal en tiempo real usa el mismo token")
-with c.websocket_connect(f"/api/ws?token={acceso}") as ws:
+with c.websocket_connect("/api/ws") as ws:
+    ws.send_text(f"auth:{acceso}")
     ws.send_text("ping")
     # Primero llega el aviso de conexión establecida; luego, la respuesta al ping.
     bienvenida = ws.receive_text()
@@ -109,12 +110,31 @@ with c.websocket_connect(f"/api/ws?token={acceso}") as ws:
     check("Y contesta al ping", '"pong"' in ws.receive_text())
 for nombre in ("vencido", "firma alterada", "basura"):
     try:
-        with c.websocket_connect(f"/api/ws?token={casos[nombre]}") as ws:
+        with c.websocket_connect("/api/ws") as ws:
+            ws.send_text(f"auth:{casos[nombre]}")
             ws.receive_text()
         entro = True
     except Exception:
         entro = False
     check(f"Con token {nombre} lo cierra", not entro)
+
+print("\n6b. El token ya NO viaja en la dirección")
+try:
+    with c.websocket_connect(f"/api/ws?token={acceso}") as ws:
+        ws.send_text("ping")          # no es un mensaje de identificación
+        ws.receive_text()
+    entro = True
+except Exception:
+    entro = False
+check("Un token en la URL no sirve para entrar", not entro)
+try:
+    with c.websocket_connect("/api/ws") as ws:
+        ws.send_text("ping")          # sin identificarse
+        ws.receive_text()
+    entro = True
+except Exception:
+    entro = False
+check("Sin identificarse tampoco se recibe nada", not entro)
 
 print()
 if FALLOS:
